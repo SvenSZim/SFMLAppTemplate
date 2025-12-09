@@ -1,0 +1,7 @@
+Makefile
+
+build/
+cmake-build-*/
+.idea/
+.PVS-Studio/
+__std_test__*
