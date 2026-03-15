@@ -1,7 +1,7 @@
 #ifndef APP
 #define APP
 
-#include "./ui/UIhandler.hpp"
+#include "./ui/ui.hpp"
 
 struct AppSetup {
     ui::UISetup uiSetup = {};
@@ -15,7 +15,7 @@ public:
     void run();
 private:
     bool m_running;
-    ui::UIHandler m_uiHandler;
+    ui::UI m_UI;
 
     void handleUI();
 };

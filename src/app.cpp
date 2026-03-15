@@ -1,7 +1,7 @@
 #include "./app.hpp"
 
 App::App(const AppSetup& config) :
-    m_uiHandler(config.uiSetup),
+    m_UI(config.uiSetup),
     m_running(false)
 {}
 
@@ -16,9 +16,9 @@ void App::run() {
 }
 
 void App::handleUI() {
-    m_uiHandler.update();
+    m_UI.update();
 
-    for (const auto &event : m_uiHandler.getEvents()) {
+    for (const auto &event : m_UI.getEvents()) {
         switch (event) {
             case ui::Event::Closed:
                 m_running = false;

@@ -1,5 +1,5 @@
-#ifndef UIHANDLER
-#define UIHANDLER
+#ifndef UIDEF
+#define UIDEF
 
 #include <SFML/Graphics.hpp>
 
@@ -12,10 +12,10 @@ struct UISetup {
     sf::Vector2u windowSize = {800, 600};
 };
 
-class UIHandler {
+class UI {
 public:
-    UIHandler(const UISetup &setup);
-    ~UIHandler() = default;
+    UI(const UISetup &setup);
+    ~UI() = default;
 
     void update();
 
