@@ -1,21 +1,15 @@
-#include <SFML/Graphics.hpp>
+#include <iostream>
+
+#include "./app.hpp"
 
 int main()
 {
-  auto window = sf::RenderWindow(sf::VideoMode({900u, 800u}), "SFML App Template");
-  window.setFramerateLimit(144);
-
-  while (window.isOpen())
-  {
-    while (const std::optional event = window.pollEvent())
-    {
-      if (event->is<sf::Event::Closed>())
-      {
-        window.close();
-      }
+  App app({
+    .uiSetup = {
+      .windowName = "Test One",
+      .windowSize = {1200, 800}
     }
-
-    window.clear();
-    window.display();
-  }
+  });
+  app.run();
+  return 0;
 }

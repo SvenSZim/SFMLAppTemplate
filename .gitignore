@@ -3,5 +3,7 @@ Makefile
 build/
 cmake-build-*/
 .idea/
+
 .PVS-Studio/
+.vscode/
 __std_test__*

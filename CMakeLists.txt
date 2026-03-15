@@ -20,9 +20,7 @@ include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
 # Automatically adds all cpp files contained in the src directory
-file(GLOB_RECURSE source_files
-  src/*.cpp
-)
+file(GLOB_RECURSE source_files src/*.cpp)
 
 set(SOURCES ${source_files})
 
