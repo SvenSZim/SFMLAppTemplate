@@ -3,9 +3,15 @@
 namespace ui {
 
 UI::UI(const UISetup &setup) :
-    m_window(sf::VideoMode({setup.windowSize.x, setup.windowSize.y}), setup.windowName)
+    m_window(sf::VideoMode({setup.windowSize.x, setup.windowSize.y}), setup.windowName),
+    m_event_buffer(),
+    m_containers()
 {
     m_window.setFramerateLimit(144);
+
+    for (const auto &containerSetup : setup.containers) {
+        m_containers.emplace_back(ui::Container(std::move(containerSetup)));
+    }
 }
 
 void UI::update() {
@@ -14,7 +20,12 @@ void UI::update() {
 }
 
 void UI::render() {
-    m_window.clear(sf::Color::Black);
+    m_window.clear(sf::Color(255, 245, 200));
+    
+    for (auto &container : m_containers) {
+        container.render(m_window);
+    }
+
     m_window.display();
 }
 
@@ -33,7 +44,14 @@ void UI::handleEvents() {
 
 void UI::handleKeyboardInput(const sf::Event &event) {
     switch (event.getIf<sf::Event::KeyPressed>()->code) {
+        case sf::Keyboard::Key::Escape:
+            m_window.close();
+            m_event_buffer.push_back(ui::Event::Closed);
+            break;
         case sf::Keyboard::Key::Space:
+            for (auto &container : m_containers) {
+                container.setSize(sf::Vector2f(static_cast<int>(container.getSize().x + 210.f) % 1000, static_cast<int>(container.getSize().y + 105.f) % 600));
+            }
             break;
     }
 }

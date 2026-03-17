@@ -1,17 +1,15 @@
-#pragma once
+#ifndef FUNCTIONS
+#define FUNCTIONS
 
-/* ----- The transition functions -----
-   The equations can be found on easings.net and in the GitHub repo
-*/
+namespace animutils { 
+
 float linear(float t);
 float easeInOutExponential(float t);
 float easeOutBack(float t);
 float easeInBack(float t);
 float easeOutElastic(float t);
 
-/// The currently supported transition functions
-enum class TransitionFunction
-{
+enum class TransitionFunction {
     None,
     Linear,
     EaseInOutExponential,
@@ -20,5 +18,8 @@ enum class TransitionFunction
     EaseOutElastic,
 };
 
-/// Calls the easing function associated with the provided enum entry
 float getRatio(float t, TransitionFunction transition);
+
+}
+
+#endif

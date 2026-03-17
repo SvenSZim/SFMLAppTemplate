@@ -4,12 +4,14 @@
 #include <SFML/Graphics.hpp>
 
 #include "./event.hpp"
+#include "./core/container.hpp"
 
 namespace ui {
 
 struct UISetup {
     std::string windowName = "SFML App Template";
     sf::Vector2u windowSize = {800, 600};
+    std::vector<ui::ContainerSetup> containers = { {} };
 };
 
 class UI {
@@ -27,6 +29,7 @@ public:
 private:
     sf::RenderWindow m_window;
     std::vector<ui::Event> m_event_buffer;
+    std::vector<ui::Container> m_containers;
 
     void render();
 

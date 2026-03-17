@@ -1,105 +1,80 @@
-#pragma once
+#ifndef INTERPOLATED
+#define INTERPOLATED
+
+
 #include <chrono>
-#include "functions.hpp"
+#include "./functions.hpp"
 
+namespace animutils {
 
-/** An object that implements automatic interpolation on value changes.
- *  It can be used as a drop in replacement thanks to cast and assign operators.
- */
 template<typename T>
 struct Interpolated
 {
-  /// The value at the start of the transition
   T start{};
-  /// The target value
   T end{};
-  /// The transition start timestamp
   float start_time{};
-  /// The animation's speed
   float speed{1.0f};
-  /// The transition function to use
   TransitionFunction transition{TransitionFunction::Linear};
 
-  /// Initializes the value with @p initial_value
-  explicit
-  Interpolated(T const& initial_value = {})
-    : start{initial_value}
-    , end{start}
+  explicit Interpolated(T const& initial_value = {}) :
+    start{initial_value},
+    end{start}
   {}
 
-  /// Returns stop watch time (should be better compared to UTC timestamps for float precision)
   [[nodiscard]]
-  static float getCurrentTime()
-  {
-    // Retrieve current time
+  static float getCurrentTime() {
     auto const now = std::chrono::steady_clock::now();
     auto const duration = now.time_since_epoch();
-    // Convert it to a decimal number of seconds
     auto const seconds = std::chrono::duration_cast<std::chrono::duration<float>>(duration);
     return seconds.count();
   }
 
-  /// Returns if the transition has reached the end
   [[nodiscard]]
-  bool running() {
+  bool running() const {
     return getElapsedSeconds() * speed < 1.f;
   }
 
-  /// Returns the number of seconds since the last value change
   [[nodiscard]]
-  float getElapsedSeconds() const
-  {
+  float getElapsedSeconds() const {
     return getCurrentTime() - start_time;
   }
 
-  /// Sets a new target value and resets transition
-  void setValue(T const& new_value)
-  {
+  void setValue(T const& new_value) {
     start = getValue();
     end = new_value;
     start_time = getCurrentTime();
   }
 
-  /// Returns the current value
   [[nodiscard]]
-  T getValue() const
-  {
-    // Current transition time
+  T getValue() const {
     float const elapsed = getElapsedSeconds();
     float const t = elapsed * speed;
-    // Check if the transition is over
     if (t >= 1.0f) {
-      // If the transition is done, directly return the target value
       return end;
     }
-    // Else compute interpolated value and return it
     T const delta{end - start};
     return start + delta * getRatio(t, transition);
   }
 
-  /// Computes the speed given a duration
-  void setDuration(float duration)
-  {
+  void setDuration(float duration) {
     speed = 1.0f / duration;
   }
   
-  /// Sets new transition function
   void setTransition(TransitionFunction function) {
-    if (getRatio(getElapsedSeconds() * speed, transition) > .8f)
-      start = end;
+    if (getRatio(getElapsedSeconds() * speed, transition) > .8f) start = end;
     transition = function;
   }
 
-  /// Cast operator to use this object directly as if it was of type T
   [[nodiscard]]
-  operator T() const
-  {
+  operator T() const {
     return getValue();
   }
 
-  /// Assign operator to ease transitions
-  void operator=(T const& new_value)
-  {
+  void operator=(T const& new_value) {
     setValue(new_value);
   }
 };
+
+}
+
+#endif

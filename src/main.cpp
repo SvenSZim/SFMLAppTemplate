@@ -7,7 +7,8 @@ int main()
   App app({
     .uiSetup = {
       .windowName = "Test One",
-      .windowSize = {1200, 800}
+      .windowSize = {1200, 800},
+      .containers = {{}}
     }
   });
   app.run();
