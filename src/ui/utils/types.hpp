@@ -23,36 +23,44 @@ public:
 
     [[nodiscard]]
     inline T width() const { return getSize().x; }
-    void setWidth(T new_width) { setSize(sf::Vector2<T>(new_width, getSize().y)); }
+    void setWidth(T new_width) { setSize(sf::Vector2<T>(new_width, height())); }
     [[nodiscard]]
     inline T height() const { return getSize().y; }
-    void setHeight(T new_height) { setSize(sf::Vector2<T>(getSize().x, new_height)); }
+    void setHeight(T new_height) { setSize(sf::Vector2<T>(width(), new_height)); }
 
     [[nodiscard]]
     inline T left() const { return getPosition().x; }
-    void setLeft(T new_left) { setPosition(sf::Vector2<T>(new_left, getPosition().y)); }
+    void setLeft(T new_left) { setPosition(sf::Vector2<T>(new_left, top())); }
+    void stickLeft(T new_left) { setWidth(width() + left() - new_left); setLeft(new_left); }
     [[nodiscard]]
-    inline T right() const { return getPosition().x + getSize().x; }
-    void setRight(T new_right) { setPosition(sf::Vector2<T>(new_right - getSize().x, getPosition().y)); }
+    inline T right() const { return getPosition().x + width(); }
+    void setRight(T new_right) { setPosition(sf::Vector2<T>(new_right - width(), top())); }
+    void stickRight(T new_right) { setWidth(width() - right() + new_right); setRight(new_right); }
     [[nodiscard]]
     inline T top() const { return getPosition().y; }
-    void setTop(T new_top) { setPosition(sf::Vector2<T>(getPosition().x, new_top)); }
+    void setTop(T new_top) { setPosition(sf::Vector2<T>(left(), new_top)); }
+    void stickTop(T new_top) { setHeight(height() + top() - new_top); setTop(new_top); }
     [[nodiscard]]
-    inline T bottom() const { return getPosition().y + getSize().y; }
-    void setBottom(T new_bottom) { setPosition(sf::Vector2<T>(getPosition().x, new_bottom - getSize().y)); }
+    inline T bottom() const { return getPosition().y + height(); }
+    void setBottom(T new_bottom) { setPosition(sf::Vector2<T>(left(), new_bottom - height())); }
+    void stickBottom(T new_bottom) { setHeight(height() - bottom() + new_bottom); setBottom(new_bottom); }
 
     [[nodiscard]]
     inline sf::Vector2<T> topLeft() const { return getPosition(); }
     void setTopLeft(const sf::Vector2<T> &new_top_left) { setPosition(new_top_left); }
+    void stickTopLeft(const sf::Vector2<T> &new_top_left) { setSize(getSize() + topLeft() - new_top_left); setTopLeft(new_top_left); }
     [[nodiscard]]
-    inline sf::Vector2<T> topRight() const { return getPosition() + sf::Vector2<T>(getSize().x, 0); }
-    void setTopRight(const sf::Vector2<T> &new_top_right) { setPosition(new_top_right - sf::Vector2<T>(getSize().x, 0)); }
+    inline sf::Vector2<T> topRight() const { return getPosition() + sf::Vector2<T>(width(), 0); }
+    void setTopRight(const sf::Vector2<T> &new_top_right) { setPosition(new_top_right - sf::Vector2<T>(width(), 0)); }
+    void stickTopRight(const sf::Vector2<T> &new_top_right) { setSize(getSize() + sf::Vector2<T>(new_top_right.x - right(), top() - new_top_right.y)); setTopRight(new_top_right); }
     [[nodiscard]]
-    inline sf::Vector2<T> bottomLeft() const { return getPosition() + sf::Vector2<T>(0, getSize().y); }
-    void setBottomLeft(const sf::Vector2<T> &new_bottom_left) { setPosition(new_bottom_left - sf::Vector2<T>(0, getSize().y)); }
+    inline sf::Vector2<T> bottomLeft() const { return getPosition() + sf::Vector2<T>(0, height()); }
+    void setBottomLeft(const sf::Vector2<T> &new_bottom_left) { setPosition(new_bottom_left - sf::Vector2<T>(0, height())); }
+    void stickBottomLeft(const sf::Vector2<T> &new_bottom_left) { setSize(getSize() + sf::Vector2<T>(left() - new_bottom_left.x, new_bottom_left.y - bottom())); setBottomLeft(new_bottom_left); }
     [[nodiscard]]
     inline sf::Vector2<T> bottomRight() const { return getPosition() + getSize(); }
     void setBottomRight(const sf::Vector2<T> &new_bottom_right) { setPosition(new_bottom_right - getSize()); }
+    void stickBottomRight(const sf::Vector2<T> &new_bottom_right) { setSize(getSize() + new_bottom_right - bottomRight()); setBottomRight(new_bottom_right); }
 
     [[nodiscard]]
     inline sf::Vector2<T> center() const { return getPosition() + sf::Vector2<T>(getSize().x * 0.5f, getSize().y * 0.5f); }

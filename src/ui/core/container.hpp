@@ -31,17 +31,25 @@ struct ContainerRenderData {
     sf::Color borderColor;
 };
 
-class Container {
+class Container : public uiutils::iRect<float> {
 public:
     Container(const ContainerSetup &setup);
     ~Container() = default;
 
     void render(sf::RenderWindow &window);
-    sf::Vector2f getSize() const { return outerRect.getSize(); }
-    void setSize(const sf::Vector2f &new_size) {
+
+    inline sf::Vector2f getSize() const override { return outerRect.getSize(); }
+    void setSize(const sf::Vector2f &new_size) override {
         outerRect.setSize(new_size);
         innerRect = outerRect.inset(outlineThickness);
         animRect.setSize(new_size);
+        transitionRunning = true;
+    }
+    inline sf::Vector2f getPosition() const override { return outerRect.getPosition(); }
+    void setPosition(const sf::Vector2f &new_position) override {
+        outerRect.setPosition(new_position);
+        innerRect = outerRect.inset(outlineThickness);
+        animRect.setPosition(new_position);
         transitionRunning = true;
     }
 

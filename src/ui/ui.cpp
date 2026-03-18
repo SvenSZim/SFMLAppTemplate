@@ -48,11 +48,6 @@ void UI::handleKeyboardInput(const sf::Event &event) {
             m_window.close();
             m_event_buffer.push_back(ui::Event::Closed);
             break;
-        case sf::Keyboard::Key::Space:
-            for (auto &container : m_containers) {
-                container.setSize(sf::Vector2f(static_cast<int>(container.getSize().x + 210.f) % 1000, static_cast<int>(container.getSize().y + 105.f) % 600));
-            }
-            break;
     }
 }
 
