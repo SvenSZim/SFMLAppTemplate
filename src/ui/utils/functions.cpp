@@ -1,8 +1,6 @@
-#include "./functions.hpp"
-#include <cstdint>
-#include <cmath>
+#include "ui/utils/functions.hpp"
 
-namespace animutils {
+namespace ui::utils::anim {
 
 float simplePow(float x, uint32_t p) {
     float res = 1.0f;
@@ -66,6 +64,8 @@ float getRatio(float t, TransitionFunction transition) {
             return easeInOutExponential(t);
         case TransitionFunction::EaseOutBack:
             return easeOutBack(t);
+        case TransitionFunction::EaseInBack:
+            return easeInBack(t);
         case TransitionFunction::EaseOutElastic:
             return easeOutElastic(t);
     }
