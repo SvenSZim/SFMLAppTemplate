@@ -29,7 +29,11 @@ atpl_add_tests(ui
   ui/test_packing.cpp
   ui/test_rect.cpp
 )
-# atpl_add_tests(app ...)  first sources arrive with Phase 4
+atpl_add_tests(app
+  app/test_resources.cpp
+)
+# The resource tests load the real font, so they need the resources next to their executable.
+atpl_copy_resources(atpl_app_tests)
 
 # The layer and ownership rules that can be checked by looking at the sources.
 add_test(NAME "structure.layering"

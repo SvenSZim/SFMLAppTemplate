@@ -276,7 +276,7 @@ Consequences:
 | `app.hpp` | `App`: creates the window and UI, runs the main loop, delivers events to the application's handler on the main thread (D11). |
 | `simulation.hpp` | The interface an application's simulation implements, and the runner: own thread, fixed timestep, pause, single step, speed (P3). |
 | `camera.hpp` | Optional pan/zoom helper for a view. It reads forwarded input events and produces an `sf::View` (Q9). |
-| `resources.hpp` | Fonts and textures by name; resolves paths relative to the executable. |
+| `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name are added in WP 5.6. |
 
 ## 6. One frame
 

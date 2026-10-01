@@ -232,6 +232,6 @@ Each phase ends with something that runs.
 
 ## 7. Current state (2026-10-02)
 
-- Phase 0 in progress. Done: WP 0.1 (directory tree, targets, structure check), WP 0.2 (easing and animated values in `core`), WP 0.3 (rect and widget packing in `ui`) and WP 0.4 (minimal example). Remaining: WP 0.5 (resources), 0.6 (CI).
+- Phase 0 in progress. Done: WP 0.1 (directory tree, targets, structure check), WP 0.2 (easing and animated values in `core`), WP 0.3 (rect and widget packing in `ui`), WP 0.4 (minimal example) and WP 0.5 (resources next to the executable). Remaining: WP 0.6 (CI).
 - No old code is left in the tree.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.

@@ -3,3 +3,4 @@ add_executable(minimal
 )
 target_link_libraries(minimal PRIVATE atpl::app)
 atpl_target_defaults(minimal)
+atpl_copy_resources(minimal)
