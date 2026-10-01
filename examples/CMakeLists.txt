@@ -1,1 +1,2 @@
-# One sub-directory per example application. The first one is added in WP 0.4.
+# One sub-directory per example application.
+add_subdirectory(minimal)

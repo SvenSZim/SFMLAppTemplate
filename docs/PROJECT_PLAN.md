@@ -73,8 +73,8 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D20 | 2026-10-02 | Line endings: LF everywhere, enforced by `.gitattributes`. Existing files are converted in one separate commit. | Accepted |
 | D21 | 2026-10-02 | Private and protected members are named `m_camelCase`. | Accepted |
 | D22 | 2026-10-02 | Headers use `#pragma once`. | Accepted |
-| P13 | 2026-10-02 | Workflow as written in `CONTRIBUTING.md`: one branch per issue (`wp/<id>-<name>`), commit format `[area] summary`, one pull request per issue into `main`, squash merge, definition of done, decisions recorded in the same pull request. | Proposed |
-| P14 | 2026-10-02 | Remaining code conventions as written in `docs/CODE_STYLE.md`: formatting by `.clang-format` (4 spaces, 120 columns), naming table, include rules, error rules (setup fails loudly, per-frame code does not throw), per-frame performance rules, test rules, CMake rules (explicit source lists), internal code of a `ui` module in namespace `atpl::<module>`. | Proposed |
+| P13 | 2026-10-02 | Workflow as written in `CONTRIBUTING.md`: one branch per issue (`wp/<id>-<name>`), commit format `[area] summary`, one pull request per issue into `main`, squash merge, definition of done, decisions recorded in the same pull request. | Accepted |
+| P14 | 2026-10-02 | Remaining code conventions as written in `docs/CODE_STYLE.md`: formatting by `.clang-format` (4 spaces, 120 columns), naming table, include rules, error rules (setup fails loudly, per-frame code does not throw), per-frame performance rules, test rules, CMake rules (explicit source lists), internal code of a `ui` module in namespace `atpl::<module>`. | Accepted |
 
 ### Open questions
 
@@ -232,6 +232,6 @@ Each phase ends with something that runs.
 
 ## 7. Current state (2026-10-02)
 
-- Phase 0 in progress. Done: WP 0.1 (directory tree, targets, structure check), WP 0.2 (easing and animated values in `core`) and WP 0.3 (rect and widget packing in `ui`). Remaining: WP 0.4 (minimal example), 0.5 (resources), 0.6 (CI).
+- Phase 0 in progress. Done: WP 0.1 (directory tree, targets, structure check), WP 0.2 (easing and animated values in `core`), WP 0.3 (rect and widget packing in `ui`) and WP 0.4 (minimal example). Remaining: WP 0.5 (resources), 0.6 (CI).
 - No old code is left in the tree.
-- Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). Proposed and not yet confirmed: P13 (workflow), P14 (code conventions).
+- Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.

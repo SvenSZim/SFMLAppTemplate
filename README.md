@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure and all design decisions are settled. The repository currently contains the empty skeleton of the new structure (Phase 0); the UI itself is not implemented yet. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure and all design decisions are settled. The repository currently contains the skeleton of the new structure (Phase 0) and the first utilities; the UI itself is not implemented yet. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
@@ -37,7 +37,7 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Binaries are placed in `build/bin/`.
+Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: an empty window that closes with Escape.
 
 | CMake option | Default | Effect |
 |---|---|---|
