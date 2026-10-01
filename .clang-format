@@ -1,0 +1,56 @@
+# Formatting for all C++ in this repository. See docs/CODE_STYLE.md.
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# Braces on the same line, also for functions, classes and namespaces
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+AccessModifierOffset: -4
+IndentCaseLabels: true
+
+# T& x, T* x
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+# Constructor(Args) :
+#     m_a(a),
+#     m_b(b)
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: Never
+ConstructorInitializerIndentWidth: 4
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: All
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: BlockIndent
+SpaceAfterTemplateKeyword: true
+Cpp11BracedListStyle: true
+InsertNewlineAtEOF: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+# Include order: own header (automatic), project, SFML, other libraries, standard library
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^"atpl/'
+    Priority: 1
+  - Regex: '^"'
+    Priority: 2
+  - Regex: '^<SFML/'
+    Priority: 3
+  - Regex: '^<.*\.(h|hpp)>'
+    Priority: 4
+  - Regex: '^<'
+    Priority: 5

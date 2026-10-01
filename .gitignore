@@ -6,5 +6,6 @@ cmake-build-*/
 
 .PVS-Studio/
 .vscode/
-.editorconfig
 __std_test__*
+compile_commands.json
+.cache/

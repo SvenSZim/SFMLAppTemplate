@@ -5,7 +5,7 @@ Last updated: 2026-10-02 · Branch: `static-rework`
 This file is the single place where the vision, the decisions and the roadmap are tracked.
 Every decision gets an entry in the [decision log](#3-decision-log). Nothing counts as decided until it is listed there as **Accepted**.
 
-The target code structure is described in [ARCHITECTURE.md](ARCHITECTURE.md).
+The target code structure is described in [ARCHITECTURE.md](ARCHITECTURE.md). Code conventions are in [CODE_STYLE.md](CODE_STYLE.md), the workflow in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ---
 
@@ -69,6 +69,12 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | P11 | 2026-10-02 | Painting and styling. `paint` returns nothing; it calls the `Painter`, which appends to the panel's draw list. A widget declares its parts and where they are; it never chooses a shape style. Styles come from the theme in three layers, later overriding earlier: (1) tokens, global values; (2) role defaults: each part declares a role (surface, track, accent, handle, text, line) and whether it is shown by default, and the theme derives its style from role and tokens; (3) part entries: specific settings for one part, e.g. `theme[Slider::Ticks].shown = true`. Kinds and parts are open identifiers declared by the widget, so app-defined widgets use the same mechanism. Corner radius 0 gives sharp rectangles. What a widget is (range, step count, options) stays in its descriptor. Refines P5. | Accepted |
 | P12 | 2026-10-01 | In-panel layout belongs to `layout/`. A widget only reports the size it wants (`measure`); layout assigns its rectangle. Inside that rectangle the widget arranges its own parts. Size tokens (padding, gaps, row heights, font sizes) are a separate `Metrics` set next to the theme's colours: layout and `measure` read them, nothing else defines sizes. | Accepted |
 | D18 | 2026-10-01 | Root namespace and target prefix: `atpl` (app template). (Was Q10.) | Accepted |
+| D19 | 2026-10-02 | License: MIT. Bundled third-party material is listed in `THIRD_PARTY.md` with its own license. | Accepted |
+| D20 | 2026-10-02 | Line endings: LF everywhere, enforced by `.gitattributes`. Existing files are converted in one separate commit. | Accepted |
+| D21 | 2026-10-02 | Private and protected members are named `m_camelCase`. | Accepted |
+| D22 | 2026-10-02 | Headers use `#pragma once`. | Accepted |
+| P13 | 2026-10-02 | Workflow as written in `CONTRIBUTING.md`: one branch per issue (`wp/<id>-<name>`), commit format `[area] summary`, one pull request per issue into `main`, squash merge, definition of done, decisions recorded in the same pull request. | Proposed |
+| P14 | 2026-10-02 | Remaining code conventions as written in `docs/CODE_STYLE.md`: formatting by `.clang-format` (4 spaces, 120 columns), naming table, include rules, error rules (setup fails loudly, per-frame code does not throw), per-frame performance rules, test rules, CMake rules (explicit source lists). | Proposed |
 
 ### Open questions
 
