@@ -37,13 +37,18 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: an empty window that closes with Escape.
+Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with one line of text that closes with Escape.
+
+The build copies `resources/` to `build/bin/resources/`. Applications look for their resources next to the executable, not in the working directory, so they can be started from anywhere.
+
+For editors and language servers, CMake writes `compile_commands.json` into the build directory and links it into the repository root (not on Windows).
 
 | CMake option | Default | Effect |
 |---|---|---|
 | `ATPL_BUILD_TESTS` | `ON` | Build the unit tests |
 | `ATPL_BUILD_EXAMPLES` | `ON` | Build the example applications |
 | `ATPL_WARNINGS_AS_ERRORS` | `OFF` | Treat compiler warnings as errors |
+| `ATPL_LINK_COMPILE_COMMANDS` | `ON` | Link `compile_commands.json` into the repository root |
 
 ## Libraries
 

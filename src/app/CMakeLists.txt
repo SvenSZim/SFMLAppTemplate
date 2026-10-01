@@ -1,7 +1,8 @@
 # atpl_app: window, main loop, simulation thread, optional helpers.
 # The only layer that starts threads.
 add_library(atpl_app STATIC
-  placeholder.cpp
+  executable_path.cpp
+  resources.cpp
 )
 add_library(atpl::app ALIAS atpl_app)
 
