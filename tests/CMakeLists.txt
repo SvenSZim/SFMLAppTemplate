@@ -7,6 +7,9 @@ FetchContent_Declare(Catch2
   SYSTEM
 )
 FetchContent_MakeAvailable(Catch2)
+# Catch2 must be built with the same C++ standard as the tests. Otherwise parts of it that depend
+# on the standard (printing std::string_view, for one) are missing at link time, as seen with MSVC.
+target_compile_features(Catch2 PUBLIC cxx_std_20)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 
