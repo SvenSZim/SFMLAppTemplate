@@ -1,41 +1,28 @@
 cmake_minimum_required(VERSION 3.28)
-project(SFMLAppTemplate LANGUAGES CXX)
+project(SFMLAppTemplate VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-option(ENABLE_UNIT_TESTS "Build unit tests" ON)
+option(ATPL_BUILD_TESTS "Build the unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(ATPL_BUILD_EXAMPLES "Build the example applications" ${PROJECT_IS_TOP_LEVEL})
+option(ATPL_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
-include(FetchContent)
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+include(cmake/warnings.cmake)
+include(cmake/dependencies.cmake)
 
-FetchContent_Declare(SFML
-  GIT_REPOSITORY https://github.com/SFML/SFML.git
-  GIT_TAG 3.0.x
-  GIT_SHALLOW ON
-  EXCLUDE_FROM_ALL
-  SYSTEM
-)
-# Only Graphics (+ Window/System) is used; skip modules that pull in extra system deps
-set(SFML_BUILD_AUDIO OFF CACHE BOOL "" FORCE)
-set(SFML_BUILD_NETWORK OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SFML)
+# Layers, lowest first. Dependencies point one way only: app -> ui -> core.
+add_subdirectory(src/core)
+add_subdirectory(src/ui)
+add_subdirectory(src/app)
 
-# Automatically adds all cpp files contained in the src directory
-file(GLOB_RECURSE source_files src/*.cpp)
+if(ATPL_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
-set(APP_TEMPLATE_SOURCES ${source_files})
-list(REMOVE_ITEM APP_TEMPLATE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
-
-add_library(sfml_app_template ${APP_TEMPLATE_SOURCES})
-target_include_directories(sfml_app_template PUBLIC "include")
-target_link_libraries(sfml_app_template PUBLIC SFML::Graphics)
-target_compile_features(sfml_app_template PUBLIC cxx_std_20)
-
-add_executable(app src/main.cpp)
-target_link_libraries(app PRIVATE sfml_app_template)
-target_compile_features(app PRIVATE cxx_std_20)
-
-enable_testing()
-if(ENABLE_UNIT_TESTS)
+if(ATPL_BUILD_TESTS)
+  enable_testing()
   add_subdirectory(tests)
 endif()

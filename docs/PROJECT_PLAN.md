@@ -230,9 +230,8 @@ Each phase ends with something that runs.
 
 ---
 
-## 7. Current state (2026-10-01)
+## 7. Current state (2026-10-02)
 
-- The target structure in ARCHITECTURE.md is approved (D14).
-- All proposals are decided. Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2).
-- The code on `static-rework` is the old rework attempt: it configures with CMake but does not compile (27 errors from the old container API). Under D14 it is replaced, not repaired.
-- Uncommitted on `static-rework`: small fixes to the old code (of which the CMake changes, C++20 and the SFML module switch, carry over), and `docs/`.
+- Phase 0 in progress. WP 0.1 done: new directory tree, targets `atpl_core`, `atpl_ui`, `atpl_app`, tests and the structure check build and pass.
+- The old UI code is removed. The files that WP 0.2 and WP 0.3 move (easing, interpolated, rect, widget packing and their tests) are parked at their old paths, outside of any target.
+- Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). Proposed and not yet confirmed: P13 (workflow), P14 (code conventions).
