@@ -232,6 +232,6 @@ Each phase ends with something that runs.
 
 ## 7. Current state (2026-10-02)
 
-- Phase 0 in progress. WP 0.1 done: new directory tree, targets `atpl_core`, `atpl_ui`, `atpl_app`, tests and the structure check build and pass.
-- The old UI code is removed. The files that WP 0.2 and WP 0.3 move (easing, interpolated, rect, widget packing and their tests) are parked at their old paths, outside of any target.
+- Phase 0 in progress. Done: WP 0.1 (directory tree, targets `atpl_core`, `atpl_ui`, `atpl_app`, structure check) and WP 0.2 (easing and animated values in `core`, with tests).
+- The old UI code is removed. The files that WP 0.3 moves (rect, widget packing and their tests) are parked at their old paths, outside of any target.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). Proposed and not yet confirmed: P13 (workflow), P14 (code conventions).
