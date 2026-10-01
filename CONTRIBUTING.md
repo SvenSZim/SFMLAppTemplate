@@ -69,7 +69,14 @@ Refs #17
 
 - One pull request per issue, into `main`. Title is the issue title; the description starts with `Closes #<issue>`.
 - Fill in the pull request template.
-- CI must be green. The Windows job is informational and does not block.
+- CI must be green. It runs:
+
+  | Job | What it checks | Blocks |
+  |---|---|---|
+  | Format | `tools/format.sh --check` | yes |
+  | Linux (GCC, release) | build with warnings as errors, all tests including the window smoke test on a virtual display | yes |
+  | Linux (Clang, debug, sanitizers) | build with warnings as errors, tests with AddressSanitizer and UndefinedBehaviorSanitizer | yes |
+  | Windows (MSVC) | build and tests, as a portability check | no |
 - Merge by squashing, so `main` has one commit per work package. The squash commit follows the commit format above.
 
 ## 5. Definition of done

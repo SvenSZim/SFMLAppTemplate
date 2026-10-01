@@ -7,7 +7,8 @@ Where the architecture is concerned, [ARCHITECTURE.md](ARCHITECTURE.md) is the a
 
 Formatting is not a matter of taste here: run the formatter and move on.
 
-- `.clang-format` at the repository root defines the C++ format. Run `clang-format -i <files>` before committing.
+- `.clang-format` at the repository root defines the C++ format. Run `tools/format.sh` before committing; `tools/format.sh --check` only reports. CI runs the check.
+- CI uses clang-format 23.1.2 (`pipx install clang-format==23.1.2`). Other versions can format slightly differently; the CI result counts.
 - `.editorconfig` covers everything else: UTF-8, LF line endings, final newline, no trailing whitespace.
 - 4 spaces for C++, 2 spaces for CMake, YAML and Markdown. No tabs.
 - 120 columns.
@@ -95,7 +96,8 @@ The UI should cost as little as possible and nothing while idle (R3, plan §5).
 
 - Catch2, one test file per source file, in `tests/<layer>/`.
 - Everything that does not need a window is tested without one. That is all of `core` and, in `ui`, the model, layout, input, theme and draw-list generation.
-- Code shared between threads has a concurrent test, run under ThreadSanitizer.
+- Code shared between threads has a concurrent test, run under ThreadSanitizer (`-DATPL_SANITIZE=thread`).
+- Tests that open a window carry the CTest label `display`. Leave them out with `ctest -LE display`, or run them without a screen under `xvfb-run`.
 - A bug fix comes with a test that fails without the fix.
 
 ## 10. CMake

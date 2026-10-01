@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Packages SFML needs for its Graphics module on Linux. Keep in sync with README.md.
+  SFML_PACKAGES: >-
+    libx11-dev libxrandr-dev libxcursor-dev libxi-dev
+    libudev-dev libgl1-mesa-dev libfreetype-dev
+  # Virtual display and software OpenGL, for the tests that open a window.
+  DISPLAY_PACKAGES: xvfb libgl1-mesa-dri
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: pipx install clang-format==23.1.2
+      - name: Check formatting
+        run: tools/format.sh --check
+
+  linux:
+    name: Linux (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The reference build: what users get.
+          - name: GCC, release
+            cxx: g++
+            cc: gcc
+            build_type: Release
+            sanitize: ""
+            display_tests: true
+          # A second compiler, with memory and undefined-behaviour checks on the template's own code.
+          - name: Clang, debug, sanitizers
+            cxx: clang++
+            cc: clang
+            build_type: Debug
+            sanitize: address,undefined
+            display_tests: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $SFML_PACKAGES $DISPLAY_PACKAGES
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DATPL_WARNINGS_AS_ERRORS=ON
+          -DATPL_SANITIZE=${{ matrix.sanitize }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        if: ${{ !matrix.display_tests }}
+        run: ctest --test-dir build --output-on-failure -LE display
+
+      - name: Test (with virtual display)
+        if: ${{ matrix.display_tests }}
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --test-dir build --output-on-failure
+
+  # Portability check only (decision P9): Windows is not a supported platform,
+  # so a failure here is reported but never blocks a merge.
+  windows:
+    name: Windows (MSVC, informational)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure -LE display
