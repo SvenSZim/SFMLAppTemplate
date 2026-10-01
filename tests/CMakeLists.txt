@@ -15,7 +15,7 @@ function(atpl_add_tests layer)
   set(target atpl_${layer}_tests)
   add_executable(${target} ${ARGN})
   target_link_libraries(${target} PRIVATE atpl::${layer} Catch2::Catch2WithMain)
-  target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+  target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/tests)
   atpl_target_defaults(${target})
   catch_discover_tests(${target} TEST_PREFIX "${layer}.")
 endfunction()
@@ -25,7 +25,10 @@ atpl_add_tests(core
   core/test_interpolated.cpp
   core/test_version.cpp
 )
-# atpl_add_tests(ui ...)   first sources arrive with WP 0.3
+atpl_add_tests(ui
+  ui/test_packing.cpp
+  ui/test_rect.cpp
+)
 # atpl_add_tests(app ...)  first sources arrive with Phase 4
 
 # The layer and ownership rules that can be checked by looking at the sources.

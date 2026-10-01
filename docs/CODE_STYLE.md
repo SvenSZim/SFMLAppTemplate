@@ -17,7 +17,7 @@ Formatting is not a matter of taste here: run the formatter and move on.
 
 | Thing | Style | Example |
 |---|---|---|
-| Namespace | lowercase | `atpl` |
+| Namespace | lowercase | `atpl`; internal code of a `ui` module in `atpl::<module>`, e.g. `atpl::layout` |
 | Type (class, struct, enum, alias) | `PascalCase` | `PanelBatch`, `WidgetHandle` |
 | Function, method | `camelCase` | `markDirty()`, `parallelFor()` |
 | Local variable, parameter | `camelCase` | `panelRect` |
