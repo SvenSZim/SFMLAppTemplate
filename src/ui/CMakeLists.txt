@@ -1,7 +1,7 @@
 # atpl_ui: panels, widgets, layout, input, theme, rendering.
 # Depends on atpl_core and SFML Graphics. This target must never link atpl_app.
 add_library(atpl_ui STATIC
-  placeholder.cpp
+  layout/packing.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 
