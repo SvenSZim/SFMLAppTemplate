@@ -65,7 +65,7 @@ SFMLAppTemplate/
 
 A header is in `include/atpl/` only if applications need it. Internal headers live next to their `.cpp` in `src/`. This makes the public API visible at a glance and keeps internals free to change.
 
-CMake targets: `atpl_core`, `atpl_ui`, `atpl_app`, one executable per example, one test executable per layer. `atpl_core` tests need no display, so they always run in CI.
+CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::ui`, `atpl::app`), one executable per example, one test executable per layer (`atpl_<layer>_tests`). `atpl_core` tests need no display, so they always run in CI. The test `structure.layering` checks the rules of section 1 against the sources.
 
 ## 3. `core` — utilities (R8)
 
@@ -354,7 +354,9 @@ int main() {
 | Tests for container, event | Rewritten for the new model |
 | `CMakeLists.txt`, CI workflow | Extended to three targets, examples and tests |
 
-The old code stays available in git history and on `main`.
+The old code is available in git history: commit `38a00b4` is the last one that contains all of it (for example `git show 38a00b4:src/ui/core/renderer/renderer.cpp`).
+
+Files marked as moved stay at their old path, outside of any build target, until the work package that moves them (WP 0.2, WP 0.3).
 
 ## 9. Order of the rework
 

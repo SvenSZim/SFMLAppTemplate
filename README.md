@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure and all design decisions are settled; implementation starts with Phase 0. The code currently in the repository is the previous attempt and does not build. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure and all design decisions are settled. The repository currently contains the empty skeleton of the new structure (Phase 0); the UI itself is not implemented yet. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
@@ -37,7 +37,21 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Binaries are placed in `build/bin/`. Tests can be switched off with `-DENABLE_UNIT_TESTS=OFF`.
+Binaries are placed in `build/bin/`.
+
+| CMake option | Default | Effect |
+|---|---|---|
+| `ATPL_BUILD_TESTS` | `ON` | Build the unit tests |
+| `ATPL_BUILD_EXAMPLES` | `ON` | Build the example applications |
+| `ATPL_WARNINGS_AS_ERRORS` | `OFF` | Treat compiler warnings as errors |
+
+## Libraries
+
+| Target | Content | Depends on |
+|---|---|---|
+| `atpl::core` | Threading, parameters, timing, utilities | C++ standard library only |
+| `atpl::ui` | Panels, widgets, layout, input, theme, rendering | `atpl::core`, SFML Graphics |
+| `atpl::app` | Window, main loop, simulation thread | `atpl::ui` |
 
 ## Documentation
 

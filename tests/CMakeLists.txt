@@ -1,25 +1,32 @@
-cmake_minimum_required(VERSION 3.21)
-
 include(FetchContent)
-
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.4.0 # Use the latest stable version
+FetchContent_Declare(Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.4.0
+  GIT_SHALLOW ON
+  EXCLUDE_FROM_ALL
+  SYSTEM
 )
 FetchContent_MakeAvailable(Catch2)
-
-add_executable(unit_tests
-    test_interpolated.cpp
-    test_rect.cpp
-    test_container.cpp
-    test_widget_packing.cpp
-    test_event.cpp
-)
-
-target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain sfml_app_template)
-target_compile_features(unit_tests PRIVATE cxx_std_20)
-
-include(CTest)
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
-catch_discover_tests(unit_tests)
+
+# One test executable per layer. Tests may include internal headers from src/.
+function(atpl_add_tests layer)
+  set(target atpl_${layer}_tests)
+  add_executable(${target} ${ARGN})
+  target_link_libraries(${target} PRIVATE atpl::${layer} Catch2::Catch2WithMain)
+  target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+  atpl_target_defaults(${target})
+  catch_discover_tests(${target} TEST_PREFIX "${layer}.")
+endfunction()
+
+atpl_add_tests(core
+  core/test_version.cpp
+)
+# atpl_add_tests(ui ...)   first sources arrive with WP 0.3
+# atpl_add_tests(app ...)  first sources arrive with Phase 4
+
+# The layer and ownership rules that can be checked by looking at the sources.
+add_test(NAME "structure.layering"
+  COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_layering.cmake
+)

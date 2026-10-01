@@ -38,9 +38,10 @@ Names say what a thing is, not how it is implemented. No abbreviations beyond th
 - Headers start with `#pragma once`.
 - One main type per file; the file is named after it.
 - Public headers live in `include/atpl/<layer>/`. Everything else, including internal headers, lives in `src/`.
-- Include project headers by their full path from the include root, never with `../`:
+- Include project headers by their full path, never with `../`. Public headers from the include root, internal headers from the `src` root:
   ```cpp
-  #include "atpl/ui/theme.hpp"
+  #include "atpl/ui/theme.hpp"      // public
+  #include "ui/layout/packing.hpp"  // internal
   ```
 - Include order (the formatter sorts it): own header, project headers, SFML, other libraries, standard library.
 - A header includes what it uses and nothing more. Prefer forward declarations in headers.
@@ -69,7 +70,7 @@ Names say what a thing is, not how it is implemented. No abbreviations beyond th
 
 These come from the plan and are checked in every review.
 
-- **Layers** (ARCHITECTURE.md §1): `core` does not include SFML. `ui` does not include `app`. Only `app` starts threads.
+- **Layers** (ARCHITECTURE.md §1): `core` does not include SFML. `ui` does not include `app`. Only `app` starts threads. The test `structure.layering` (`tests/check_layering.cmake`) checks these and the window-access rule on every test run.
 - **One owner per concern** (D1, ARCHITECTURE.md §4.2): before writing to a piece of state, check that your module owns it. Layout writes rectangles, input writes interaction state, render writes nothing in the model.
 - **Window access**: only `ui/ui.cpp` and `ui/render/renderer.cpp` touch `sf::RenderWindow`.
 - **Widgets** act on the outside world only through the context they are handed. They do not position themselves, read theme tokens directly or issue draw calls.
