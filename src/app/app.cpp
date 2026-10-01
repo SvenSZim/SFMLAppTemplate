@@ -1,8 +1,8 @@
 #include "app/app.hpp"
 
 App::App(AppSetup&& config) :
-    m_UI(std::move(config.uiSetup)),
-    m_running(false)
+    m_running(false),
+    m_UI(std::move(config.uiSetup))
 {}
 
 App::~App() = default;
@@ -12,7 +12,6 @@ void App::run() {
 
     while (m_running) {
         handleUI();
-        m_UI.render();
     }
 }
 

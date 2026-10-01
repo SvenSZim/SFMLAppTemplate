@@ -5,9 +5,6 @@
 
 namespace ui::core::layout {
 
-struct LayoutStyle {
-    
-};
 enum class LayoutStyle : uint8_t {
     Floating        = 0,
     Grid            = 1

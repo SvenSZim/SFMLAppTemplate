@@ -8,6 +8,7 @@
 #include "../../utils/rect.hpp"
 #include "../types.hpp"
 #include "../container/container.hpp"
+#include "./layoutstyle.hpp"
 #include "./widget_packing.hpp"
 
 namespace ui::core::layout {
@@ -17,8 +18,8 @@ using ui::core::container::Container;
 using ui::core::container::ContainerState;
 
 enum class OverflowMode : uint8_t {
-    Hiding              = 0,
-    Scroll              = 1
+    PriorityHiding      = 0,
+    SpacingThenScroll   = 1
 };
 
 struct ContainerSizing {

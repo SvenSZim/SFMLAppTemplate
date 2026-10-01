@@ -18,7 +18,7 @@ add_executable(unit_tests
 )
 
 target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain sfml_app_template)
-target_compile_features(unit_tests PRIVATE cxx_std_17)
+target_compile_features(unit_tests PRIVATE cxx_std_20)
 
 include(CTest)
 include(Catch)

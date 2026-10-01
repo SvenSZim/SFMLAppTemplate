@@ -24,7 +24,7 @@ enum class ContainerState : uint8_t {
     EXPANDED                = 0b01000000,
     EXPANDED_HOVERED        = 0b01000001
     // additional types 128-255
-}
+};
 
 enum class InnerLayout : uint8_t {
     // basic layouts 0-31

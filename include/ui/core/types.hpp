@@ -11,16 +11,16 @@ using StyleID = uint16_t;
 using LayoutID = uint8_t;
 
 typedef union DirtyFlag__ {
-    char value;
+    uint8_t value;
     struct bits__ {
-        char error : 1;
-        char layout : 1;
-        char visual : 1;
-        char b3 : 1;
-        char b4 : 1;
-        char b5 : 1;
-        char b6 : 1;
-        char b7 : 1;
+        uint8_t error : 1;
+        uint8_t layout : 1;
+        uint8_t visual : 1;
+        uint8_t b3 : 1;
+        uint8_t b4 : 1;
+        uint8_t b5 : 1;
+        uint8_t b6 : 1;
+        uint8_t b7 : 1;
     } flags;
 } DirtyFlag;
 
