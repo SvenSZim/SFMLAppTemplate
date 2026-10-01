@@ -13,7 +13,9 @@
 #include <string>
 #include <vector>
 
-namespace {
+// A named namespace, not an anonymous one: while the API is declared but not yet implemented,
+// its templates are used here without a definition, which is only allowed for types with linkage.
+namespace core_usage {
 
 enum class Mode { Normal, Debug, Wireframe };
 
@@ -76,7 +78,7 @@ struct Simulation {
 };
 
 // Runs on the main thread, once per frame.
-[[maybe_unused]] float mainThreadFrame(
+float mainThreadFrame(
     Params& params,
     atpl::Queue<Command>& commands,
     atpl::Snapshot<World>& snapshot,
@@ -103,7 +105,7 @@ struct Simulation {
     return world.time + static_cast<float>(count + world.particles.size());
 }
 
-[[maybe_unused]] void wiring() {
+void wiring() {
     Params params;
     atpl::Queue<Command> commands;
     atpl::Snapshot<World> snapshot;
@@ -116,4 +118,4 @@ struct Simulation {
     (void)mainThreadFrame(params, commands, snapshot, tickTimes, lastSeenSpeed);
 }
 
-} // namespace
+} // namespace core_usage
