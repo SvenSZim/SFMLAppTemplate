@@ -38,7 +38,8 @@ std::filesystem::path Resources::path(const std::filesystem::path& relative) con
         );
     }
 
-    const std::filesystem::path full = m_root / relative;
+    // The platform's own separators throughout, so the path reads the same in messages as elsewhere.
+    const std::filesystem::path full = (m_root / relative).make_preferred();
     if (!std::filesystem::is_regular_file(full, error)) {
         throw ResourceError("Resource not found: " + full.string());
     }

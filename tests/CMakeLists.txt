@@ -7,6 +7,9 @@ FetchContent_Declare(Catch2
   SYSTEM
 )
 FetchContent_MakeAvailable(Catch2)
+# Catch2 must be built with the same C++ standard as the tests. Otherwise parts of it that depend
+# on the standard (printing std::string_view, for one) are missing at link time, as seen with MSVC.
+target_compile_features(Catch2 PUBLIC cxx_std_20)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 
@@ -17,7 +20,12 @@ function(atpl_add_tests layer)
   target_link_libraries(${target} PRIVATE atpl::${layer} Catch2::Catch2WithMain)
   target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/tests)
   atpl_target_defaults(${target})
-  catch_discover_tests(${target} TEST_PREFIX "${layer}.")
+  # Run from the executable's directory: resources are next to it, and on platforms where the
+  # executable cannot be located any other way, the working directory is the fallback.
+  catch_discover_tests(${target}
+    TEST_PREFIX "${layer}."
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:${target}>
+  )
 endfunction()
 
 atpl_add_tests(core

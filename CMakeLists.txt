@@ -30,11 +30,15 @@ add_subdirectory(src/core)
 add_subdirectory(src/ui)
 add_subdirectory(src/app)
 
+# Before the examples, so that they can register their smoke tests.
+if(ATPL_BUILD_TESTS)
+  enable_testing()
+endif()
+
 if(ATPL_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
 if(ATPL_BUILD_TESTS)
-  enable_testing()
   add_subdirectory(tests)
 endif()

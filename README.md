@@ -37,6 +37,8 @@ cmake --build build
 ctest --test-dir build
 ```
 
+One test opens a window for a moment. On a machine without a display, leave it out with `ctest --test-dir build -LE display`.
+
 Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with one line of text that closes with Escape.
 
 The build copies `resources/` to `build/bin/resources/`. Applications look for their resources next to the executable, not in the working directory, so they can be started from anywhere.
@@ -49,6 +51,7 @@ For editors and language servers, CMake writes `compile_commands.json` into the 
 | `ATPL_BUILD_EXAMPLES` | `ON` | Build the example applications |
 | `ATPL_WARNINGS_AS_ERRORS` | `OFF` | Treat compiler warnings as errors |
 | `ATPL_LINK_COMPILE_COMMANDS` | `ON` | Link `compile_commands.json` into the repository root |
+| `ATPL_SANITIZE` | empty | Sanitizers for the template's own code, e.g. `address,undefined` or `thread` |
 
 ## Libraries
 

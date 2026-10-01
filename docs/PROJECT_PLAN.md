@@ -171,13 +171,13 @@ The phases below are the summary; the issues are the source of truth for scope a
 
 Each phase ends with something that runs.
 
-### Phase 0 — New skeleton
+### Phase 0 — New skeleton (done 2026-10-02)
 - Create the directory tree and the three library targets from ARCHITECTURE.md.
 - Move the kept code (easing, interpolated, rect, widget packing) and its tests.
 - Remove the old UI code (it stays on `main` and in git history).
 - `minimal` example opens an empty window with vsync on.
 - Copy `resources/` next to the binary; fail loudly if the font cannot be loaded.
-- CI builds everything and runs the tests on Linux; a Windows (MSVC) job runs as a non-blocking check (P9).
+- CI checks the format, builds with GCC and with Clang plus sanitizers, and runs the tests on Linux; a Windows (MSVC) job runs as a non-blocking check (P9).
 
 **Done when:** build and tests are green locally and in CI, and the `minimal` example runs.
 
@@ -232,6 +232,9 @@ Each phase ends with something that runs.
 
 ## 7. Current state (2026-10-02)
 
-- Phase 0 in progress. Done: WP 0.1 (directory tree, targets, structure check), WP 0.2 (easing and animated values in `core`), WP 0.3 (rect and widget packing in `ui`), WP 0.4 (minimal example) and WP 0.5 (resources next to the executable). Remaining: WP 0.6 (CI).
+- **Phase 0 is done.** The new structure is in place: targets `atpl_core`, `atpl_ui`, `atpl_app`; easing and animated values in `core`; rect and widget packing in `ui`; resources next to the executable in `app`; the `minimal` example; 43 tests.
+- CI on every pull request: format check, Linux with GCC (release, all tests including the window smoke test on a virtual display), Linux with Clang (debug, AddressSanitizer and UndefinedBehaviorSanitizer), Windows with MSVC (informational).
 - No old code is left in the tree.
+- Next: Phase 1, the app-facing API. WP 1.1 (core API headers) and, independently, WP 2.1 (shape tessellation) can be started.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
+- A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).
