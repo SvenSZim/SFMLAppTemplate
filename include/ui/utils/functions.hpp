@@ -1,7 +1,10 @@
 #ifndef FUNCTIONS
 #define FUNCTIONS
 
-namespace animutils { 
+#include <cstdint>
+#include <cmath>
+
+namespace ui::utils::anim { 
 
 float linear(float t);
 float easeInOutExponential(float t);

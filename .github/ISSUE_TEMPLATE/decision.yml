@@ -1,0 +1,30 @@
+name: Decision
+description: A question that must be settled before work can continue
+title: "Decision: <question>"
+labels: ["decision"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: Each option with what it costs and what it gives.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+  - type: textarea
+    id: blocks
+    attributes:
+      label: Blocks
+      description: Which work packages wait for this.
+  - type: markdown
+    attributes:
+      value: "When decided, add the entry to the decision log in `docs/PROJECT_PLAN.md` and close this issue with the decision ID."

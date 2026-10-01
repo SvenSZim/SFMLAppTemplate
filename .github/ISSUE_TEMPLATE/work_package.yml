@@ -1,0 +1,39 @@
+name: Work package
+description: A planned piece of work with a clear end
+title: "WP <phase>.<n> — <title>"
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences. What is true when this is finished, and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: The concrete things to do, as a checklist.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Conditions someone else could check.
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: depends
+    attributes:
+      label: Depends on
+      description: Issues that must be finished first, as "#12 (WP 1.2)". Write "Nothing." if there are none.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Decision IDs from docs/PROJECT_PLAN.md and sections of docs/ARCHITECTURE.md.

@@ -1,8 +1,8 @@
-#include "./app.hpp"
+#include "app/app.hpp"
 
-App::App(const AppSetup& config) :
-    m_UI(config.uiSetup),
-    m_running(false)
+App::App(AppSetup&& config) :
+    m_running(false),
+    m_UI(std::move(config.uiSetup))
 {}
 
 App::~App() = default;
@@ -19,16 +19,13 @@ void App::handleUI() {
     m_UI.update();
 
     for (const auto &event : m_UI.getEvents()) {
-        switch (event) {
-            case ui::Event::Closed:
+        switch (event.type) {
+            case ui::core::Event::Type::Closed:
                 m_running = false;
                 break;
-            case ui::Event::One:
-                break;
-            case ui::Event::Two:
-                break;
-            default:
+            case ui::core::Event::Type::WidgetChanged:
                 break;
         }
     }
+    m_UI.clearEvents();
 }
