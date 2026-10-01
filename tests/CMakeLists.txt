@@ -21,6 +21,8 @@ function(atpl_add_tests layer)
 endfunction()
 
 atpl_add_tests(core
+  core/test_easing.cpp
+  core/test_interpolated.cpp
   core/test_version.cpp
 )
 # atpl_add_tests(ui ...)   first sources arrive with WP 0.3

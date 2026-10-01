@@ -1,6 +1,7 @@
 # atpl_core: threading, parameters, timing, utilities.
 # Standard library only. This target must never link SFML.
 add_library(atpl_core STATIC
+  easing.cpp
   version.cpp
 )
 add_library(atpl::core ALIAS atpl_core)

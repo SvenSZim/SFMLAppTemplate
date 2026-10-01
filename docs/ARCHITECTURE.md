@@ -356,7 +356,7 @@ int main() {
 
 The old code is available in git history: commit `38a00b4` is the last one that contains all of it (for example `git show 38a00b4:src/ui/core/renderer/renderer.cpp`).
 
-Files marked as moved stay at their old path, outside of any build target, until the work package that moves them (WP 0.2, WP 0.3).
+Files marked as moved stay at their old path, outside of any build target, until the work package that moves them (WP 0.3 for rect and widget packing).
 
 ## 9. Order of the rework
 
