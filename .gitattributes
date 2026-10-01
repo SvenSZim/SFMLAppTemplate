@@ -1,0 +1,9 @@
+# Line endings: LF in the repository and in the working tree, on every platform.
+* text=auto eol=lf
+
+# Binary files
+*.ttf  binary
+*.otf  binary
+*.png  binary
+*.jpg  binary
+*.bmp  binary
