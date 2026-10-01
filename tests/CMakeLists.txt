@@ -43,6 +43,31 @@ atpl_add_tests(app
 # The resource tests load the real font, so they need the resources next to their executable.
 atpl_copy_resources(atpl_app_tests)
 
+# Every public header must compile when it is the only thing included, and the usage shown in
+# tests/api must keep compiling. Both are checked by building, not by running: this target is
+# part of every build and is never linked.
+#
+# The header list is globbed on purpose, unlike target source lists: the point is to catch the
+# header somebody forgot to list.
+file(GLOB_RECURSE atpl_public_headers CONFIGURE_DEPENDS
+  RELATIVE ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/atpl/*.hpp
+)
+set(atpl_header_check_sources "")
+foreach(header IN LISTS atpl_public_headers)
+  string(MAKE_C_IDENTIFIER ${header} header_id)
+  set(check_source ${CMAKE_CURRENT_BINARY_DIR}/header_check/${header_id}.cpp)
+  file(CONFIGURE OUTPUT ${check_source} CONTENT "#include \"${header}\"\n")
+  list(APPEND atpl_header_check_sources ${check_source})
+endforeach()
+
+add_library(atpl_api_check OBJECT
+  ${atpl_header_check_sources}
+  api/core_usage.cpp
+)
+target_link_libraries(atpl_api_check PRIVATE atpl::app)
+atpl_target_defaults(atpl_api_check)
+
 # The layer and ownership rules that can be checked by looking at the sources.
 add_test(NAME "structure.layering"
   COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_layering.cmake
