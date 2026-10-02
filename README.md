@@ -31,6 +31,8 @@ Requirements:
 
 SFML and Catch2 are downloaded by CMake; nothing else has to be installed.
 
+The setup API uses designated initializers that leave fields at their defaults (`{.min = 0, .max = 10}`). GCC and Clang warn about the omitted fields under `-Wextra`; linking `atpl::ui` switches that one warning off (`-Wno-missing-field-initializers`).
+
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build

@@ -29,7 +29,7 @@ Rules:
 - `core` never includes SFML. It can be used and tested on any thread without a window.
 - `ui` never includes `app`. It knows nothing about simulations or threads other than `Param<T>`.
 - `app` is the only layer that starts threads.
-- Only two files touch `sf::RenderWindow`: `ui/ui.cpp` and `ui/render/renderer.cpp`. Everything else in `ui` is plain data in, plain data out, and testable without a display.
+- The window is created and owned by `app`; the UI is handed a reference (D26). Inside `ui`, only two source files touch `sf::RenderWindow`: `ui/ui.cpp` and `ui/render/renderer.cpp`. Everything else in `ui` is plain data in, plain data out, and testable without a display.
 
 ## 2. Directory layout
 
@@ -91,11 +91,13 @@ The exact utility list for the first version is Q5.
 
 | File | Content |
 |---|---|
-| `ui.hpp` | `UI`: the facade. Setup, `widget(name)`, `view(name)`, `panel(name)`, events, `update`, `render`. |
-| `setup.hpp` | `UISetup`, `PanelSetup`, layout mode, anchors. |
-| `widgets.hpp` | Descriptors for the widget pool: `Widget::Slider(...)`, `Widget::View(...)` and so on. |
-| `handle.hpp` | `WidgetHandle` (`bind`, `set`, `get`), `ViewHandle` (`onDraw`, `requestRedraw`), `PanelHandle`. Light values; the app does not keep them (P2). |
-| `binding.hpp` | The binding interfaces per kind of value, and adapters that build one from a getter and setter (P10). |
+| `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `requestRedraw()` (any thread); events (WP 1.3). |
+| `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
+| `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
+| `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`, `Placement` = `Anchor` or `GridCell` (D25). |
+| `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `View` (D24). `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
+| `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
+| `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
 | `event.hpp` | `Event`: the one type for widget events and forwarded input (P4). |
 | `theme.hpp` | `Theme` (tokens, part entries), `Metrics`, built-in themes, `Style`, `Kind`, `Part`, `Role` (P5, P11). |
 | `widget.hpp` | `Widget` interface, `Painter`, input and measure contexts, for app-defined widgets (P1). |
@@ -181,6 +183,8 @@ Rules:
 - Plain variables cannot be bound directly.
 - An application may implement a binding interface over its own data, or build one from a getter and a setter: `ui.widget("Speed").bind(getter, setter)`. Thread safety of such a binding is the application's responsibility.
 - What a widget **is** (range, step count, option labels) is part of its descriptor, not of the binding.
+- Numbers of every C++ type travel as `double`, enums as the index of the enumerator.
+- A descriptor only accepts sources of its widget's kind, checked by the compiler. Binding by name is checked when it runs and throws `SetupError` for a wrong kind.
 
 ### 4.6 In-panel layout (P12)
 
@@ -189,13 +193,24 @@ Rules:
 - Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget.
 - `Metrics` (padding, gaps, row heights, font sizes) is a token set next to the theme's colours. Only `layout/` and `measure()` read it. Nothing else defines sizes.
 
+### 4.6a Placing panels (R5, D25)
+
+Each panel states its own placement:
+- **`Anchor`**: the panel floats at an edge or corner of the window, on top of the background view and of the grid. Panels that share an anchor are stacked in the order they are listed.
+- **`GridCell`**: the panel fills one or more cells of the window's grid (`UISetup::grid`, equal cells).
+
+Both kinds can be mixed. Typical arrangements:
+- Simulation as background, controls floating over it: a background view plus anchored panels.
+- Simulation inside the layout: a grid, one panel with a `View` widget spanning most cells, control panels in the rest.
+- Main view plus minimap: either of the above with a second `View` widget in a small panel.
+
 ### 4.7 Views (Q3)
 
 The application's own rendering appears in views:
 - **Background view**: the whole window, behind all panels. Optional.
 - **View widget**: a region inside a panel. Any number of them (main view, minimap, ...).
 
-Both are the same thing to the app: a named view with a draw callback, set through `ui.view("name").onDraw(...)`. The renderer calls it at the right point in the draw order, with drawing clipped to the view's rectangle. The app calls `requestRedraw()` (thread-safe) when it has something new to show.
+Both are the same thing to the app: a named view with a draw callback, set through `ui.view("name").onDraw(...)`. The renderer calls it at the right point in the draw order, with drawing clipped to the view's rectangle. The app calls `UI::requestRedraw()` (thread-safe) when it has something new to show. There is one such call for the whole UI, not one per view, because a frame is always drawn as a whole.
 
 View regions are clipped to rectangles; a view cannot have rounded corners unless it is rendered to a texture first (opt-in, D7).
 
@@ -243,8 +258,7 @@ Who decides what:
 Kinds and parts are open identifiers declared by the widget, not enums owned by the template:
 
 ```cpp
-class Slider : public Widget {
-public:
+struct Slider {                       // the public descriptor type (D24)
     static constexpr Kind kind{"slider"};
     static constexpr Part Track{kind, "track", Role::Track};
     static constexpr Part Fill {kind, "fill",  Role::Accent};
@@ -296,41 +310,42 @@ The two threads share only `Param<T>` values, the command queue and the snapshot
 
 ## 7. What the application writes
 
-A sketch of the target, not final API (final in Phase 1):
+The setup part is final API (WP 1.2) and is compiled with every build in `tests/api/ui_usage.cpp`. The `App` part is a sketch until WP 1.5.
 
 ```cpp
+using namespace atpl;
+
 struct Params {
-    atpl::Param<float> speed{5.f};
-    atpl::Param<bool>  gravity{true};
+    Param<float> speed = 5.f;
+    Param<bool>  gravity = true;
 };
 
 int main() {
     Params params;
     MySimulation sim{params};
 
-    atpl::App app({
+    App app({
         .window = {.title = "Showcase", .size = {1280, 720}},
         .ui = {
-            .theme = atpl::Themes::Moon,
-            .background = "world",                       // background view
+            .background = "world",                                   // background view
             .panels = {
-                {.name = "Controls", .anchor = Anchor::TopLeft, .widgets = {
-                    Widget::Button("Reset"),
-                    Widget::Slider("Speed", params.speed, 0.f, 10.f),   // bound in the descriptor
-                    Widget::Switch("Gravity"),
+                {.name = "Controls", .placement = Anchor::TopLeft, .widgets = {
+                    Button("Reset"),
+                    Slider("Speed", params.speed, {.min = 0, .max = 10}),   // bound in the descriptor
+                    Switch("Gravity"),
                 }},
-                {.name = "Map", .anchor = Anchor::BottomRight, .widgets = {
-                    Widget::View("minimap"),
+                {.name = "Map", .placement = Anchor::BottomRight, .widgets = {
+                    View("minimap"),
                 }},
             },
         },
     });
 
-    app.ui().widget("Gravity").bind(params.gravity);     // bound by name
-    app.ui().view("world").onDraw([&](sf::RenderTarget& target) { sim.draw(target); });
-    app.ui().view("minimap").onDraw([&](sf::RenderTarget& target) { sim.drawMap(target); });
+    app.ui().widget("Gravity").bind(params.gravity);                 // bound by name
+    app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) { sim.draw(target, size); });
+    app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) { sim.drawMap(target, size); });
 
-    app.onEvent([&](const atpl::Event& event) {
+    app.onEvent([&](const Event& event) {
         if (event.isButton("Reset")) sim.commands().push(Command::Reset);
     });
 

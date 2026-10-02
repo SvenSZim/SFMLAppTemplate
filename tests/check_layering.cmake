@@ -38,9 +38,10 @@ forbid("ui must not include app" "#[ \t]*include[ \t]*\"(atpl/)?app/" IN ${ui_di
 forbid("only app starts threads" "std::(thread|jthread|async)[^_a-zA-Z0-9]" IN ${ui_dirs})
 
 # Only two files touch the window
-forbid("only ui.cpp and render/renderer.cpp may use sf::RenderWindow" "RenderWindow"
+# The public ui.hpp names the type once, in the constructor that receives the window.
+forbid("only ui.hpp, ui.cpp and render/renderer.cpp may use sf::RenderWindow" "RenderWindow"
   IN ${ui_dirs}
-  ALLOW src/ui/ui.cpp src/ui/render/renderer.cpp
+  ALLOW include/atpl/ui/ui.hpp src/ui/ui.cpp src/ui/render/renderer.cpp
 )
 
 if(violations)
