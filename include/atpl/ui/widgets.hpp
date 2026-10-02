@@ -179,10 +179,10 @@ struct Dropdown {
 
 struct GraphOptions {
     std::string label;
-    std::size_t samples = 0;   ///< How many of the newest samples are shown. 0: all the source holds.
-    std::optional<float> min;  ///< Lower end of the value axis. Empty: follows the data.
-    std::optional<float> max;  ///< Upper end of the value axis. Empty: follows the data.
-    float height = 0.f;        ///< Height in pixels before GUI scaling. 0: the theme's default.
+    std::size_t samples = 0;  ///< How many of the newest samples are shown. 0: all the source holds.
+    std::optional<float> min; ///< Lower end of the value axis. Empty: follows the data.
+    std::optional<float> max; ///< Upper end of the value axis. Empty: follows the data.
+    float height = 0.f;       ///< Height in pixels before GUI scaling. 0: the theme's default.
 };
 
 /// A line graph of a run of samples. Read-only. Kind: Series.

@@ -28,7 +28,7 @@ struct Params {
 struct Stats {
     Param<float> ticksPerSecond;
     Param<float> progress;
-    Series tickTimes{240};
+    Series tickTimes{ 240 };
 };
 
 // Data that is not a Param: reached through functions or through an own binding.

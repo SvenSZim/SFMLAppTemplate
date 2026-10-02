@@ -8,7 +8,7 @@
 namespace atpl {
 
 Version version() {
-    return {ATPL_VERSION_MAJOR, ATPL_VERSION_MINOR, ATPL_VERSION_PATCH};
+    return { ATPL_VERSION_MAJOR, ATPL_VERSION_MINOR, ATPL_VERSION_PATCH };
 }
 
 std::string_view versionString() {

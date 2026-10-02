@@ -46,8 +46,8 @@ public:
 
     // Position and size
 
-    [[nodiscard]] constexpr sf::Vector2<T> position() const { return {m_left, m_top}; }
-    [[nodiscard]] constexpr sf::Vector2<T> size() const { return {m_width, m_height}; }
+    [[nodiscard]] constexpr sf::Vector2<T> position() const { return { m_left, m_top }; }
+    [[nodiscard]] constexpr sf::Vector2<T> size() const { return { m_width, m_height }; }
 
     constexpr void setPosition(sf::Vector2<T> position) {
         m_left = position.x;
@@ -61,11 +61,13 @@ public:
 
     // Points
 
-    [[nodiscard]] constexpr sf::Vector2<T> topLeft() const { return {left(), top()}; }
-    [[nodiscard]] constexpr sf::Vector2<T> topRight() const { return {right(), top()}; }
-    [[nodiscard]] constexpr sf::Vector2<T> bottomLeft() const { return {left(), bottom()}; }
-    [[nodiscard]] constexpr sf::Vector2<T> bottomRight() const { return {right(), bottom()}; }
-    [[nodiscard]] constexpr sf::Vector2<T> center() const { return {m_left + m_width / T{2}, m_top + m_height / T{2}}; }
+    [[nodiscard]] constexpr sf::Vector2<T> topLeft() const { return { left(), top() }; }
+    [[nodiscard]] constexpr sf::Vector2<T> topRight() const { return { right(), top() }; }
+    [[nodiscard]] constexpr sf::Vector2<T> bottomLeft() const { return { left(), bottom() }; }
+    [[nodiscard]] constexpr sf::Vector2<T> bottomRight() const { return { right(), bottom() }; }
+    [[nodiscard]] constexpr sf::Vector2<T> center() const {
+        return { m_left + m_width / T{ 2 }, m_top + m_height / T{ 2 } };
+    }
 
     /// Whether the point lies inside. The left and top edges count as inside, the right and
     /// bottom edges do not, so two rectangles that share an edge never both contain a point.
@@ -75,23 +77,23 @@ public:
 
     /// The rectangle moved inwards by `delta` on every side (outwards if negative).
     [[nodiscard]] constexpr Rect inset(T delta) const {
-        return {m_left + delta, m_top + delta, m_width - delta * T{2}, m_height - delta * T{2}};
+        return { m_left + delta, m_top + delta, m_width - delta * T{ 2 }, m_height - delta * T{ 2 } };
     }
 
-    [[nodiscard]] constexpr sf::Rect<T> toSFMLRect() const { return {position(), size()}; }
+    [[nodiscard]] constexpr sf::Rect<T> toSFMLRect() const { return { position(), size() }; }
 
     // Arithmetic per component
 
     [[nodiscard]] constexpr Rect operator+(const Rect& other) const {
-        return {m_left + other.m_left, m_top + other.m_top, m_width + other.m_width, m_height + other.m_height};
+        return { m_left + other.m_left, m_top + other.m_top, m_width + other.m_width, m_height + other.m_height };
     }
 
     [[nodiscard]] constexpr Rect operator-(const Rect& other) const {
-        return {m_left - other.m_left, m_top - other.m_top, m_width - other.m_width, m_height - other.m_height};
+        return { m_left - other.m_left, m_top - other.m_top, m_width - other.m_width, m_height - other.m_height };
     }
 
     [[nodiscard]] constexpr Rect operator*(T scalar) const {
-        return {m_left * scalar, m_top * scalar, m_width * scalar, m_height * scalar};
+        return { m_left * scalar, m_top * scalar, m_width * scalar, m_height * scalar };
     }
 
     /// Scales every component by a ratio; the form `Interpolated` uses.
