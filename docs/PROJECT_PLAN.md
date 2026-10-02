@@ -79,6 +79,7 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D24 | 2026-10-02 | Each widget has one public type, its descriptor: `atpl::Slider("Speed", params.speed, {.min = 0, .max = 10})`. It also carries the widget's parts for theming (`Slider::Ticks`). `Widget` is the interface widget types implement; the implementing classes are internal. Replaces the `Widget::Slider(...)` spelling of earlier sketches. | Accepted |
 | D25 | 2026-10-02 | Placement is stated per panel: an `Anchor` (floating at a window edge or corner) or a `GridCell` (cells of a window-wide grid). Both can be mixed in one UI. There is no UI-wide layout mode. | Accepted |
 | D26 | 2026-10-02 | The window is created and owned by the app layer; the UI is constructed with a reference to it. Window settings belong to the app layer. | Accepted |
+| D27 | 2026-10-02 | UI setup API as declared in `include/atpl/ui/` (WP 1.2). Options are structs with designated initializers; a widget's label defaults to its name. Numbers travel as `double` (exact up to 2^53; larger 64-bit values are bound as text), enums as the enumerator's index; writing back rounds and clamps. A descriptor rejects a wrong kind at compile time, binding by name at run time with `SetupError`. `requestRedraw()` exists on `UI` only. A view draws through `void(sf::RenderTarget&, sf::Vector2f size)`. Eight anchors; equal window grid cells. Widgets inside a panel: placed automatically into `PanelSetup::columns` columns (default 1) when no widget has a position, or every widget by `GridCell` through `at(cell, widget)`; mixing both in one panel is an error. | Accepted |
 
 ### Open questions
 
@@ -239,6 +240,6 @@ Each phase ends with something that runs.
 - **Phase 0 is done.** The new structure is in place: targets `atpl_core`, `atpl_ui`, `atpl_app`; easing and animated values in `core`; rect and widget packing in `ui`; resources next to the executable in `app`; the `minimal` example; 43 tests.
 - CI on every pull request: format check, Linux with GCC (release, all tests including the window smoke test on a virtual display), Linux with Clang (debug, AddressSanitizer and UndefinedBehaviorSanitizer), Windows with MSVC (informational).
 - No old code is left in the tree.
-- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 1.2 (setup, descriptors, handles, bindings, the `UI` facade) is written and waits for review. WP 2.1 (shape tessellation) can be started independently.
+- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 1.2 (setup, descriptors, handles, bindings, the `UI` facade) is done and agreed (D24–D27). WP 2.1 (shape tessellation) can be started independently.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

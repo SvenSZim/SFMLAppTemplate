@@ -94,7 +94,8 @@ The exact utility list for the first version is Q5.
 | `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `requestRedraw()` (any thread); events (WP 1.3). |
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
-| `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`, `Placement` = `Anchor` or `GridCell` (D25). |
+| `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`. |
+| `placement.hpp` | `Anchor`, `GridCell`, `Placement` (D25). `GridCell` is used for panels in the window and for widgets in a panel (D27). |
 | `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `View` (D24). `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
@@ -183,13 +184,17 @@ Rules:
 - Plain variables cannot be bound directly.
 - An application may implement a binding interface over its own data, or build one from a getter and a setter: `ui.widget("Speed").bind(getter, setter)`. Thread safety of such a binding is the application's responsibility.
 - What a widget **is** (range, step count, option labels) is part of its descriptor, not of the binding.
-- Numbers of every C++ type travel as `double`, enums as the index of the enumerator.
+- Numbers of every C++ type travel as `double`, enums as the index of the enumerator. Exact for `float`, for integers up to 32 bits and for 64-bit integers up to 2^53; larger 64-bit values are bound as text to be shown exactly. Writing back rounds integers and clamps to the type's range (`numberTo<T>`).
 - A descriptor only accepts sources of its widget's kind, checked by the compiler. Binding by name is checked when it runs and throws `SetupError` for a wrong kind.
 
 ### 4.6 In-panel layout (P12)
 
 - A widget reports the size it wants through `measure()`, given the available width and the `Metrics`.
-- `layout/` packs the widgets of a panel according to the panel's inner layout mode (vertical, two or three columns; `packing.hpp`) and assigns each widget its rectangle in panel-local coordinates. A widget never positions itself.
+- A panel has a number of equal columns (`PanelSetup::columns`, default 1). Its widgets are placed in one of two ways, chosen per panel (D27):
+  - **Automatic**: no widget has a position. `layout/` packs them top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
+  - **By cell**: every widget has a `GridCell` in the panel's grid, given with `at(cell, widget)`, with column and row spans. Rows are as high as their highest widget.
+  - A mix of both in one panel is a `SetupError`.
+- Either way, `layout/` assigns each widget its rectangle in panel-local coordinates. A widget never positions itself.
 - Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget.
 - `Metrics` (padding, gaps, row heights, font sizes) is a token set next to the theme's colours. Only `layout/` and `measure()` read it. Nothing else defines sizes.
 

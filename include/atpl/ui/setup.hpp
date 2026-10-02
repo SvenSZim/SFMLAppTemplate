@@ -1,9 +1,9 @@
 #pragma once
 
+#include "atpl/ui/placement.hpp"
 #include "atpl/ui/widgets.hpp"
 
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace atpl {
@@ -19,34 +19,6 @@ namespace atpl {
 // A duplicate name, a name containing '/', or a lookup of a name that does not exist or is
 // ambiguous throws `SetupError`.
 
-/// Where a floating panel sits: at an edge or corner of the window, on top of the background
-/// and of the grid.
-///
-/// Panels that share an anchor are stacked in the order they are listed: downwards from a top
-/// anchor, upwards from a bottom anchor. `Left` and `Right` centre their stack vertically.
-enum class Anchor {
-    TopLeft,
-    Top,
-    TopRight,
-    Left,
-    Right,
-    BottomLeft,
-    Bottom,
-    BottomRight,
-};
-
-/// Where a panel sits in the window's grid. The grid divides the window into `GridSetup::columns`
-/// by `GridSetup::rows` equal cells; a panel fills the cells it spans.
-struct GridCell {
-    int column = 0;
-    int row = 0;
-    int columnSpan = 1;
-    int rowSpan = 1;
-};
-
-/// A panel either floats at an anchor or fills grid cells. Both kinds can be used in one UI.
-using Placement = std::variant<Anchor, GridCell>;
-
 /// The window's grid. Only matters if at least one panel is placed in a `GridCell`.
 struct GridSetup {
     int columns = 1;
@@ -59,7 +31,7 @@ struct PanelSetup {
     std::string title; ///< Shown in the header. Empty: the name.
     Placement placement = Anchor::TopLeft;
 
-    /// Number of columns the widgets are packed into, 1 to 3.
+    /// Number of equal columns in the panel, at least 1. See `widgets` for how they are used.
     int columns = 1;
 
     /// Width of a floating panel in pixels before GUI scaling. 0: the theme's default.
@@ -69,6 +41,25 @@ struct PanelSetup {
     bool collapsible = true; ///< Whether the user can fold the panel down to its header.
     bool collapsed = false;  ///< Whether it starts folded.
 
+    /// The panel's widgets. There are two ways to place them, chosen per panel:
+    ///
+    /// - Automatic: list the widgets. They are packed top to bottom into `columns` columns of
+    ///   balanced height, in the order given.
+    ///
+    ///       .columns = 2,
+    ///       .widgets = { Slider("Speed"), Slider("Size"), Switch("Gravity") },
+    ///
+    /// - By cell: give every widget its position in the panel's grid with `at(...)`.
+    ///
+    ///       .columns = 2,
+    ///       .widgets = {
+    ///           at({.column = 0, .row = 0}, Slider("Speed")),
+    ///           at({.column = 1, .row = 0}, Slider("Size")),
+    ///           at({.row = 1, .columnSpan = 2}, Graph("Tick time")),
+    ///       },
+    ///
+    /// Either every widget of a panel has a position or none has. A mix, a cell outside the
+    /// panel's columns, or two widgets on the same cell throws `SetupError`.
     std::vector<WidgetSetup> widgets;
 };
 

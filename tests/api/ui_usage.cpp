@@ -73,6 +73,7 @@ UISetup makeSetup(Params& params, Stats& stats, VolumeBinding& volume) {
             {
                 .name = "Controls",
                 .placement = Anchor::TopLeft,
+                // Widgets placed automatically: one column, in the order listed.
                 .widgets = {
                     Button("Reset"),
                     Slider("Speed", params.speed, {.min = 0.0, .max = 10.0}),
@@ -89,11 +90,15 @@ UISetup makeSetup(Params& params, Stats& stats, VolumeBinding& volume) {
                 .placement = Anchor::BottomLeft,
                 .columns = 2,
                 .collapsed = true,
+                // Every widget placed by cell: two values side by side, wide widgets below.
                 .widgets = {
-                    TextDisplay("Ticks/s", stats.ticksPerSecond, {.format = "{:.1f}"}),
-                    ProgressBar("Progress", stats.progress),
-                    Graph("Tick time", stats.tickTimes, {.label = "Tick time (ms)", .min = 0.f}),
-                    NetworkView{.name = "Network", .layers = 4},
+                    at({.column = 0, .row = 0}, TextDisplay("Ticks/s", stats.ticksPerSecond, {.format = "{:.1f}"})),
+                    at({.column = 1, .row = 0}, ProgressBar("Progress", stats.progress)),
+                    at(
+                        {.row = 1, .columnSpan = 2},
+                        Graph("Tick time", stats.tickTimes, {.label = "Tick time (ms)", .min = 0.f})
+                    ),
+                    at({.row = 2, .columnSpan = 2}, NetworkView{.name = "Network", .layers = 4}),
                 },
             },
             // A panel in the grid: the two right-hand columns of the upper row hold a minimap.

@@ -3,6 +3,7 @@
 #include "atpl/core/param.hpp"
 #include "atpl/core/series.hpp"
 #include "atpl/ui/binding.hpp"
+#include "atpl/ui/placement.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -232,6 +233,17 @@ public:
     WidgetSetup(D descriptor);
 
     [[nodiscard]] std::string_view name() const;
+
+    /// The widget's position in its panel's grid, if it was given one with `at`.
+    [[nodiscard]] std::optional<GridCell> cell() const;
 };
+
+/// Gives a widget a position in its panel's grid:
+///
+///     at({.column = 1, .row = 0}, Slider("Size", params.size))
+///     at({.row = 1, .columnSpan = 2}, Graph("Tick time", stats.tickTimes))
+///
+/// See `PanelSetup::widgets` for the rules.
+[[nodiscard]] WidgetSetup at(GridCell cell, WidgetSetup widget);
 
 } // namespace atpl
