@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure and all design decisions are settled. The repository currently contains the skeleton of the new structure (Phase 0) and the first utilities; the UI itself is not implemented yet. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure is in place and the public API is agreed and declared (Phases 0 and 1). The implementation behind it follows in Phases 2 to 4; until then `examples/starter` shows how an application is written, and `examples/minimal` is what actually runs. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 

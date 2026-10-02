@@ -85,6 +85,7 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D30 | 2026-10-02 | Widget, painter and theme API as declared in `atpl/ui/widget.hpp` and `theme.hpp` (WP 1.4). A widget never sees its binding: it keeps its own value, is handed new ones through `setValue`, and reports user changes through its context. `handleInput` gets the same `Event` types as the application. `measure` answers with a height for the offered width. Hidden parts are skipped by the painter. The UI tracks hover, press, focus and disabled; widgets add `Active`. Nine roles: five for shapes, and four text types (`Title`, `Heading`, `Text`, `MutedText`). Tokens in four groups: palette, shape, metrics, typography (a size and a font per text type). Part entries set only the named fields, including a font. The theme is part of `UISetup` and replaceable through `UI::setTheme`. New widget `Paragraph` with optional heading, body and footer. | Accepted |
 | D31 | 2026-10-02 | A seventh internal module, `ui/binding/`, owns bindings: the adapters and the syncing in both directions. The binding itself is a field of the widget's slot; there is no separate table. Refines the structure of D14. | Accepted |
 | D32 | 2026-10-02 | App and simulation API as declared in `include/atpl/app/` (WP 1.5). A simulation derives from `Simulation<State, Command>` and implements `tick`, `onCommand` and `writeState`; the base class owns the command queue and the state exchange, and `App::run(simulation)` runs it on its own thread. Its controls (`paused`, `speed`, `unlimited`, `tickRate`, and measurements) are `Param`s that widgets bind to; `step()` runs single ticks. The step size is fixed at `1 / tickRate`. Commands are handled while paused. `writeState` runs at most once per drawn frame, and once more on pause or stop. An exception in the simulation is rethrown on the main thread. `App` owns the window (`WindowSetup`, including a minimum size), quits on window close by default, and offers `onEvent` and `onUpdate`. `Camera` is an optional pan-and-zoom helper for one view. | Accepted |
+| D33 | 2026-10-02 | Results of the API walk-through (WP 1.6). `Simulation::state()` returns the same state for a whole pass of the application's loop: the newest one published when the pass began, so all views of a frame show the same moment. `Camera::visibleArea()` is added. `examples/starter` is the reference application for the API; `examples/minimal` stays the runnable smoke test until the API is implemented. With this, the public API of Phase 1 is signed off. | Accepted |
 
 ### Open questions
 
@@ -192,9 +193,9 @@ Each phase ends with something that runs.
 
 **Done when:** build and tests are green locally and in CI, and the `minimal` example runs.
 
-### Phase 1 — App-facing API
+### Phase 1 — App-facing API (done 2026-10-02)
 - Write the public headers only: setup, widget descriptors, widget, view and panel handles (P2, D12), `Param<T>` (D10), the event type and stream (P4, D15), the command queue (D11), simulation hooks.
-- Write the example `main.cpp` against them.
+- Write the reference application `examples/starter` against them.
 
 **Done when:** the example compiles against the headers and the API is agreed. Everything below is built to fit it.
 
@@ -245,9 +246,9 @@ Each phase ends with something that runs.
 
 ## 7. Current state (2026-10-02)
 
-- **Phase 0 is done.** The new structure is in place: targets `atpl_core`, `atpl_ui`, `atpl_app`; easing and animated values in `core`; rect and widget packing in `ui`; resources next to the executable in `app`; the `minimal` example; 43 tests.
-- CI on every pull request: format check, Linux with GCC (release, all tests including the window smoke test on a virtual display), Linux with Clang (debug, AddressSanitizer and UndefinedBehaviorSanitizer), Windows with MSVC (informational).
-- No old code is left in the tree.
-- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 1.2 (setup, descriptors, handles, bindings, the `UI` facade) is done and agreed (D24–D27). WP 1.3 (events) is done and agreed (D29). WP 1.4 (widget interface, painter, theme) is done and agreed (D30, D31). WP 1.5 (app, simulation, camera) is done and agreed (D32). Remaining in Phase 1: WP 1.6, the minimal example against the full API. WP 2.1 (shape tessellation) can be started independently.
+- **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
+- **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
+- Tests: 67, of which one opens a window.
+- Next, in any order: Phase 2 (render pipeline) starting with WP 2.1 (shapes) and WP 2.2 (theme core); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).
