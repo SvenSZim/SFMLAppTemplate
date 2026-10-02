@@ -1,6 +1,7 @@
 #pragma once
 
 #include "atpl/ui/placement.hpp"
+#include "atpl/ui/theme.hpp"
 #include "atpl/ui/widgets.hpp"
 
 #include <string>
@@ -23,6 +24,16 @@ namespace atpl {
 struct GridSetup {
     int columns = 1;
     int rows = 1;
+};
+
+/// The parts of a panel, for theming: `theme[Panel::Outline].thickness = 2.f;`.
+struct Panel {
+    static constexpr Kind kind{ "panel" };
+    static constexpr Part Background{ kind, "background", Role::Surface };
+    static constexpr Part Outline{ kind, "outline", Role::Line, Shown::No };
+    static constexpr Part Header{ kind, "header", Role::Surface };
+    static constexpr Part Title{ kind, "title", Role::Title };
+    static constexpr Part Scrollbar{ kind, "scrollbar", Role::Handle };
 };
 
 /// One panel: a titled card with widgets.
@@ -75,6 +86,9 @@ struct PanelSetup {
 
 /// The whole UI.
 struct UISetup {
+    /// How everything looks. See theme.hpp.
+    Theme theme;
+
     /// Name of the background view: a view that fills the window behind all panels.
     /// Empty: no background view. Draw into it through `UI::view(name)`.
     std::string background;

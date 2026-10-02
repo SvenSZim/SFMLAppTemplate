@@ -38,6 +38,7 @@ atpl_add_tests(ui
   ui/test_event.cpp
   ui/test_packing.cpp
   ui/test_rect.cpp
+  ui/test_theme.cpp
 )
 atpl_add_tests(app
   app/test_resources.cpp
@@ -68,6 +69,7 @@ add_library(atpl_api_check OBJECT
   api/core_usage.cpp
   api/event_usage.cpp
   api/ui_usage.cpp
+  api/widget_usage.cpp
 )
 target_link_libraries(atpl_api_check PRIVATE atpl::app)
 atpl_target_defaults(atpl_api_check)
