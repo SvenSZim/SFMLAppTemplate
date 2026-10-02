@@ -37,17 +37,17 @@ TEST_CASE("plain text decodes to its characters", "[ui][text]") {
 }
 
 TEST_CASE("characters of two, three and four bytes decode to one code point each", "[ui][text]") {
-    REQUIRE(decodeUtf8("\xC3\xA4") == U"ä");                  // ä
-    REQUIRE(decodeUtf8("\xE2\x80\xA6") == U"…");              // …
+    REQUIRE(decodeUtf8("\xC3\xA4") == U"\u00E4");             // a-umlaut
+    REQUIRE(decodeUtf8("\xE2\x80\xA6") == U"\u2026");         // the ellipsis
     REQUIRE(decodeUtf8("\xF0\x9F\x98\x80") == U"\U0001F600"); // an emoji
-    REQUIRE(decodeUtf8("a\xC3\xA4z") == U"aäz");
+    REQUIRE(decodeUtf8("a\xC3\xA4z") == U"a\u00E4z");
 }
 
 TEST_CASE("bytes that are not valid text become the replacement character", "[ui][text]") {
-    REQUIRE(decodeUtf8("a\xFFz") == U"a�z");
-    REQUIRE(decodeUtf8("\xC3") == U"�");     // cut off in the middle of a character
-    REQUIRE(decodeUtf8("\xC3(") == U"�(");   // a start byte followed by something else
-    REQUIRE(decodeUtf8("\x80").size() == 1); // a continuation byte on its own
+    REQUIRE(decodeUtf8("a\xFFz") == U"a\uFFFDz");
+    REQUIRE(decodeUtf8("\xC3") == U"\uFFFD");   // cut off in the middle of a character
+    REQUIRE(decodeUtf8("\xC3(") == U"\uFFFD("); // a start byte followed by something else
+    REQUIRE(decodeUtf8("\x80").size() == 1);    // a continuation byte on its own
 }
 
 // ----- Measuring -----
@@ -70,12 +70,12 @@ TEST_CASE("text that fits is left alone", "[ui][text]") {
 TEST_CASE("text that is too wide ends in an ellipsis and then fits", "[ui][text]") {
     const std::u32string result = elide(U"hello world", 60.f, fixed);
 
-    REQUIRE(result == U"hello…"); // five characters and the ellipsis: 60
+    REQUIRE(result == U"hello\u2026"); // five characters and the ellipsis: 60
     REQUIRE(lineWidth(result, fixed) <= 60.f);
 }
 
 TEST_CASE("no space is left hanging before the ellipsis", "[ui][text]") {
-    REQUIRE(elide(U"hello world", 70.f, fixed) == U"hello…"); // not "hello …"
+    REQUIRE(elide(U"hello world", 70.f, fixed) == U"hello\u2026"); // no space between "hello" and the ellipsis
 }
 
 TEST_CASE("the ellipsis can be given, for fonts that lack the character", "[ui][text]") {
@@ -87,7 +87,7 @@ TEST_CASE("the ellipsis can be given, for fonts that lack the character", "[ui][
 
 TEST_CASE("where not even the ellipsis fits, nothing is shown", "[ui][text]") {
     REQUIRE(elide(U"hello", 5.f, fixed).empty());
-    REQUIRE(elide(U"hello", 10.f, fixed) == U"…"); // room for the ellipsis alone
+    REQUIRE(elide(U"hello", 10.f, fixed) == U"\u2026"); // room for the ellipsis alone
 }
 
 // ----- Wrapping -----

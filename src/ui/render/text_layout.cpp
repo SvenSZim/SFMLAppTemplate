@@ -6,7 +6,7 @@ namespace atpl::render {
 
 namespace {
 
-constexpr char32_t replacement = U'�';
+constexpr char32_t replacement = U'\uFFFD';
 
 } // namespace
 

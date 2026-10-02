@@ -22,7 +22,7 @@ namespace {
 
     if (!run.wrapped) {
         // Not every font has the ellipsis character; three dots do the same job.
-        const std::u32string_view ellipsis = run.font->hasGlyph(U'…') ? U"…" : U"...";
+        const std::u32string_view ellipsis = run.font->hasGlyph(U'\u2026') ? U"\u2026" : U"...";
         const std::u32string line = elide(text, run.rect.width(), advance, ellipsis);
         widestLine = lineWidth(line, advance);
         return sf::String(line);

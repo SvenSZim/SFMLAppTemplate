@@ -49,6 +49,7 @@ Names say what a thing is, not how it is implemented. No abbreviations beyond th
 - Include order (the formatter sorts it): own header, project headers, SFML, other libraries, standard library.
 - A header includes what it uses and nothing more. Prefer forward declarations in headers.
 - No `using namespace` and no `using` declarations at namespace scope in headers.
+- Source files are plain ASCII. Characters beyond it are written as escapes in code (`U"\u2026"`) and spelled out in comments. Not every compiler reads source files as UTF-8 by default; `tools/format.sh --check` reports violations.
 
 ## 4. Language rules
 

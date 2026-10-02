@@ -26,7 +26,7 @@ using Advance = std::function<float(char32_t previous, char32_t current)>;
 /// with `ellipsis`, followed by the ellipsis. Trailing spaces before the ellipsis are dropped.
 /// If not even the ellipsis fits, the result is empty.
 [[nodiscard]] std::u32string
-elide(std::u32string_view text, float maxWidth, const Advance& advance, std::u32string_view ellipsis = U"…");
+elide(std::u32string_view text, float maxWidth, const Advance& advance, std::u32string_view ellipsis = U"\u2026");
 
 /// The text broken into lines no wider than `maxWidth`.
 ///
