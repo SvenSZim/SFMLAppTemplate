@@ -126,7 +126,7 @@ Files:
 ```
 src/ui/
 ├─ ui.cpp     frame_loop.hpp/.cpp
-├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp
+├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
 ├─ input/    input_system.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   layout_manager.hpp/.cpp  floating.cpp  grid.cpp  packing.hpp
@@ -141,20 +141,26 @@ src/ui/
 
 ### 4.3 The model
 
-- **Panel**: name (unique, Q8), placement, collapsed/expanded and hovered state (P7), ordered list of widgets, one dirty flag.
+The model is one `Store`, built once from the `UISetup`. Nothing is added or removed afterwards.
+
+- **Panel**: name (unique, Q8), title, placement, columns, its three colours, collapsed, visible and hovered state (P7), its rectangle, its widgets, one dirty flag.
 - **Widget slot**: what the framework keeps for every widget, whatever its type.
 
   | Field | Written by |
   |---|---|
-  | name, panel | model (at setup) |
-  | rectangle (panel-local), visible | layout |
+  | name, panel, grid cell, colours, the widget object, its view | model (at setup) |
+  | rectangle (in the panel's content), visible | layout |
   | hovered, pressed, focused | input |
-  | binding, and the revision last seen | app, through `WidgetHandle::bind`; kept in step by `binding/` |
-  | the widget object itself | model (at setup) |
+  | enabled | app, through `WidgetHandle::setEnabled` |
+  | binding, and the revision last seen | app, through `WidgetHandle::bind` or the descriptor; kept in step by `binding/` |
 
-- **Widget object**: an implementation of the `Widget` interface. It holds only type-specific state (slider value, animation progress, dropdown open).
-- **Ids** are dense indices, so every lookup by id is a direct array access. Names are resolved to ids once, when a handle is requested.
-- **Names**: panel names are unique; widget names are unique per panel. `"Speed"` works if it is unique in the whole UI, otherwise `"Controls/Speed"`. Duplicates and unknown names fail loudly (Q8).
+- **View**: name, the view widget it belongs to (none for the background view), its rectangle (layout), its draw function (app).
+- **Widget object**: an implementation of the `Widget` interface. It holds only type-specific state (slider value, animation progress, dropdown open). It is made by its descriptor's `create()`, once.
+- **Ids** are dense indices, so every lookup by id is a direct array access: panels in the order of the setup; widgets panel by panel, so a panel's widgets are a row of slots; views with the background view first. Names are resolved to ids once, when a handle is requested.
+- **Names** (`NameIndex`): panel names are unique; widget names are unique per panel; view names are unique among views. `"Speed"` works if it is unique in the whole UI, otherwise `"Controls/Speed"`. A name must not be empty or contain `/`. Duplicates, unknown and ambiguous names fail loudly (Q8), with a message that names the offender and, where it helps, what would have been right: the existing panels, or the `"Panel/Name"` forms to choose from.
+- **Colours**: a panel's `main1`, `main2` and `accent` are indices into the theme. A widget's colours are its panel's with the fields of its `colored(...)` override replacing them, worked out once at setup. `Store::requireColors(theme)` throws for an index the theme does not have; it runs when the store is built and before a theme replaces another.
+- **The dirty flag** of a panel is set by whoever changes how the panel looks (input, bindings, layout). The facade takes the flags before drawing and marks the panels' batches; render never writes to the model.
+- **What the setup hands over** (`WidgetSetup`): the name, the grid cell from `at(...)`, the colours from `colored(...)`, and the descriptor itself to make the widget from. Two optional members of a descriptor are picked up by name, for built-in and app-defined widgets alike (D39): `binding` (a `std::optional<AnyBinding>`) is what the widget is bound to from the start, and `static constexpr bool isView = true` makes the widget a view.
 
 ### 4.4 The widget interface (P1, D30)
 
