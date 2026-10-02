@@ -7,6 +7,7 @@ add_library(atpl_ui STATIC
   render/font_measurer.cpp
   render/painter.cpp
   render/panel_batch.cpp
+  render/profiler.cpp
   render/renderer.cpp
   render/shapes.cpp
   render/text_cache.cpp

@@ -52,6 +52,18 @@ public:
     /// Replaces the theme. Everything is laid out and drawn anew with the next frame.
     void setTheme(Theme theme);
 
+    // Measuring.
+
+    /// Shows or hides the profiler readout: a small panel on top of everything that says what
+    /// the UI costs. Frames per second, the time spent painting panels and handing them to the
+    /// graphics card, draw calls, and how much was painted anew.
+    ///
+    /// The readout refreshes a few times per second and only when its numbers change, so an idle
+    /// application stays idle with it on. There is no key for it: the application decides when
+    /// to show it, for example in its `KeyPressed` handler.
+    void setProfilerVisible(bool visible);
+    [[nodiscard]] bool isProfilerVisible() const;
+
     // One frame, in this order.
 
     /// Reads the window's pending input. Widgets react, bound values are written, and events

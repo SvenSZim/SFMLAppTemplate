@@ -30,6 +30,9 @@ endfunction()
 
 # Tests of a layer that draw and look at the result. They need a display (a virtual one will
 # do) and carry the label "display": `ctest -LE display` leaves them out.
+# They never run at the same time, even with `ctest -j`: windows that open side by side take the
+# focus from each other, which asks for frames the tests do not expect, and disturb each
+# other's timing.
 function(atpl_add_display_tests layer)
   set(target atpl_${layer}_display_tests)
   add_executable(${target} ${ARGN})
@@ -39,7 +42,7 @@ function(atpl_add_display_tests layer)
   catch_discover_tests(${target}
     TEST_PREFIX "${layer}.display."
     WORKING_DIRECTORY $<TARGET_FILE_DIR:${target}>
-    PROPERTIES LABELS display
+    PROPERTIES LABELS display RESOURCE_LOCK display
   )
 endfunction()
 
@@ -55,6 +58,7 @@ atpl_add_tests(ui
   ui/test_packing.cpp
   ui/test_painter.cpp
   ui/test_panel_batch.cpp
+  ui/test_profiler.cpp
   ui/test_rect.cpp
   ui/test_shapes.cpp
   ui/test_text_layout.cpp
@@ -66,6 +70,7 @@ atpl_add_tests(app
 )
 atpl_add_display_tests(ui
   ui/display/test_frame_loop.cpp
+  ui/display/test_profiler_overlay.cpp
   ui/display/test_renderer.cpp
   ui/display/test_text.cpp
 )
@@ -73,6 +78,17 @@ atpl_add_display_tests(ui
 atpl_copy_resources(atpl_ui_display_tests)
 # The resource tests load the real font, so they need the resources next to their executable.
 atpl_copy_resources(atpl_app_tests)
+
+# Measures the render pipeline on a scene of a hundred widgets; see docs/PROJECT_PLAN.md 5.5.
+# As a test it runs for a few frames only: the times mean nothing then, but it checks that an
+# idle scene draws no frames and that shapes take at most two draw calls per panel.
+add_executable(atpl_render_bench bench/render_bench.cpp)
+target_link_libraries(atpl_render_bench PRIVATE atpl::app)
+target_include_directories(atpl_render_bench PRIVATE ${PROJECT_SOURCE_DIR}/src)
+atpl_target_defaults(atpl_render_bench)
+atpl_copy_resources(atpl_render_bench)
+add_test(NAME bench.render COMMAND atpl_render_bench --frames 20 --idle-ms 300)
+set_tests_properties(bench.render PROPERTIES LABELS display RESOURCE_LOCK display TIMEOUT 60)
 
 # Every public header must compile when it is the only thing included, and the usage shown in
 # tests/api must keep compiling. Both are checked by building, not by running: this target is

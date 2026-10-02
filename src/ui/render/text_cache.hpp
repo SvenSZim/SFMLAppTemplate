@@ -32,7 +32,7 @@ public:
     void forget(const DrawList& layer);
 
     /// How many text objects have been built or rebuilt so far. For tests and for the profiler.
-    [[nodiscard]] std::size_t buildCount() const { return m_buildCount; }
+    [[nodiscard]] std::size_t buildCount() const override { return m_buildCount; }
 
 private:
     struct Entry {

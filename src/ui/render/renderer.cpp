@@ -1,5 +1,7 @@
 #include "ui/render/renderer.hpp"
 
+#include "ui/render/profiler.hpp"
+
 #include <SFML/Graphics/PrimitiveType.hpp>
 #include <SFML/Graphics/RenderStates.hpp>
 #include <SFML/Graphics/View.hpp>
@@ -54,23 +56,66 @@ std::optional<FrameStats> Renderer::present(
         needed = true;
     }
 
+    // The readout comes last: whether it alone is the reason for this frame matters below.
+    const bool neededByUI = needed;
+    if (m_profiler != nullptr) {
+        m_profiler->refresh(Profiler::Clock::now());
+        // Also when the readout was just switched off: it has to disappear from the screen.
+        if (m_profiler->batch().takeChanged()) {
+            needed = true;
+        }
+    }
+
     if (!needed) {
         ++m_framesSkipped;
+        if (m_profiler != nullptr) {
+            m_profiler->frameSkipped();
+        }
         return std::nullopt;
     }
 
-    window.clear(background);
     FrameStats stats;
-    for (const PanelBatch* batch : panels) {
-        if (batch != nullptr) {
-            drawBatch(window, *batch, stats);
+    std::size_t rebuilds = 0;
+    const std::size_t textsBefore = m_textRenderer != nullptr ? m_textRenderer->buildCount() : 0;
+    {
+        const Profiler::Scope submit(m_profiler, Profiler::Section::Submit);
+        window.clear(background);
+        for (const PanelBatch* batch : panels) {
+            if (batch != nullptr) {
+                drawBatch(window, *batch, stats);
+                rebuilds += batch->rebuildCount();
+            }
+        }
+        if (overlay != nullptr) {
+            drawBatch(window, *overlay, stats);
+            rebuilds += overlay->rebuildCount();
         }
     }
-    if (overlay != nullptr) {
-        drawBatch(window, *overlay, stats);
+    const std::size_t textsBuilt = m_textRenderer != nullptr ? m_textRenderer->buildCount() - textsBefore : 0;
+
+    // The readout is drawn outside of what is measured and counted: it shows what the UI costs,
+    // not what it costs itself.
+    if (m_profiler != nullptr) {
+        FrameStats ownStats;
+        drawBatch(window, m_profiler->batch(), ownStats);
     }
-    window.display();
+    {
+        const Profiler::Scope show(m_profiler, Profiler::Section::Show);
+        window.display();
+    }
     ++m_framesDrawn;
+
+    if (m_profiler != nullptr) {
+        // Rebuilds are counted by the batches; the difference to the last frame is this frame's.
+        // A different list of panels can make the sum smaller: then nothing is reported.
+        const std::size_t panelsRebuilt = rebuilds > m_rebuildsSeen ? rebuilds - m_rebuildsSeen : 0;
+        if (neededByUI) {
+            m_profiler->frameDrawn(stats, panelsRebuilt, textsBuilt);
+        } else {
+            m_profiler->dropFrame();
+        }
+    }
+    m_rebuildsSeen = rebuilds;
     return stats;
 }
 
@@ -113,7 +158,9 @@ void Renderer::drawLayer(
     }
 
     if (m_textRenderer != nullptr && !layer.texts().empty()) {
-        stats.drawCalls += m_textRenderer->draw(target, states, layer);
+        const std::size_t calls = m_textRenderer->draw(target, states, layer);
+        stats.drawCalls += calls;
+        stats.textCalls += calls;
     }
 }
 

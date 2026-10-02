@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure is in place and the public API is agreed and declared (Phases 0 and 1). The implementation behind it follows in Phases 2 to 4; until then `examples/starter` shows how an application is written, and `examples/minimal` is what actually runs. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure is in place, the public API is agreed and declared, and the render pipeline is built and measured (Phases 0 to 2). Widgets, input and the simulation layer follow in Phases 3 and 4; until then `examples/starter` shows how an application is written, and `examples/minimal` is what actually runs. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
@@ -39,9 +39,11 @@ cmake --build build
 ctest --test-dir build
 ```
 
-One test opens a window for a moment. On a machine without a display, leave it out with `ctest --test-dir build -LE display`.
+Some tests open a window for a moment or draw off-screen. On a machine without a display, leave them out with `ctest --test-dir build -LE display`.
 
 Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with one line of text that closes with Escape.
+
+`build/bin/atpl_render_bench` measures what the UI's rendering costs on a scene of 100 widgets; the results for the reference machine are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md#55-targets-and-what-was-measured).
 
 The build copies `resources/` to `build/bin/resources/`. Applications look for their resources next to the executable, not in the working directory, so they can be started from anywhere.
 

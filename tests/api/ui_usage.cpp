@@ -156,4 +156,10 @@ void newStateAvailable(UI& ui) {
     ui.requestRedraw();
 }
 
+// The profiler readout is off unless the setup or the application switches it on, for example
+// when a key is pressed.
+void toggleProfiler(UI& ui) {
+    ui.setProfilerVisible(!ui.isProfilerVisible());
+}
+
 } // namespace ui_usage

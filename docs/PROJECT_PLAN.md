@@ -90,6 +90,7 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D35 | 2026-10-02 | Widget design requests, recorded in the packages that build them: an optional underline below the panel header (WP 3.6); optional separators between a paragraph's sections (WP 3.13); graphs that are zeroed or average-centred, linear or logarithmic (per graph), with an optional shadow towards the axis, current value, axis labels and grid (per theme), fed by a stream of values (x-axis as count or time) or of points (WP 3.10, WP 3.7, and a painter call in WP 2.3). The graph mock-up of that day is the reference. | Accepted |
 | D36 | 2026-10-02 | Draw list and painter (WP 2.3). Within a panel, text is always drawn on top of shapes; what must cover text goes on the overlay layer. `Painter::area` fills between a curve and a line and always fades to nothing at the line. `Panel::Outline` is removed: a panel's outline is the border of `Panel::Background`. Kept in mind as optional extensions, not built now: outlines that fade across their width (a glow) or along the box (a gradient), recorded in WP 6.2; a flat area fill, should a widget such as a box plot need one. | Accepted |
 | D37 | 2026-10-02 | Text is drawn with one SFML text object per text run, kept between frames (closes Q7). Chosen for its simplicity. Building all glyphs of a panel into one batch, which would cut text draw calls from one per run to one per text size, stays a possible extension; `TextRenderer` is the seam for it. Measured on the check scene of WP 2.5 (55 text runs, software and hardware as on the development machine): about 85 microseconds of CPU time per unchanged frame with text, about 27 without. Single-line text is centred by the font's capital height. The refresh limit for live values moves to the binding sync (WP 3.8), where values are read. | Accepted |
+| D38 | 2026-10-02 | Performance targets (WP 2.7). The three targets of 5.5 count as met; the worst case measured, every panel painted anew every frame, lies at the limit and gets no follow-up, and glyph batching stays an extension, not a requirement (D37). The application shows the profiler readout with `UI::setProfilerVisible(bool)`, or from the start with `UISetup::profiler`; it is off by default and has no built-in key. | Accepted |
 
 ### Open questions
 
@@ -166,12 +167,36 @@ Otherwise there is no clear, no draw and no display. Because a skipped frame doe
 - A static/dynamic split inside a panel.
 - Render-to-texture per panel as the default.
 
-### 5.5 Targets to verify with the profiler
+### 5.5 Targets, and what was measured
 
-These are goals, checked in Phase 2:
-- Idle UI and no new snapshot: no frames rendered.
-- At most 2 draw calls per panel, plus text.
-- UI build and submit under 0.2 ms per frame at 100 widgets.
+The targets were set before anything was built. They were measured in WP 2.7 (2026-10-02):
+
+| Target | Measured | Met |
+|---|---|---|
+| Idle UI and no new snapshot: no frames rendered | 0 frames; the loop uses 0.4 % of one processor core | yes |
+| At most 2 draw calls per panel, plus text | 2 per panel for shapes (10 for 5 panels), plus 1 per text run (160) | yes |
+| UI build and submit under 0.2 ms per frame at 100 widgets | 0.08 ms when the UI is unchanged, 0.10 ms when one panel changes; 0.20 ms when every panel is painted anew every frame | yes; the worst case is at the limit (D38) |
+
+**How it was measured.** `atpl_render_bench` (`tests/bench/render_bench.cpp`) builds five panels with 100 widgets between them: sliders, switches, buttons, progress bars, values, dropdowns and graphs, painted the way real widgets will be, with every part's style resolved from the theme. Each scenario runs the main loop for 2000 frames with vsync off, and the profiler (`render/profiler`) reports the averages. Release build, GCC 13, Ryzen 7 7700X, GeForce RTX 4070 Super, window 1772 x 854 with 4x anti-aliasing.
+
+| Scenario | Build | Submit | Build + submit | Panels rebuilt | Texts built | Allocations |
+|---|---|---|---|---|---|---|
+| First frame, everything built (once) | 0.43 ms | 2.84 ms | 3.27 ms | 5 | 160 | 1960 |
+| Simulation running, UI unchanged | 0 | 0.080 ms | **0.080 ms** | 0 | 0 | 0 |
+| A panel dragged | 0 | 0.076 ms | **0.076 ms** | 0 | 0 | 0 |
+| One slider dragged | 0.024 ms | 0.077 ms | **0.101 ms** | 1 | 0.9 | 8.6 |
+| A live value and a graph change in every panel, every frame | 0.119 ms | 0.084 ms | **0.203 ms** | 5 | 5 | 47 |
+
+All values are per frame. Every scenario draws 170 draw calls and 7740 triangles. "Build" is painting the panels that changed; "submit" is clearing the window and handing the batches to the graphics card. Putting the frame on screen is measured apart and took 0.02 to 0.10 ms with vsync off.
+
+What the numbers say about the estimates in 5.1:
+- **Frame skipping (level 1) is the largest saving by far**: an idle UI costs nothing, where every drawn frame costs at least 0.08 ms plus the display's own work.
+- **Panel batches (level 2) work as intended**: painting one panel of 20 widgets, graph included, takes 0.024 ms, so only the panel that changed costs anything. Moving a panel costs nothing extra.
+- **Submitting is the larger part**, and of it the 160 text draw calls. Building all text of a panel into one batch (the extension recorded in D37) is where the next saving is, should one be needed.
+- **A frame in which nothing changed allocates nothing.** A text that changes costs about 9 allocations, inside SFML's text object.
+- The worst case in the table does not occur with the rule of 5.2 that live values refresh at 5 to 10 Hz instead of every frame.
+
+The times depend on the machine; run `atpl_render_bench` to get them for another one. The first two targets do not, and are checked by the test `bench.render` on every run.
 
 ---
 
@@ -202,7 +227,7 @@ Each phase ends with something that runs.
 
 **Done when:** the example compiles against the headers and the API is agreed. Everything below is built to fit it.
 
-### Phase 2 — Render pipeline
+### Phase 2 — Render pipeline (done 2026-10-02)
 - Draw list and primitives: styled box (fill, border, radius, shadow), line, text.
 - Theme core: tokens, role defaults, part entries (P11).
 - Per-panel batch and dirty flag (Level 2), kept text (Level 3), frame skipping (Level 1).
@@ -250,8 +275,8 @@ Each phase ends with something that runs.
 
 - **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
 - **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
-- Tests: 213, of which 30 need a display: the window smoke test and 29 that draw and check pixels, load glyphs or run the frame loop in a window.
-- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, gradient, outline, gap, corner radius and shadow; lines and polylines; all as triangles) WP 2.2 (theme core: colours per panel, role defaults, part entries, states, the two built-in themes) WP 2.3 (draw list, painter, style; a test widget is painted end to end) WP 2.4 (panel batches with frame and content layer, the renderer with its fixed draw order, clipping and scrolling without rebuilding) WP 2.5 (text: measuring, ellipsis, wrapping, and the text cache) and WP 2.6 (the redraw flag, frame skipping, and an idle loop that sleeps).
-- Next, in any order: WP 2.7 (profiler), which completes Phase 2; WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
+- Tests: 229, of which 34 need a display: the window smoke test, the render benchmark, and 32 that draw and check pixels, load glyphs or run the frame loop in a window.
+- **Phase 2 is done**: shapes, theme core, draw list and painter, panel batches and renderer, text, the redraw flag with frame skipping and an idle loop that sleeps, and the profiler. The targets of 5.5 are measured and met. What exists is the pipeline from a painter call to the screen; there are no panels or widgets yet to feed it, apart from the stand-ins in the tests and in the benchmark.
+- Next: Phase 3, starting with WP 3.1 (model). Independent of it: the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
 - Open question: Q5 (utility scope, Phase 5). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).
