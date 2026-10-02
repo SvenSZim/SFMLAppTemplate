@@ -3,6 +3,7 @@
 #include "ui/frame_loop.hpp"
 #include "ui/input/window_events.hpp"
 #include "ui/layout/arrange.hpp"
+#include "ui/layout/widget_layout.hpp"
 #include "ui/model/store.hpp"
 #include "ui/render/font_measurer.hpp"
 #include "ui/render/panel_batch.hpp"
@@ -30,7 +31,7 @@ struct UI::Impl {
         layout(std::move(setup.layout)),
         batches(store.panels().size()),
         renderer(&textCache) {
-        layout::prepare(store, grid); // finds grid cells; refuses what cannot be laid out
+        layout::prepare(store, grid, layout); // finds grid cells; refuses what cannot be laid out
 
         drawOrder.reserve(batches.size());
         for (render::PanelBatch& batch : batches) {
@@ -83,7 +84,7 @@ struct UI::Impl {
             return;
         }
         placementOutdated = false;
-        layout::arrange(store, windowSize, grid, theme, sizes, &textMeasurer);
+        layout::arrange(store, windowSize, grid, theme, sizes, &textMeasurer, layout);
 
         // The readout sits in the bottom-right corner (D43).
         const sf::Vector2f readout = profiler.batch().size();
@@ -198,12 +199,14 @@ void UI::setLayout(Layout layout) {
     }
     impl.store.applyLayout(layout);
     try {
-        layout::prepare(impl.store, impl.grid);
+        layout::prepare(impl.store, impl.grid, layout);
     } catch (...) {
+        // Back to how it was: the old placements, and the cells that follow from them.
         impl.store.applyLayout(impl.layout);
         for (std::size_t i = 0; i < before.size(); ++i) {
             impl.store.panels()[i].placement = before[i];
         }
+        layout::prepareWidgets(impl.store, impl.layout);
         throw;
     }
 

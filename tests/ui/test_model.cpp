@@ -163,16 +163,16 @@ TEST_CASE("a widget slot starts out visible, enabled and untouched", "[ui][model
     const Store store{ example() };
 
     const model::WidgetSlot& speed = store.widget(WidgetId{ 0 });
-    REQUIRE_FALSE(speed.cell.has_value());
+    REQUIRE_FALSE(speed.declaredCell.has_value());
     REQUIRE(speed.visible);
     REQUIRE(speed.enabled);
     REQUIRE_FALSE(speed.binding.has_value());
     REQUIRE(model::stateOf(speed) == State::Normal);
 
     const model::WidgetSlot& reset = store.widget(WidgetId{ 1 });
-    REQUIRE(reset.cell.has_value());
-    REQUIRE(reset.cell->column == 1);
-    REQUIRE(reset.cell->row == 2);
+    REQUIRE(reset.declaredCell.has_value());
+    REQUIRE(reset.declaredCell->column == 1);
+    REQUIRE(reset.declaredCell->row == 2);
 }
 
 TEST_CASE("a slot's state is what input and the application wrote into it", "[ui][model]") {
@@ -343,7 +343,7 @@ TEST_CASE("a widget has its panel's colours unless it was given its own", "[ui][
     REQUIRE(colorsOf(2).accent == 1);
 
     REQUIRE(colorsOf(3).accent == 2); // `colored` and `at` together
-    REQUIRE(store.widget(WidgetId{ 3 }).cell->row == 4);
+    REQUIRE(store.widget(WidgetId{ 3 }).declaredCell->row == 4);
 
     // A panel that names no colours has the theme's first ones.
     REQUIRE(store.panel(PanelId{ 1 }).colors.main1 == 0);

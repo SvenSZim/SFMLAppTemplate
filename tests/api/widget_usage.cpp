@@ -41,7 +41,15 @@ public:
 
     // Size: one row. The width is not the widget's to decide.
     [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
-        return { .height = context.sizes().rowHeight };
+        // Normally one row high and wide enough for its labels; it can be squeezed a little,
+        // and has no use for more height than a bit over a row.
+        const float row = context.sizes().rowHeight;
+        const auto segments = static_cast<float>(m_segments.size());
+        return {
+            .min = { row * segments, row * 0.75f },
+            .preferred = { row * 3.f * segments, row },
+            .max = sf::Vector2f(row * 6.f * segments, row * 1.25f),
+        };
     }
 
     // Input: a click selects the segment under the pointer.

@@ -131,7 +131,8 @@ src/ui/
 ├─ input/    input_system.hpp/.cpp  window_events.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   layout.cpp  arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
-│            grid_packing.hpp/.cpp  packing.hpp/.cpp  measure_context.cpp
+│            grid_packing.hpp/.cpp  packing.hpp/.cpp  cell.hpp/.cpp  rules.hpp/.cpp
+│            measure_context.cpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
@@ -171,7 +172,7 @@ class Widget {
 public:
     virtual ~Widget() = default;
 
-    virtual SizeRequest measure(const MeasureContext&) const = 0;  // height wanted at the offered width
+    virtual SizeRequest measure(const MeasureContext&) const = 0;  // minimum, maximum, shape
     virtual bool handleInput(const Event&, InputContext&);         // true = used
     virtual void update(float dt, UpdateContext&);                 // animations
     virtual void paint(Painter&, const Style&) const = 0;          // emit shapes
@@ -185,7 +186,7 @@ public:
 ```
 
 Rules:
-- **Size.** A widget answers with a height for the width it is offered, and may ask to stretch over the height left in its panel (views). It never decides a width.
+- **Size.** A widget answers with the least it needs and, if it has one, the most it makes use of (`SizeRequest`, 4.6). It never decides its own size or place.
 - **Input.** `handleInput` gets the same `Event` types the application gets; the context converts pointer positions into the widget's own coordinates. Hovered, pressed, focused and disabled are kept by the UI and read through the context.
 - **Values.** A widget never sees what it is bound to. It keeps its own copy of its value; `binding/` hands it new values through `setValue`, and the widget reports the user's changes through `InputContext::changeValue(value, final)` or `press()`. An app-defined widget therefore contains no binding code. Graphs are the exception: they are handed their series source and read from it.
 - **Outside world.** A widget acts only through the context it is handed: `markDirty()`, `capturePointer()`, `requestFocus()`, `changeValue()`, `press()`.
@@ -223,17 +224,18 @@ Rules:
 
 > The layout concept is [LAYOUT.md](LAYOUT.md) (D44). This section, 4.6a and 4.6b describe what is built so far; they are brought in line with it by WP 3.15 to 3.17.
 
-- A panel has a number of equal columns (`PanelSetup::columns`, 1 to 3, default 1). Its widgets are placed in one of two ways, chosen per panel:
-  - **Packed**: the panel says nothing about rows, and no widget has a position or a span. A widget reports the height it wants through `measure()`, given the width it gets, and gets that height. `layout/` stacks the widgets top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
-  - **Grid**: the panel has `rows`, or a widget has a position (`at(cell, widget)`) or a span (`spanning(span, widget)`). The panel is split into equal columns and equal rows, and a widget gets the cells it takes, whatever height it would ask for by itself.
+- **Size requests** (`SizeRequest`, LAYOUT.md §5): a widget reports through `measure()` the least it needs (`min`), its normal size (`preferred`) and, if it is *constant* (slider, button), the most it makes use of (`max`); a *dynamic* widget (graph, view) has no maximum. Both can limit their shape with two ratios. All three come from the layout's sizes and so follow the window. Layout offers the widget the width of its column or cells, so that a height that depends on the width (wrapping text) can be worked out.
+- **A widget's rectangle in its room** (`layout/cell`): a dynamic widget takes all of it, a constant one at most its maximum, both within their ratios. What is smaller than its room is placed in it at one of nine positions, the layout theme's `widgetAlignment`, which a panel can override. Rectangles are on whole pixels.
+- A panel has a number of equal columns (`PanelSetup::columns`, 1 to 3, default 1). Its widgets are placed in one of two ways:
+  - **Packed**: every widget is as high as it prefers, and `layout/` stacks them top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`). Height the panel has to spare goes to the dynamic widgets of each column; what is below them moves down. A panel too low for its packed widgets scrolls; they are not squeezed.
+  - **Grid**: the content is split into equal columns and equal rows, and a widget gets the cells it takes. A cell is as large as the largest preferred size among the panel's widgets, a widget that spans cells counting with its size divided over them. Height the panel has to spare is shared equally among the rows, and widgets grow up to their maximum; a panel short of height squeezes its rows down to the largest minimum before its content scrolls.
+- **When a panel is a grid** (`layout::prepareWidgets`): if its size is given from outside (top-down: it fills cells of the window's grid), if the layout theme asks for equal cells (`Layout::rows`), or if the panel itself names rows, or a widget a position (`at`) or a span (`spanning`). Otherwise it is packed. This is decided when the UI is built and again when the layout theme changes.
 - **Finding cells in a grid** (`layout/grid_packing`), the same for widgets in a panel and for panels in the window:
   1. Things with a position take their cells.
   2. The others follow, the larger ones first and equal ones in the order listed, each into the first free cells that hold it, looking row by row from the left. No rearranging.
-  3. The grid has the rows it was given; a panel that names none has as many as its positioned widgets use.
+  3. A panel's grid has the rows the panel names; if it names none, as many as its positioned widgets use; if no widget has a position either, as many as the widgets need.
   4. What finds no room is a `SetupError`, as is a cell outside the grid and, for widgets, two positions on the same cell.
-  Cells are found once, when the UI is built, and kept in the model.
-- **Sizes in a panel's grid**: a row is one row height of the layout theme high. A panel that has more height than its rows need (a panel in the window's grid) shares it equally among the rows. A widget that takes several rows, or stretches, fills its cells; any other is at most as high as it asks to be and is centred in its row. A row nobody uses stays empty and works as a separator.
-- **Stretching when packed**: a widget that stretches (`SizeRequest::stretch`, a view) takes the height its column has to spare; what is below moves down.
+- A row nobody uses stays empty and works as a separator.
 - Rectangles are in the panel's content, whose corner is below the header. The theme's `padding` lies between the panel's edge and the widgets, its `gap` between widgets. A widget never positions itself.
 - Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget. In a grid a widget can be given more or less height than it asked for, so it must cope with any size.
 - Sizes (margin, padding, gaps, row height, header height) belong to the layout theme (`Layout::metrics`), not to the theme. They follow the window: `Layout::sizesAt(window)` gives the `Sizes` in effect, in whole pixels, with widths scaled by the window's width, heights by its height, margins by the smaller of the two so that they are the same on all sides, and a gentler factor for text, outlines and radii (LAYOUT.md §6). Only `layout/` and `measure()` read them. Nothing else defines sizes.

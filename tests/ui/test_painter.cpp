@@ -60,7 +60,7 @@ class MeterWidget final : public Widget {
 public:
     float level = 0.5f;
 
-    [[nodiscard]] SizeRequest measure(const MeasureContext&) const override { return { .height = 40.f }; }
+    [[nodiscard]] SizeRequest measure(const MeasureContext&) const override { return { .min = { 0.f, 40.f } }; }
 
     void paint(Painter& painter, const Style& style) const override {
         const sf::Vector2f size = painter.size();

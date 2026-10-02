@@ -78,25 +78,28 @@ struct PanelSetup {
     std::optional<bool> collapsible;
     bool collapsed = false; ///< Whether it starts folded.
 
-    /// The panel's widgets. They are placed in one of two ways.
+    /// The panel's widgets. They are placed in one of two ways (docs/LAYOUT.md 4).
     ///
-    /// **Packed**, if the panel says nothing about rows and no widget has a position or a span:
-    /// each widget gets the height it needs, and they are stacked top to bottom into `columns`
-    /// columns of balanced height, in the order given. With two columns and four widgets, the
-    /// first two go into the left column and the last two into the right.
+    /// **Packed**: each widget is as high as it needs to be, and they are stacked top to bottom
+    /// into `columns` columns of balanced height, in the order given. With two columns and four
+    /// widgets, the first two go into the left column and the last two into the right.
     ///
     ///     .columns = 2,
     ///     .widgets = { Slider("Speed"), Slider("Size"), Switch("Gravity"), Button("Reset") },
     ///
-    /// **As a grid**, if the panel has `rows`, or a widget has a position (`at`) or a span
-    /// (`spanning`): the panel is split into `columns` equal columns and equal rows. A widget
-    /// takes one cell, or as many as its span says, and gets their size whatever height it would
-    /// need by itself.
+    /// **As a grid**: the content is split into `columns` equal columns and equal rows. A widget
+    /// takes one cell, or as many as its span says. A cell is as large as the largest minimum
+    /// among the widgets, and larger if the panel has room to spare.
+    ///
+    /// A panel is a grid if its size is given from outside (it fills cells of the window's grid),
+    /// if the layout theme asks for equal cells (`Layout::rows`), or if the panel says so itself:
+    /// with `rows`, or with a widget that has a position (`at`) or a span (`spanning`).
     ///
     /// - Widgets with a position take their cells.
     /// - The others follow, the larger ones first and equal ones in the order given, each into
     ///   the first free cells that hold it, looking row by row from the left.
-    /// - The grid has `rows` rows; if that is 0, as many as the widgets with a position use.
+    /// - The grid has `rows` rows. If that is 0: as many as the widgets with a position use; and
+    ///   if no widget has a position, as many as the widgets need.
     /// - A row nobody uses stays empty: a separator.
     ///
     ///     .columns = 2,
@@ -111,8 +114,9 @@ struct PanelSetup {
     /// To have the graph below the sliders instead, give it a position:
     /// `at({.row = 1, .columnSpan = 2, .rowSpan = 3}, Graph("Tick time"))`.
     ///
-    /// A row is one `Metrics::rowHeight` high. A panel in the window's grid that has more height
-    /// than its rows need shares it among them.
+    /// Inside its cell a widget is as large as it can make use of: a graph or a view fills it, a
+    /// slider or a button stops at its maximum and is placed in the cell by the layout theme's
+    /// `widgetAlignment`.
     ///
     /// `SetupError` is thrown for a cell outside the grid, for two widgets with a position on
     /// the same cell, and for a widget that finds no room: more rows are needed then.

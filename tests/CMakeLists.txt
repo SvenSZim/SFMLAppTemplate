@@ -53,6 +53,7 @@ atpl_add_tests(core
 )
 atpl_add_tests(ui
   ui/test_binding.cpp
+  ui/test_cell.cpp
   ui/test_event.cpp
   ui/test_frame.cpp
   ui/test_grid_packing.cpp
