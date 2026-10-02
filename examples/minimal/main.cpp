@@ -29,13 +29,13 @@ int run(int argc, char* argv[]) {
     sf::ContextSettings settings;
     settings.antiAliasingLevel = 8;
 
-    sf::RenderWindow window(sf::VideoMode({1280, 720}), title, sf::Style::Default, sf::State::Windowed, settings);
+    sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title, sf::Style::Default, sf::State::Windowed, settings);
     window.setVerticalSyncEnabled(true);
 
     const sf::Color background(36, 34, 32);
     sf::Text label(font, title + "  -  press Escape to close", 18);
     label.setFillColor(sf::Color(234, 229, 223));
-    label.setPosition({24.f, 20.f});
+    label.setPosition({ 24.f, 20.f });
 
     // Nothing on screen changes by itself, so the loop sleeps until an event arrives.
     // The timeout only bounds how long a missed redraw could stay on screen.
@@ -50,7 +50,7 @@ int run(int argc, char* argv[]) {
             }
         } else if (const auto* resized = event.getIf<sf::Event::Resized>()) {
             // Keep one unit per pixel instead of stretching the old view.
-            window.setView(sf::View(sf::FloatRect({0.f, 0.f}, sf::Vector2f(resized->size))));
+            window.setView(sf::View(sf::FloatRect({ 0.f, 0.f }, sf::Vector2f(resized->size))));
         }
     };
 

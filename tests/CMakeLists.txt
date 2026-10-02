@@ -34,6 +34,7 @@ atpl_add_tests(core
   core/test_version.cpp
 )
 atpl_add_tests(ui
+  ui/test_binding.cpp
   ui/test_packing.cpp
   ui/test_rect.cpp
 )
@@ -64,9 +65,28 @@ endforeach()
 add_library(atpl_api_check OBJECT
   ${atpl_header_check_sources}
   api/core_usage.cpp
+  api/ui_usage.cpp
 )
 target_link_libraries(atpl_api_check PRIVATE atpl::app)
 atpl_target_defaults(atpl_api_check)
+
+# Code the API must reject. Each file is built by a test that passes only if the build fails.
+# The files are kept minimal, and each has a counterpart in api/ui_usage.cpp that does compile,
+# so a failure can only come from the line under test.
+function(atpl_must_not_compile name)
+  set(target atpl_must_not_compile_${name})
+  add_library(${target} OBJECT EXCLUDE_FROM_ALL api/must_not_compile/${name}.cpp)
+  target_link_libraries(${target} PRIVATE atpl::app)
+  atpl_target_defaults(${target})
+  add_test(NAME api.must_not_compile.${name}
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${target} --config $<CONFIG>
+  )
+  set_tests_properties(api.must_not_compile.${name} PROPERTIES WILL_FAIL TRUE)
+endfunction()
+
+atpl_must_not_compile(bind_plain_variable)
+atpl_must_not_compile(describe_plain_variable)
+atpl_must_not_compile(describe_wrong_kind)
 
 # The layer and ownership rules that can be checked by looking at the sources.
 add_test(NAME "structure.layering"

@@ -48,7 +48,7 @@ PackingResult packWidgets(
 
         const auto place = [&](const PackItem& item) {
             const float x = startX + static_cast<float>(currentCol) * (colWidth + spacing);
-            result.placements.push_back({item.id, FloatRect(x, colY, colWidth, item.resolvedHeight)});
+            result.placements.push_back({ item.id, FloatRect(x, colY, colWidth, item.resolvedHeight) });
             colY += item.resolvedHeight + spacing;
             colHeights[static_cast<std::size_t>(currentCol)] = colY;
         };

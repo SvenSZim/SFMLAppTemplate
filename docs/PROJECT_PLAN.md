@@ -76,6 +76,11 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | P13 | 2026-10-02 | Workflow as written in `CONTRIBUTING.md`: one branch per issue (`wp/<id>-<name>`), commit format `[area] summary`, one pull request per issue into `main`, squash merge, definition of done, decisions recorded in the same pull request. | Accepted |
 | P14 | 2026-10-02 | Remaining code conventions as written in `docs/CODE_STYLE.md`: formatting by `.clang-format` (4 spaces, 120 columns), naming table, include rules, error rules (setup fails loudly, per-frame code does not throw), per-frame performance rules, test rules, CMake rules (explicit source lists), internal code of a `ui` module in namespace `atpl::<module>`. | Accepted |
 | D23 | 2026-10-02 | Core API as declared in `include/atpl/core/` (WP 1.1). `Param<T>`: its revision grows only when the value changes; it cannot be copied or moved; `a = b` copies the value; no compound operators. `Series`: `float` samples only. `Queue<T>`: unbounded, with `drain` and `waitDrain`. `Snapshot<T>`: one writer thread, one reader thread, three reused buffers; the writer writes the whole state each time. Change counters are called `revision`. Value access is named `get()` / `set()` everywhere, including `Interpolated`. | Accepted |
+| D24 | 2026-10-02 | Each widget has one public type, its descriptor: `atpl::Slider("Speed", params.speed, {.min = 0, .max = 10})`. It also carries the widget's parts for theming (`Slider::Ticks`). `Widget` is the interface widget types implement; the implementing classes are internal. Replaces the `Widget::Slider(...)` spelling of earlier sketches. | Accepted |
+| D25 | 2026-10-02 | Placement is stated per panel: an `Anchor` (floating at a window edge or corner) or a `GridCell` (cells of a window-wide grid). Both can be mixed in one UI. There is no UI-wide layout mode. | Accepted |
+| D26 | 2026-10-02 | The window is created and owned by the app layer; the UI is constructed with a reference to it. Window settings belong to the app layer. | Accepted |
+| D27 | 2026-10-02 | UI setup API as declared in `include/atpl/ui/` (WP 1.2). Options are structs with designated initializers; a widget's label defaults to its name. Numbers travel as `double` (exact up to 2^53; larger 64-bit values are bound as text), enums as the enumerator's index; writing back rounds and clamps. A descriptor rejects a wrong kind at compile time, binding by name at run time with `SetupError`. `requestRedraw()` exists on `UI` only. A view draws through `void(sf::RenderTarget&, sf::Vector2f size)`. Eight anchors; equal window grid cells. Widgets inside a panel: packed automatically into `PanelSetup::columns` balanced columns (default 1) when no widget has a position; as soon as one has a `GridCell` (through `at(cell, widget)`), the panel is a grid and widgets without a position take the first free cell, row by row, without a span. That one position changes the placement of the others is intended. | Accepted |
+| D28 | 2026-10-02 | Overflow rules, for a start: panel content scrolls vertically inside the panel; a stack of floating panels is fitted to the window by letting expanded panels share the height and scroll, hiding the last panels only if not even headers fit; floating panel width is clamped to the window; text that does not fit ends in an ellipsis; a dropdown list stays inside the window; no horizontal scrolling; the app may set a minimum window size. See ARCHITECTURE.md §4.6b. To be revisited if they do not work in practice. | Accepted |
 
 ### Open questions
 
@@ -94,8 +99,8 @@ One owner per concern (D1). The "must not" column is as binding as the "owns" co
 
 | Owner | Owns | Must not |
 |---|---|---|
-| `App` | App loop, receiving UI events on the main thread and forwarding to the simulation (D11) | Touch UI internals |
-| `UIManager` | Window, calling the systems in order, public API | Contain the logic of any single concern |
+| `App` | The window, the app loop, receiving UI events on the main thread and forwarding to the simulation (D11, D26) | Touch UI internals |
+| `UI` (facade) | Calling the systems in order, public API. Uses the window it is given (D26) | Contain the logic of any single concern, create or own the window |
 | Storage (`ContainerManager`, widget storage) | Creation, lifetime, lookup | Lay out, draw, handle input |
 | `InputSystem` | Hit-testing, hover/press/focus state, deciding what the UI consumes, emitting widget events and unconsumed input into the one event stream (P4) | Set geometry, write app data other than through bindings |
 | `LayoutManager` | Every rectangle and size, visibility, widget packing inside panels, view regions; reads `Metrics` and each widget's `measure` (P12) | Touch interaction state or colours |
@@ -165,7 +170,7 @@ These are goals, checked in Phase 2:
 
 Work is tracked on GitHub:
 - Board: https://github.com/users/SvenSZim/projects/3 (columns: Backlog, Ready, In progress, Done)
-- 50 work packages as issues, titled `WP <phase>.<n>`, one milestone per phase, labels per area.
+- Work packages as issues, titled `WP <phase>.<n>`, one milestone per phase, labels per area.
 - Each issue has its goal, scope, done-when conditions, dependencies and the decisions it rests on.
 
 The phases below are the summary; the issues are the source of truth for scope and status.
@@ -204,6 +209,7 @@ Each phase ends with something that runs.
 - Widget pool: button, switch, slider, text display, progress bar, graph, dropdown, text input.
 - `Param<T>` and `Series` implementations (D10, P10).
 - Data bindings by name and in the descriptor (P2).
+- Panel scrolling and the other overflow rules (D28).
 
 **Done when:** every widget in the demo is interactive and bound to app data.
 
@@ -236,6 +242,6 @@ Each phase ends with something that runs.
 - **Phase 0 is done.** The new structure is in place: targets `atpl_core`, `atpl_ui`, `atpl_app`; easing and animated values in `core`; rect and widget packing in `ui`; resources next to the executable in `app`; the `minimal` example; 43 tests.
 - CI on every pull request: format check, Linux with GCC (release, all tests including the window smoke test on a virtual display), Linux with Clang (debug, AddressSanitizer and UndefinedBehaviorSanitizer), Windows with MSVC (informational).
 - No old code is left in the tree.
-- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 2.1 (shape tessellation) can be started independently.
+- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 1.2 (setup, descriptors, handles, bindings, the `UI` facade) is done and agreed (D24–D27). WP 2.1 (shape tessellation) can be started independently.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

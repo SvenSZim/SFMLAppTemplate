@@ -13,7 +13,7 @@ using Catch::Approx;
 TEST_CASE("a rect can be built from numbers, vectors or an SFML rect", "[ui][rect]") {
     const FloatRect fromNumbers(10.f, 20.f, 30.f, 40.f);
     const FloatRect fromVectors(sf::Vector2f(10.f, 20.f), sf::Vector2f(30.f, 40.f));
-    const FloatRect fromSfml(sf::FloatRect({10.f, 20.f}, {30.f, 40.f}));
+    const FloatRect fromSfml(sf::FloatRect({ 10.f, 20.f }, { 30.f, 40.f }));
 
     REQUIRE(fromNumbers.left() == 10.f);
     REQUIRE(fromNumbers.top() == 20.f);
@@ -50,24 +50,24 @@ TEST_CASE("setters change one aspect and leave the rest", "[ui][rect]") {
     rect.setHeight(4.f);
     REQUIRE(rect == FloatRect(1.f, 2.f, 3.f, 4.f));
 
-    rect.setPosition({5.f, 6.f});
-    rect.setSize({7.f, 8.f});
+    rect.setPosition({ 5.f, 6.f });
+    rect.setSize({ 7.f, 8.f });
     REQUIRE(rect == FloatRect(5.f, 6.f, 7.f, 8.f));
 }
 
 TEST_CASE("contains includes the top-left edges and excludes the bottom-right edges", "[ui][rect]") {
     const FloatRect rect(10.f, 20.f, 30.f, 40.f);
 
-    REQUIRE(rect.contains({25.f, 40.f}));
-    REQUIRE(rect.contains({10.f, 20.f}));
-    REQUIRE_FALSE(rect.contains({40.f, 40.f}));
-    REQUIRE_FALSE(rect.contains({25.f, 60.f}));
-    REQUIRE_FALSE(rect.contains({9.9f, 40.f}));
-    REQUIRE_FALSE(rect.contains({25.f, 19.9f}));
+    REQUIRE(rect.contains({ 25.f, 40.f }));
+    REQUIRE(rect.contains({ 10.f, 20.f }));
+    REQUIRE_FALSE(rect.contains({ 40.f, 40.f }));
+    REQUIRE_FALSE(rect.contains({ 25.f, 60.f }));
+    REQUIRE_FALSE(rect.contains({ 9.9f, 40.f }));
+    REQUIRE_FALSE(rect.contains({ 25.f, 19.9f }));
 
     // Two rects that share an edge never both contain a point on it.
     const FloatRect neighbour(40.f, 20.f, 30.f, 40.f);
-    REQUIRE(neighbour.contains({40.f, 40.f}));
+    REQUIRE(neighbour.contains({ 40.f, 40.f }));
 }
 
 TEST_CASE("inset shrinks on every side", "[ui][rect]") {

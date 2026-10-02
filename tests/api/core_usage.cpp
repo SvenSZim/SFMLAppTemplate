@@ -111,7 +111,7 @@ void wiring() {
     atpl::Snapshot<World> snapshot;
     atpl::Series tickTimes(240);
 
-    Simulation simulation{params, commands, snapshot, tickTimes, {}, 0.f};
+    Simulation simulation{ params, commands, snapshot, tickTimes, {}, 0.f };
     simulation.tick(1.f / 60.f);
 
     atpl::Revision lastSeenSpeed = 0;

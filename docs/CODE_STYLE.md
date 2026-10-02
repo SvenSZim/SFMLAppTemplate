@@ -13,6 +13,7 @@ Formatting is not a matter of taste here: run the formatter and move on.
 - 4 spaces for C++, 2 spaces for CMake, YAML and Markdown. No tabs.
 - 120 columns.
 - Braces open on the same line. Namespaces are not indented.
+- Plain braced lists have a space inside the braces: `{ 1280, 720 }`. Lists with designators are written without: `{.min = 0, .max = 10}`. clang-format enforces the first and leaves the second as written, so that one is on the author.
 
 ## 2. Naming
 

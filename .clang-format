@@ -35,7 +35,13 @@ BinPackArguments: false
 BinPackParameters: false
 AlignAfterOpenBracket: BlockIndent
 SpaceAfterTemplateKeyword: true
-Cpp11BracedListStyle: true
+# Block style for braced lists. It is the only setting that keeps the setup syntax readable:
+#     .widgets = {
+#         Slider("Speed", params.speed, {.min = 0, .max = 10}),
+#     },
+# With the other styles, clang-format breaks after `.widgets =` as soon as an entry has an options
+# list of its own. The price is a space inside the braces of plain lists: `{ 1280, 720 }`.
+Cpp11BracedListStyle: false
 InsertNewlineAtEOF: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1

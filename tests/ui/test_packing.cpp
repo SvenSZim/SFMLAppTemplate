@@ -12,7 +12,7 @@ using atpl::layout::resolveSize;
 using Catch::Approx;
 
 TEST_CASE("a single widget fills the single column", "[ui][packing]") {
-    const std::vector<PackItem> items = {{1, 30.f}};
+    const std::vector<PackItem> items = { { 1, 30.f } };
     const auto result = packWidgets(items, 200.f, 1, 400.f);
 
     REQUIRE(result.placements.size() == 1);
@@ -26,7 +26,7 @@ TEST_CASE("a single widget fills the single column", "[ui][packing]") {
 }
 
 TEST_CASE("widgets in one column are stacked in order", "[ui][packing]") {
-    const std::vector<PackItem> items = {{7, 30.f}, {8, 30.f}, {9, 30.f}};
+    const std::vector<PackItem> items = { { 7, 30.f }, { 8, 30.f }, { 9, 30.f } };
     const auto result = packWidgets(items, 200.f, 1, 400.f);
 
     REQUIRE(result.placements.size() == 3);
@@ -41,7 +41,7 @@ TEST_CASE("widgets in one column are stacked in order", "[ui][packing]") {
 }
 
 TEST_CASE("equal widgets are split evenly over two columns", "[ui][packing]") {
-    const std::vector<PackItem> items = {{1, 40.f}, {2, 40.f}, {3, 40.f}, {4, 40.f}};
+    const std::vector<PackItem> items = { { 1, 40.f }, { 2, 40.f }, { 3, 40.f }, { 4, 40.f } };
     const auto result = packWidgets(items, 200.f, 2, 400.f);
 
     REQUIRE(result.placements.size() == 4);
@@ -59,7 +59,7 @@ TEST_CASE("equal widgets are split evenly over two columns", "[ui][packing]") {
 
 TEST_CASE("columns grow until a tall widget fits", "[ui][packing]") {
     // An even split would be too low for the first widget, so the column height is raised.
-    const std::vector<PackItem> items = {{1, 100.f}, {2, 10.f}, {3, 10.f}, {4, 10.f}};
+    const std::vector<PackItem> items = { { 1, 100.f }, { 2, 10.f }, { 3, 10.f }, { 4, 10.f } };
     const auto result = packWidgets(items, 200.f, 2, 400.f);
 
     REQUIRE(result.placements.size() == 4);
@@ -74,7 +74,7 @@ TEST_CASE("columns grow until a tall widget fits", "[ui][packing]") {
 TEST_CASE("too many widgets overflow but are all placed", "[ui][packing]") {
     std::vector<PackItem> items;
     for (PackId id = 1; id <= 20; ++id) {
-        items.push_back({id, 50.f});
+        items.push_back({ id, 50.f });
     }
     const auto result = packWidgets(items, 200.f, 1, 100.f);
 
@@ -86,7 +86,7 @@ TEST_CASE("too many widgets overflow but are all placed", "[ui][packing]") {
 TEST_CASE("overflow fills the earlier columns first", "[ui][packing]") {
     std::vector<PackItem> items;
     for (PackId id = 1; id <= 9; ++id) {
-        items.push_back({id, 50.f});
+        items.push_back({ id, 50.f });
     }
     const auto result = packWidgets(items, 300.f, 3, 120.f);
 
@@ -101,7 +101,7 @@ TEST_CASE("overflow fills the earlier columns first", "[ui][packing]") {
 
 TEST_CASE("nothing to place gives an empty result", "[ui][packing]") {
     const std::vector<PackItem> none;
-    const std::vector<PackItem> one = {{1, 30.f}};
+    const std::vector<PackItem> one = { { 1, 30.f } };
 
     REQUIRE(packWidgets(none, 200.f, 1, 400.f).placements.empty());
     REQUIRE(packWidgets(one, 200.f, 0, 400.f).placements.empty());
