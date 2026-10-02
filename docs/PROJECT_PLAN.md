@@ -89,15 +89,15 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D34 | 2026-10-02 | Theme colours and look (WP 2.2). A theme has one list of main colours and one list of accents. A panel chooses `main1` (background), `main2` (outlines) and `accent` by index (defaults 0, 1, 0); a widget can deviate with `colored(...)`; an index the theme lacks is a `SetupError`. Text, muted text, the areas of buttons and fields and the knob colour are derived from these three. Panels and everything that can be operated are outlined in main2; the outline turns to the accent on hover and use. Between outline and fill lies a gap, one value per theme, adjustable per part. Knobs have no outline and show hover and press in their fill. An accent can be a gradient; any part can be given one by a part entry. `Button::Face` has the role `Track`, `Panel::Scrollbar` the role `Line`. Built-in themes: `moon` (default; black, grey outlines, white gradient accents) and `colorful` (the ant simulator's warm palette with four accents). Both are tested for readable contrast. | Accepted |
 | D35 | 2026-10-02 | Widget design requests, recorded in the packages that build them: an optional underline below the panel header (WP 3.6); optional separators between a paragraph's sections (WP 3.13); graphs that are zeroed or average-centred, linear or logarithmic (per graph), with an optional shadow towards the axis, current value, axis labels and grid (per theme), fed by a stream of values (x-axis as count or time) or of points (WP 3.10, WP 3.7, and a painter call in WP 2.3). The graph mock-up of that day is the reference. | Accepted |
 | D36 | 2026-10-02 | Draw list and painter (WP 2.3). Within a panel, text is always drawn on top of shapes; what must cover text goes on the overlay layer. `Painter::area` fills between a curve and a line and always fades to nothing at the line. `Panel::Outline` is removed: a panel's outline is the border of `Panel::Background`. Kept in mind as optional extensions, not built now: outlines that fade across their width (a glow) or along the box (a gradient), recorded in WP 6.2; a flat area fill, should a widget such as a box plot need one. | Accepted |
+| D37 | 2026-10-02 | Text is drawn with one SFML text object per text run, kept between frames (closes Q7). Chosen for its simplicity. Building all glyphs of a panel into one batch, which would cut text draw calls from one per run to one per text size, stays a possible extension; `TextRenderer` is the seam for it. Measured on the check scene of WP 2.5 (55 text runs, software and hardware as on the development machine): about 85 microseconds of CPU time per unchanged frame with text, about 27 without. Single-line text is centred by the font's capital height. The refresh limit for live values moves to the binding sync (WP 3.8), where values are read. | Accepted |
 
 ### Open questions
 
 | ID | Question | Blocks |
 |---|---|---|
 | Q5 | Which utilities are in the first version? | Phase 5 |
-| Q7 | Text: keep `sf::Text` objects per widget, or build glyph quads into the batch (fewer draw calls, more code)? | Phase 2 |
 
-Closed: Q1 (by P1), Q2 (by P3: the simulation thread is the template's model), Q3 (D12), Q4 (D14), Q6 (D16), Q8 (D13), Q9 (D15), Q10 (D18), Q11 (D17), Q12 (P11).
+Closed: Q1 (by P1), Q2 (by P3: the simulation thread is the template's model), Q3 (D12), Q4 (D14), Q6 (D16), Q8 (D13), Q9 (D15), Q10 (D18), Q11 (D17), Q12 (P11), Q7 (D37).
 
 ---
 
@@ -208,7 +208,6 @@ Each phase ends with something that runs.
 - Per-panel batch and dirty flag (Level 2), kept text (Level 3), frame skipping (Level 1).
 - Explicit draw order and overlay layer.
 - Profiler readout (D6).
-- Resolve Q7.
 
 **Done when:** the targets in 5.5 are measured and recorded here.
 
@@ -251,8 +250,8 @@ Each phase ends with something that runs.
 
 - **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
 - **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
-- Tests: 170, of which ten need a display: the window smoke test and nine that draw off-screen and check pixels.
-- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, gradient, outline, gap, corner radius and shadow; lines and polylines; all as triangles) WP 2.2 (theme core: colours per panel, role defaults, part entries, states, the two built-in themes) WP 2.3 (draw list, painter, style; a test widget is painted end to end) and WP 2.4 (panel batches with frame and content layer, the renderer with its fixed draw order, clipping and scrolling without rebuilding).
-- Next, in any order: WP 2.5 (text, with question Q7) and WP 2.6 (frame flag and idle loop); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
-- Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
+- Tests: 198, of which 23 need a display: the window smoke test and 22 that draw off-screen and check pixels or load glyphs.
+- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, gradient, outline, gap, corner radius and shadow; lines and polylines; all as triangles) WP 2.2 (theme core: colours per panel, role defaults, part entries, states, the two built-in themes) WP 2.3 (draw list, painter, style; a test widget is painted end to end) WP 2.4 (panel batches with frame and content layer, the renderer with its fixed draw order, clipping and scrolling without rebuilding) and WP 2.5 (text: measuring, ellipsis, wrapping, and the text cache).
+- Next, in any order: WP 2.6 (frame flag and idle loop) and WP 2.7 (profiler); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
+- Open question: Q5 (utility scope, Phase 5). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

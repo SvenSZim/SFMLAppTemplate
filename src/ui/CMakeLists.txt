@@ -3,10 +3,13 @@
 add_library(atpl_ui STATIC
   layout/packing.cpp
   render/draw_list.cpp
+  render/font_measurer.cpp
   render/painter.cpp
   render/panel_batch.cpp
   render/renderer.cpp
   render/shapes.cpp
+  render/text_cache.cpp
+  render/text_layout.cpp
   theme/color.cpp
   theme/metrics.cpp
   theme/style.cpp

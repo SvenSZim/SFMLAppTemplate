@@ -7,7 +7,8 @@ function(atpl_target_defaults target)
   target_compile_features(${target} PUBLIC cxx_std_20)
 
   if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /permissive-)
+    # /utf-8: read sources as UTF-8 instead of the system's code page.
+    target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
     if(ATPL_WARNINGS_AS_ERRORS)
       target_compile_options(${target} PRIVATE /WX)
     endif()

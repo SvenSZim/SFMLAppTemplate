@@ -10,15 +10,14 @@
 
 namespace atpl::render {
 
-/// Draws text runs. The renderer hands a panel's text to this interface; how text is turned
-/// into glyphs and cached is decided behind it (WP 2.5).
+/// Draws the text of a layer. The renderer hands each layer to this interface after drawing its
+/// shapes; how text is turned into glyphs and kept between frames is decided behind it.
 class TextRenderer {
 public:
     virtual ~TextRenderer() = default;
 
-    /// Draws the runs and returns how many draw calls that took.
-    virtual std::size_t
-    draw(sf::RenderTarget& target, const sf::RenderStates& states, std::span<const TextRun> runs) = 0;
+    /// Draws the layer's text runs and returns how many draw calls that took.
+    virtual std::size_t draw(sf::RenderTarget& target, const sf::RenderStates& states, const DrawList& layer) = 0;
 };
 
 } // namespace atpl::render

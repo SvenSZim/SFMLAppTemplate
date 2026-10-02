@@ -19,6 +19,12 @@ list_sources() {
 
 if [ "${1:-}" = "--check" ]; then
     list_sources | xargs -0 "$clang_format" --dry-run --Werror
+
+    # Sources are plain ASCII; other characters are written as escapes (see docs/CODE_STYLE.md).
+    if list_sources | LC_ALL=C xargs -0 grep -nP '[^\x00-\x7F]'; then
+        echo "The lines above contain characters outside ASCII. Write them as escapes." >&2
+        exit 1
+    fi
     echo "All files are formatted."
 else
     list_sources | xargs -0 "$clang_format" -i
