@@ -285,7 +285,9 @@ void appendLine(VertexList& out, sf::Vector2f from, sf::Vector2f to, const PartS
     appendQuad(out, from + side, to + side, to - side, from - side, style.color);
 }
 
-void appendPolyline(VertexList& out, std::span<const sf::Vector2f> points, const PartStyle& style) {
+void appendPolyline(
+    VertexList& out, std::span<const sf::Vector2f> points, const PartStyle& style, sf::Vector2f offset
+) {
     if (!drawsLines(style) || points.size() < 2) {
         return;
     }
@@ -295,7 +297,7 @@ void appendPolyline(VertexList& out, std::span<const sf::Vector2f> points, const
 
     // The sideways offset at point `i`: at a bend it lies between the two segments' offsets and
     // is lengthened so both segments keep their thickness. That closes the gap a bend would leave.
-    const auto offsetAt = [&](std::size_t i) -> sf::Vector2f {
+    const auto sideAt = [&](std::size_t i) -> sf::Vector2f {
         const sf::Vector2f before = i > 0 ? sideways(points[i] - points[i - 1], 1.f) : sf::Vector2f{};
         const sf::Vector2f after = i + 1 < points.size() ? sideways(points[i + 1] - points[i], 1.f) : sf::Vector2f{};
 
@@ -321,18 +323,66 @@ void appendPolyline(VertexList& out, std::span<const sf::Vector2f> points, const
         return miter * (halfWidth * stretch);
     };
 
-    sf::Vector2f previousOffset = offsetAt(0);
+    sf::Vector2f previousSide = sideAt(0);
     for (std::size_t i = 1; i < points.size(); ++i) {
-        const sf::Vector2f offset = offsetAt(i);
-        appendQuad(
-            out,
-            points[i - 1] + previousOffset,
-            points[i] + offset,
-            points[i] - offset,
-            points[i - 1] - previousOffset,
-            style.color
+        const sf::Vector2f side = sideAt(i);
+        const sf::Vector2f from = points[i - 1] + offset;
+        const sf::Vector2f to = points[i] + offset;
+        appendQuad(out, from + previousSide, to + side, to - side, from - previousSide, style.color);
+        previousSide = side;
+    }
+}
+
+void appendArea(
+    VertexList& out, std::span<const sf::Vector2f> points, float baseline, const PartStyle& style, sf::Vector2f offset
+) {
+    if (!style.shown || style.color.a == 0 || points.size() < 2) {
+        return;
+    }
+
+    float furthest = 0.f;
+    for (const sf::Vector2f point : points) {
+        furthest = std::max(furthest, std::abs(point.y - baseline));
+    }
+    if (furthest <= 0.f) {
+        return;
+    }
+
+    // The colour at a height: full strength at the furthest point of the curve, nothing at the
+    // line. It depends on the height alone, so neighbouring pieces blend without visible seams.
+    const auto vertexAt = [&](sf::Vector2f position) {
+        sf::Color color = style.color;
+        color.a = static_cast<std::uint8_t>(
+            std::lround(static_cast<float>(style.color.a) * std::abs(position.y - baseline) / furthest)
         );
-        previousOffset = offset;
+        out.push_back({ position + offset, color });
+    };
+    const auto onLine = [&](float x) { return sf::Vector2f{ x, baseline }; };
+
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        const sf::Vector2f a = points[i - 1];
+        const sf::Vector2f b = points[i];
+        const float sideA = a.y - baseline;
+        const float sideB = b.y - baseline;
+
+        if (sideA * sideB < 0.f) {
+            // The curve crosses the line between the two points: one triangle on each side.
+            const float t = sideA / (sideA - sideB);
+            const sf::Vector2f crossing = onLine(a.x + (b.x - a.x) * t);
+            vertexAt(a);
+            vertexAt(crossing);
+            vertexAt(onLine(a.x));
+            vertexAt(crossing);
+            vertexAt(b);
+            vertexAt(onLine(b.x));
+        } else {
+            vertexAt(a);
+            vertexAt(b);
+            vertexAt(onLine(b.x));
+            vertexAt(a);
+            vertexAt(onLine(b.x));
+            vertexAt(onLine(a.x));
+        }
     }
 }
 

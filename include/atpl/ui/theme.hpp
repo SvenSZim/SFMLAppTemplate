@@ -177,7 +177,7 @@ struct PartStyle {
 /// have an effect; the rest still comes from the role and the tokens.
 ///
 ///     theme[Slider::Ticks].shown = true;
-///     theme[Panel::Outline].thickness = 2.f;
+///     theme[Panel::Background].borderThickness = 2.f;
 ///     theme[Button::Face].radius = 0.f;       // sharp buttons
 ///     theme[Panel::Background].borderGap = 0.f; // this part's outline right on its fill
 ///     theme[Panel::Background].gradient = Gradient::Vertical;

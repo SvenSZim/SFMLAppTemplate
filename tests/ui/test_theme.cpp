@@ -43,7 +43,6 @@ TEST_CASE("a part is shown by default unless it says otherwise", "[ui][theme]") 
     REQUIRE(Slider::Ticks.shown == Shown::No);
     REQUIRE(Graph::Axis.shown == Shown::No);
     REQUIRE(Graph::Grid.shown == Shown::No);
-    REQUIRE(Panel::Outline.shown == Shown::No);
     REQUIRE(View::Frame.shown == Shown::No);
 }
 
@@ -110,7 +109,6 @@ TEST_CASE("all parts of the built-in widgets and the panel have distinct ids", "
         Paragraph::Footer,
         View::Frame,
         Panel::Background,
-        Panel::Outline,
         Panel::Header,
         Panel::Title,
         Panel::Scrollbar,

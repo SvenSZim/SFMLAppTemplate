@@ -244,7 +244,6 @@ TEST_CASE("a part is shown or hidden as it declares", "[ui][theme]") {
 
     REQUIRE(theme.resolve(Slider::Track).shown);
     REQUIRE_FALSE(theme.resolve(Slider::Ticks).shown);
-    REQUIRE_FALSE(theme.resolve(Panel::Outline).shown);
 }
 
 // ----- Layer 3: part entries -----
@@ -286,9 +285,9 @@ TEST_CASE("a part entry can set every field, including the font", "[ui][theme]")
     label.textSize = 20.f;
     label.font = ownFont;
 
-    PartOverride& outline = theme[Panel::Outline];
-    outline.shown = true;
-    outline.thickness = 3.f;
+    PartOverride& axis = theme[Graph::Axis];
+    axis.shown = true;
+    axis.thickness = 3.f;
 
     PartOverride& face = theme[Button::Face];
     face.border = sf::Color::Green;
@@ -298,7 +297,8 @@ TEST_CASE("a part entry can set every field, including the font", "[ui][theme]")
     REQUIRE(theme.resolve(Button::Label).color == sf::Color::Red);
     REQUIRE(theme.resolve(Button::Label).textSize == 20.f);
     REQUIRE(theme.resolve(Button::Label).font == ownFont.get());
-    REQUIRE(theme.resolve(Panel::Outline).thickness == 3.f);
+    REQUIRE(theme.resolve(Graph::Axis).shown);
+    REQUIRE(theme.resolve(Graph::Axis).thickness == 3.f);
     REQUIRE(theme.resolve(Button::Face).border == sf::Color::Green);
     REQUIRE(theme.resolve(Button::Face).borderThickness == 2.f);
     REQUIRE(theme.resolve(Button::Face).shadow.size == 5.f);

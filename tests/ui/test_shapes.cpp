@@ -10,6 +10,7 @@
 #include <vector>
 
 using namespace atpl;
+using atpl::render::appendArea;
 using atpl::render::appendBox;
 using atpl::render::appendLine;
 using atpl::render::appendPolyline;
@@ -530,6 +531,87 @@ TEST_CASE("nothing is added for a polyline of fewer than two points", "[ui][shap
 
     appendPolyline(vertices, {}, stroke(red, 2.f));
     appendPolyline(vertices, one, stroke(red, 2.f));
+
+    REQUIRE(vertices.empty());
+}
+
+TEST_CASE("a polyline can be moved as a whole", "[ui][shapes]") {
+    const std::array<sf::Vector2f, 2> points = { { { 0.f, 0.f }, { 10.f, 0.f } } };
+    VertexList vertices;
+    appendPolyline(vertices, points, stroke(red, 2.f), { 100.f, 50.f });
+
+    REQUIRE(bounds(vertices) == FloatRect(100.f, 49.f, 10.f, 2.f));
+}
+
+// ----- Areas -----
+
+TEST_CASE("an area fills between a curve and a line, fading to nothing at the line", "[ui][shapes]") {
+    // A curve above the line (smaller y is higher on screen).
+    const std::array<sf::Vector2f, 3> points = { { { 0.f, 60.f }, { 50.f, 20.f }, { 100.f, 60.f } } };
+    VertexList vertices;
+    appendArea(vertices, points, 100.f, filled(sf::Color(200, 30, 30, 200)));
+
+    REQUIRE(vertices.size() == 2 * 6);
+    REQUIRE(bounds(vertices) == FloatRect(0.f, 20.f, 100.f, 80.f));
+    // Two trapezoids: between heights 40 and 80, 50 wide each.
+    REQUIRE(area(vertices) == Approx(2.f * 50.f * (40.f + 80.f) / 2.f));
+
+    for (const sf::Vertex& vertex : vertices) {
+        if (vertex.position.y == 100.f) {
+            REQUIRE(vertex.color.a == 0); // on the line
+        } else if (vertex.position.y == 20.f) {
+            REQUIRE(vertex.color.a == 200); // the point furthest from the line: full strength
+        } else {
+            REQUIRE(vertex.color.a == 100); // half as far: half as strong
+        }
+        REQUIRE(vertex.color.r == 200);
+    }
+}
+
+TEST_CASE("the strength of an area depends only on the distance from the line", "[ui][shapes]") {
+    // Uneven steps along x: points at the same height must still get the same strength.
+    const std::array<sf::Vector2f, 4> points = { { { 0.f, 10.f }, { 5.f, 40.f }, { 80.f, 40.f }, { 81.f, 10.f } } };
+    VertexList vertices;
+    appendArea(vertices, points, 50.f, filled(sf::Color(0, 0, 0, 240)));
+
+    for (const sf::Vertex& vertex : vertices) {
+        const float expected = 240.f * (50.f - vertex.position.y) / 40.f;
+        REQUIRE(static_cast<float>(vertex.color.a) == Approx(expected).margin(0.51));
+    }
+}
+
+TEST_CASE("an area fills both sides where the curve crosses the line", "[ui][shapes]") {
+    // From 20 above the line to 20 below it: crosses halfway.
+    const std::array<sf::Vector2f, 2> points = { { { 0.f, 30.f }, { 40.f, 70.f } } };
+    VertexList vertices;
+    appendArea(vertices, points, 50.f, filled(red));
+
+    REQUIRE(vertices.size() == 6);
+    REQUIRE(hasVertexAt(vertices, { 20.f, 50.f }));               // the crossing
+    REQUIRE(area(vertices) == Approx(2.f * (20.f * 20.f / 2.f))); // a triangle on each side
+    REQUIRE(bounds(vertices) == FloatRect(0.f, 30.f, 40.f, 40.f));
+}
+
+TEST_CASE("an area can be moved as a whole", "[ui][shapes]") {
+    const std::array<sf::Vector2f, 2> points = { { { 0.f, 0.f }, { 10.f, 0.f } } };
+    VertexList vertices;
+    appendArea(vertices, points, 20.f, filled(red), { 100.f, 50.f });
+
+    REQUIRE(bounds(vertices) == FloatRect(100.f, 50.f, 10.f, 20.f));
+}
+
+TEST_CASE("nothing is added for an area that cannot be seen", "[ui][shapes]") {
+    const std::array<sf::Vector2f, 2> flat = { { { 0.f, 50.f }, { 10.f, 50.f } } };
+    const std::array<sf::Vector2f, 2> curve = { { { 0.f, 10.f }, { 10.f, 20.f } } };
+    const std::array<sf::Vector2f, 1> one = { { { 0.f, 10.f } } };
+    VertexList vertices;
+
+    appendArea(vertices, flat, 50.f, filled(red)); // the curve lies on the line
+    appendArea(vertices, one, 50.f, filled(red));
+    appendArea(vertices, curve, 50.f, filled(sf::Color::Transparent));
+    PartStyle hidden = filled(red);
+    hidden.shown = false;
+    appendArea(vertices, curve, 50.f, hidden);
 
     REQUIRE(vertices.empty());
 }
