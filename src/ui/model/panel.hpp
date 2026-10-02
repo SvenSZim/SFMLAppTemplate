@@ -29,12 +29,19 @@ struct Panel {
     // ----- Written by input, and by the application through its handle -----
 
     bool collapsed = false;
-    bool visible = true;
+    bool visible = true; ///< What the application wants; whether it fits is `shown`.
     bool hovered = false;
 
     // ----- Written by layout -----
 
     FloatRect rect; ///< In window pixels.
+
+    /// Whether the panel is on screen: it is visible and there is room for it. A panel that is
+    /// not shown is neither drawn nor reacts to input, and its rectangle means nothing.
+    bool shown = false;
+
+    /// The height the panel's widgets need, padding included. 0 for a panel without widgets.
+    float contentHeight = 0.f;
 
     // ----- Written by whoever changes how the panel looks; taken by the UI before drawing -----
 
