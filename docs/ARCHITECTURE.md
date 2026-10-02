@@ -124,7 +124,7 @@ Files:
 
 ```
 src/ui/
-├─ ui.cpp
+├─ ui.cpp     frame_loop.hpp/.cpp
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp
 ├─ input/    input_system.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
@@ -294,7 +294,8 @@ widget.paint() ──► Painter ──► draw list ──► PanelBatch (one v
 - `text_layout`: fitting text into its room, independent of fonts: measuring a line, cutting it short with an ellipsis, wrapping at word boundaries.
 - `font_measurer`: measures text with the real fonts.
 - `text_cache`: draws a layer's text and keeps what it built (cache level 3). One SFML text object per text run, built when the run first appears and again only when it changes; a panel repainted with the same text builds nothing. One draw call per run (D37).
-- `renderer`: draws batches in the order of the list it is given, then the overlay; at most two calls for shapes per panel. Reports draw calls and triangles per frame. The frame flag (level 1) and view callbacks are added to it in WP 2.6 and WP 4.4.
+- `renderer`: draws batches in the order of the list it is given, then the overlay; at most two calls for shapes per panel. Reports draw calls and triangles per frame. `present` shows a frame in the window only if one is needed (cache level 1): if the redraw flag asks for one, or a batch changed since the last frame. Otherwise it does nothing at all. View callbacks are added in WP 4.4.
+- `frame_loop` (at the root of `ui`, next to the facade): the `RedrawFlag`, which any thread may set, and `nextEvent`, which fetches the window's next event and sleeps for up to one display frame while no frame is asked for. A batch notes by itself when it was repainted, moved or scrolled, so changes inside the UI need no request; the flag is for what the UI cannot see, such as a new simulation state.
 - `text_renderer`: the interface the renderer hands a layer's text to; `text_cache` implements it.
 - `profiler`: build time, draw-call count, frame time (D6).
 

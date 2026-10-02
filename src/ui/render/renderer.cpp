@@ -36,6 +36,44 @@ Renderer::draw(sf::RenderTarget& target, std::span<const PanelBatch* const> pane
     return stats;
 }
 
+std::optional<FrameStats> Renderer::present(
+    sf::RenderWindow& window,
+    sf::Color background,
+    frame::RedrawFlag& flag,
+    std::span<PanelBatch* const> panels,
+    PanelBatch* overlay
+) {
+    // Ask every batch, not just until the first that changed: each mark has to be cleared.
+    bool needed = flag.take();
+    for (PanelBatch* batch : panels) {
+        if (batch != nullptr && batch->takeChanged()) {
+            needed = true;
+        }
+    }
+    if (overlay != nullptr && overlay->takeChanged()) {
+        needed = true;
+    }
+
+    if (!needed) {
+        ++m_framesSkipped;
+        return std::nullopt;
+    }
+
+    window.clear(background);
+    FrameStats stats;
+    for (const PanelBatch* batch : panels) {
+        if (batch != nullptr) {
+            drawBatch(window, *batch, stats);
+        }
+    }
+    if (overlay != nullptr) {
+        drawBatch(window, *overlay, stats);
+    }
+    window.display();
+    ++m_framesDrawn;
+    return stats;
+}
+
 void Renderer::drawBatch(sf::RenderTarget& target, const PanelBatch& batch, FrameStats& stats) {
     if (!batch.isVisible()) {
         return;
