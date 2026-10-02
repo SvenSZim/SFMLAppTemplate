@@ -5,18 +5,19 @@
 #include "atpl/ui/binding.hpp"
 #include "atpl/ui/placement.hpp"
 #include "atpl/ui/theme.hpp"
+#include "atpl/ui/widget.hpp"
 
 #include <concepts>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace atpl {
-
-class Widget; // the interface every widget type implements, see widget.hpp
 
 // The widget pool.
 //
@@ -299,6 +300,9 @@ struct View {
     static constexpr Kind kind{ "view" };
     static constexpr Part Frame{ kind, "frame", Role::Line, Shown::No };
 
+    /// Marks the descriptor as one of a view: the UI then keeps a view of this name for it.
+    static constexpr bool isView = true;
+
     std::string name;
     ViewOptions options;
 
@@ -309,6 +313,11 @@ struct View {
 
 /// What a type must offer to be used as a widget descriptor: a name, and a way to make the widget.
 /// Applications that implement their own widget type write a descriptor for it the same way.
+///
+/// Two more members are looked at if a descriptor has them:
+/// - `binding`, a `std::optional<AnyBinding>`: what the widget is bound to from the start.
+/// - `isView`, a `static constexpr bool`: if true, the widget is a region the application draws
+///   into, found with `UI::view(name)`.
 template <typename D>
 concept WidgetDescriptor = requires(const D& descriptor) {
     { descriptor.name } -> std::convertible_to<std::string_view>;
@@ -329,7 +338,57 @@ public:
 
     /// The colours the widget was given with `colored`; empty fields mean its panel's.
     [[nodiscard]] ColorOverride colors() const;
+
+    /// What the descriptor was given to bind the widget to, if anything.
+    [[nodiscard]] const std::optional<AnyBinding>& binding() const;
+
+    /// Whether the widget is a view: see `View`.
+    [[nodiscard]] bool isView() const;
+
+    /// Makes the widget. The UI calls this once for every widget when it is built.
+    [[nodiscard]] std::unique_ptr<Widget> create() const;
+
+private:
+    friend WidgetSetup at(GridCell cell, WidgetSetup widget);
+    friend WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
+
+    std::string m_name;
+    std::optional<AnyBinding> m_binding;
+    bool m_isView = false;
+    std::function<std::unique_ptr<Widget>()> m_create;
+    std::optional<GridCell> m_cell;
+    ColorOverride m_colors;
 };
+
+namespace detail {
+
+/// The descriptor's `binding` member, if it has one.
+template <typename D>
+[[nodiscard]] std::optional<AnyBinding> bindingOf(const D& descriptor) {
+    if constexpr (requires {
+                      { descriptor.binding } -> std::convertible_to<std::optional<AnyBinding>>;
+                  }) {
+        return descriptor.binding;
+    } else {
+        return std::nullopt;
+    }
+}
+
+/// Whether the descriptor type says it describes a view.
+template <typename D>
+inline constexpr bool describesView = requires { requires D::isView; };
+
+} // namespace detail
+
+// The constructor takes from the descriptor what the UI needs to know before the widget exists,
+// and keeps the descriptor to make the widget from. (Members are set in the order they are
+// declared in: name and binding are copied before the descriptor is moved.)
+template <WidgetDescriptor D>
+WidgetSetup::WidgetSetup(D descriptor) :
+    m_name(descriptor.name),
+    m_binding(detail::bindingOf(descriptor)),
+    m_isView(detail::describesView<D>),
+    m_create([kept = std::move(descriptor)] { return kept.create(); }) {}
 
 /// Gives a widget a position in its panel's grid:
 ///
