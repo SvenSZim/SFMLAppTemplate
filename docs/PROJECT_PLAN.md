@@ -93,6 +93,8 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D38 | 2026-10-02 | Performance targets (WP 2.7). The three targets of 5.5 count as met; the worst case measured, every panel painted anew every frame, lies at the limit and gets no follow-up, and glyph batching stays an extension, not a requirement (D37). The application shows the profiler readout with `UI::setProfilerVisible(bool)`, or from the start with `UISetup::profiler`; it is off by default and has no built-in key. | Accepted |
 | D39 | 2026-10-02 | Model (WP 3.1). A descriptor's optional members are picked up by name, the same for built-in and app-defined widgets: `binding` (what the widget is bound to from the start) and `static constexpr bool isView = true` (the widget is a view, found with `UI::view(name)`). `WidgetSetup` hands them on through `binding()`, `isView()` and `create()`. A view widget is found both as a widget and as a view. Names must not be empty. | Accepted |
 | D40 | 2026-10-02 | Panel placement (WP 3.3), filling in D28. A stack of floating panels that is too high: every panel keeps its header, and the height left is shared so that each panel gets as much as it needs before the larger ones share the rest. A window narrower than a floating panel and its margins: the margins shrink first, then the panel. The window's grid has the theme's `margin` around it and between its cells. Grid panels may share cells; the setup allows it, so an application can swap panels in one place with `setVisible`. | Accepted |
+| D41 | 2026-10-02 | Facade (WP 3.2). The `minimal` example uses the UI from now on, driven by a hand-written loop until `App` exists; it replaces the SFML-only window. Until the input system exists (WP 3.5), `UI::events()` carries window events only: closed, resized, focus. The profiler readout sits in the top-right corner of the window. | Accepted |
+| D42 | 2026-10-02 | A stack of floating panels that does not fit can overlap its panels like a stack of cards instead of hiding the last ones: the hovered panel comes to the front, a selected one expands and the others make room. Opt-in; hiding stays the default. Built as WP 3.14 (#75), after input and panel collapse. | Accepted |
 
 ### Open questions
 
@@ -245,6 +247,7 @@ Each phase ends with something that runs.
 - `Param<T>` and `Series` implementations (D10, P10).
 - Data bindings by name and in the descriptor (P2).
 - Panel scrolling and the other overflow rules (D28).
+- Card-stack overflow for floating panels, opt-in (D42).
 - The `Paragraph` widget (D30).
 
 **Done when:** every widget in the demo is interactive and bound to app data.
@@ -277,9 +280,9 @@ Each phase ends with something that runs.
 
 - **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
 - **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
-- Tests: 279, of which 34 need a display: the window smoke test, the render benchmark, and 32 that draw and check pixels, load glyphs or run the frame loop in a window.
+- Tests: 294, of which 44 need a display: the `minimal` example as a smoke test, the render benchmark, and 42 that draw and check pixels, load glyphs, or run the frame loop or the UI in a window.
 - **Phase 2 is done**: shapes, theme core, draw list and painter, panel batches and renderer, text, the redraw flag with frame skipping and an idle loop that sleeps, and the profiler. The targets of 5.5 are measured and met. What exists is the pipeline from a painter call to the screen; there are no panels or widgets yet to feed it, apart from the stand-ins in the tests and in the benchmark.
-- Phase 3 (widgets and input) in progress. Done: WP 3.1 (the model: panels, widget slots and views in one store with dense ids, the name index, colours checked against the theme) and WP 3.3 (placing panels and views in the window: anchored stacks, grid cells, and what happens when they do not fit).
-- Next: WP 3.2 (facade and frame sequence), which puts model, placement and rendering together on screen; then widget layout (WP 3.4). Independent of them: the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
+- Phase 3 (widgets and input) in progress. Done: WP 3.1 (the model: panels, widget slots and views in one store with dense ids, the name index, colours checked against the theme) and WP 3.3 (placing panels and views in the window: anchored stacks, grid cells, and what happens when they do not fit). WP 3.2 (the facade: `UI` is built from a setup, finds things by name, and runs the frame steps; declared panels appear on screen as empty frames, are placed anew when the window is resized, and nothing is drawn while nothing changes).
+- Next: WP 3.4 (widgets inside panels), then input (WP 3.5). Independent of them: the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
 - Open question: Q5 (utility scope, Phase 5). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

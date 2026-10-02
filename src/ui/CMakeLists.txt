@@ -2,6 +2,7 @@
 # Depends on atpl_core and SFML Graphics. This target must never link atpl_app.
 add_library(atpl_ui STATIC
   frame_loop.cpp
+  input/window_events.cpp
   layout/packing.cpp
   layout/panel_placement.cpp
   model/name_index.cpp
@@ -20,6 +21,8 @@ add_library(atpl_ui STATIC
   theme/metrics.cpp
   theme/style.cpp
   theme/theme.cpp
+  ui.cpp
+  widgets/panel_frame.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 

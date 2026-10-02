@@ -55,7 +55,7 @@ SFMLAppTemplate/
 │  │  └─ widgets/
 │  └─ app/
 ├─ examples/
-│  ├─ minimal/                 an SFML-only window; the smoke test until the API is implemented
+│  ├─ minimal/                 a window with empty panels, driving the UI by hand; the smoke test
 │  ├─ starter/                 the smallest app written against the API; compiled, not yet linked
 │  ├─ pathfinding/
 │  └─ particles/
@@ -127,7 +127,7 @@ Files:
 src/ui/
 ├─ ui.cpp     frame_loop.hpp/.cpp
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
-├─ input/    input_system.hpp/.cpp
+├─ input/    input_system.hpp/.cpp  window_events.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   panel_placement.hpp/.cpp  packing.hpp/.cpp
 ├─ theme/    theme.cpp  presets.cpp
@@ -135,7 +135,7 @@ src/ui/
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
 │            profiler.hpp/.cpp  frame_stats.hpp
-└─ widgets/  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
+└─ widgets/  panel_frame.hpp/.cpp  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
 
@@ -256,7 +256,7 @@ What happens when things do not fit. Rules for a start; to be revisited if they 
 | Case | Rule |
 |---|---|
 | A panel's content is higher than the panel can be | The content scrolls vertically inside the panel (mouse wheel, thin scrollbar). The header stays fixed. |
-| A stack of floating panels is higher than the window | Every panel keeps its header. The height that is left is shared among the contents of the expanded panels: none gets more than it needs, and what the small ones leave goes to the others in equal parts; they scroll inside. If not even the headers fit, the last panels of the stack are not shown. |
+| A stack of floating panels is higher than the window (the default; a card stack is planned as an option, D42) | Every panel keeps its header. The height that is left is shared among the contents of the expanded panels: none gets more than it needs, and what the small ones leave goes to the others in equal parts; they scroll inside. If not even the headers fit, the last panels of the stack are not shown. |
 | A grid-cell panel in a small window | Its cell shrinks with the window; its content scrolls. With no room at all left, it is not shown. |
 | A floating panel wider than the window | The margin at the sides shrinks first; then the panel's width is clamped to the window width. |
 | Text wider than its widget | Cut off with an ellipsis. |
@@ -467,6 +467,15 @@ Main thread, one pass of `App`'s loop:
 | 2 | application | `App` hands each event to the `onEvent` handler, which handles it or sends a command to the simulation. Then the `onUpdate` handler runs. |
 | 3 | `binding`, `widgets`, `layout` | `UI::update()`: bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
 | 4 | `render` | `UI::draw()`: if nothing needs a redraw, the frame is skipped and the loop waits for input (with a timeout of one display frame). Otherwise dirty panels are rebuilt and everything is drawn, including the views, whose draw functions read `simulation.state()`. |
+
+What `ui.cpp` does in each step, as of WP 3.2 (the rest is added by the packages that build the modules):
+
+- **Construction**: the model is built from the setup, which checks names and colours; `layout::requirePlaceable` checks the placements. One render batch is made per panel.
+- **`handleInput()`**: reads the window's events with `frame::nextEvent`, which is where an idle application sleeps. A resize sets the window's view back to one unit per pixel and marks the placement as out of date. Window events are forwarded (`input/window_events`).
+- **`update()`**: places panels and views if the placement is out of date: after a resize, after a panel was collapsed, expanded, shown or hidden, and after a new theme.
+- **`draw()`**: hands every panel's place to its batch, takes the model's dirty flags, paints the panels that changed (`widgets/panel_frame`), and lets the renderer present, which skips the frame if nothing changed.
+- **Handles** read and write the model, and say what that makes out of date. The facade keeps no state of its own beyond "the placement is out of date".
+
 
 Simulation thread, one pass: handle pending commands → if not paused, tick → if the main thread has taken the last state, write a new one → request a redraw.
 
