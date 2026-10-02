@@ -1,7 +1,6 @@
 #include "atpl/ui/setup.hpp"
 
 #include "ui/render/draw_list.hpp"
-#include "ui/theme/metrics.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -21,11 +20,11 @@ bool hasColor(const render::VertexList& vertices, sf::Color color) {
 
 TEST_CASE("a panel's frame is its background and its title in the header", "[ui][widgets][panel]") {
     const Theme theme;
-    const Metrics metrics = theme::scaled(theme.metrics);
+    const Sizes sizes = Layout().sizesAt({ 1280.f, 720.f });
     DrawList list;
     Painter painter(list, { 0.f, 0.f }, { 280.f, 200.f });
 
-    widgets::paintPanelFrame(painter, "Controls", theme, {}, metrics);
+    widgets::paintPanelFrame(painter, "Controls", theme, {}, sizes);
 
     REQUIRE(hasColor(list.shapes(), theme.resolve(Panel::Background).color));
     REQUIRE(list.texts().size() == 1);
@@ -34,17 +33,17 @@ TEST_CASE("a panel's frame is its background and its title in the header", "[ui]
     REQUIRE(title.color == theme.resolve(Panel::Title).color);
     REQUIRE(title.size == theme.resolve(Panel::Title).textSize);
     // In the header, with the panel's padding at both sides.
-    REQUIRE(title.rect == FloatRect(metrics.padding, 0.f, 280.f - 2.f * metrics.padding, metrics.headerHeight));
+    REQUIRE(title.rect == FloatRect(sizes.padding.x, 0.f, 280.f - 2.f * sizes.padding.x, sizes.headerHeight));
 }
 
 TEST_CASE("a panel is painted in its own colours", "[ui][widgets][panel]") {
     const Theme theme = themes::colorful();
-    const Metrics metrics = theme::scaled(theme.metrics);
+    const Sizes sizes = Layout().sizesAt({ 1280.f, 720.f });
     const PanelColors colors{ .main1 = 2, .main2 = 3, .accent = 1 };
     DrawList list;
     Painter painter(list, { 0.f, 0.f }, { 280.f, 200.f });
 
-    widgets::paintPanelFrame(painter, "Playback", theme, colors, metrics);
+    widgets::paintPanelFrame(painter, "Playback", theme, colors, sizes);
 
     REQUIRE(hasColor(list.shapes(), theme.palette.mains[2]));       // background: main1
     REQUIRE_FALSE(hasColor(list.shapes(), theme.palette.mains[0])); // not the default
@@ -52,11 +51,11 @@ TEST_CASE("a panel is painted in its own colours", "[ui][widgets][panel]") {
 
 TEST_CASE("a panel squeezed below its header's height keeps its title inside", "[ui][widgets][panel]") {
     const Theme theme;
-    const Metrics metrics = theme::scaled(theme.metrics);
+    const Sizes sizes = Layout().sizesAt({ 1280.f, 720.f });
     DrawList list;
     Painter painter(list, { 280.f, 20.f }, { 280.f, 20.f });
 
-    widgets::paintPanelFrame(painter, "Controls", theme, {}, metrics);
+    widgets::paintPanelFrame(painter, "Controls", theme, {}, sizes);
 
     REQUIRE(list.texts().size() == 1);
     REQUIRE(list.texts().front().rect.height() == 20.f);

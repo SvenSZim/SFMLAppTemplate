@@ -17,6 +17,9 @@ using std::chrono::milliseconds;
 
 namespace {
 
+/// The default layout's sizes at its reference window size: nothing is scaled.
+const Sizes reference = Layout().sizesAt({ 1280.f, 720.f });
+
 /// A point in time, this long after an arbitrary start.
 Profiler::Clock::time_point at(milliseconds sinceStart) {
     return Profiler::Clock::time_point(sinceStart);
@@ -126,7 +129,7 @@ TEST_CASE("a scope times what happens inside it", "[ui][profiler]") {
 
 TEST_CASE("the readout is off by default and then does nothing", "[ui][profiler]") {
     Profiler profiler;
-    profiler.setLook(Theme());
+    profiler.setLook(Theme(), reference);
 
     REQUIRE_FALSE(profiler.isVisible());
     REQUIRE_FALSE(profiler.batch().takeChanged()); // being off is not a change to draw
@@ -138,7 +141,7 @@ TEST_CASE("the readout is off by default and then does nothing", "[ui][profiler]
 TEST_CASE("the readout takes its size and its look from the theme", "[ui][profiler]") {
     Theme theme;
     Profiler profiler;
-    profiler.setLook(theme);
+    profiler.setLook(theme, reference);
     profiler.setVisible(true);
     REQUIRE(profiler.refresh(at(milliseconds(0))));
 
@@ -154,16 +157,17 @@ TEST_CASE("the readout takes its size and its look from the theme", "[ui][profil
     REQUIRE(runs[1].color == theme.resolve(Profiler::Value).color);
     REQUIRE_FALSE(profiler.batch().frame().shapes().empty()); // the background
 
-    // A larger GUI scale gives a larger readout.
-    theme.metrics.scale = 2.f;
+    // Larger sizes give a larger readout.
+    Layout doubled;
+    doubled.metrics.scale = 2.f;
     Profiler large;
-    large.setLook(theme);
+    large.setLook(theme, doubled.sizesAt({ 1280.f, 720.f }));
     REQUIRE(large.batch().size().x > size.x * 1.5f);
 }
 
 TEST_CASE("the readout is refreshed five times per second, not every frame", "[ui][profiler]") {
     Profiler profiler;
-    profiler.setLook(Theme());
+    profiler.setLook(Theme(), reference);
     profiler.setVisible(true);
     REQUIRE(profiler.refresh(at(milliseconds(0)))); // painted when it appears
 
@@ -182,7 +186,7 @@ TEST_CASE("the readout is refreshed five times per second, not every frame", "[u
 
 TEST_CASE("a readout whose text stays the same is not painted again", "[ui][profiler]") {
     Profiler profiler;
-    profiler.setLook(Theme());
+    profiler.setLook(Theme(), reference);
     profiler.setVisible(true);
     profiler.refresh(at(milliseconds(0)));
 
@@ -197,7 +201,7 @@ TEST_CASE("a readout whose text stays the same is not painted again", "[ui][prof
 
 TEST_CASE("an idle application stays idle with the readout on", "[ui][profiler]") {
     Profiler profiler;
-    profiler.setLook(Theme());
+    profiler.setLook(Theme(), reference);
     profiler.setVisible(true);
     profiler.refresh(at(milliseconds(0)));
     frame(profiler, microseconds(100), microseconds(50));
@@ -221,7 +225,7 @@ TEST_CASE("an idle application stays idle with the readout on", "[ui][profiler]"
 
 TEST_CASE("switching the readout on starts measuring afresh", "[ui][profiler]") {
     Profiler profiler;
-    profiler.setLook(Theme());
+    profiler.setLook(Theme(), reference);
 
     // Frames from before anybody looked.
     static_cast<void>(profiler.take(at(milliseconds(0))));

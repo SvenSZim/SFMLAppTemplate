@@ -172,6 +172,7 @@ scaleFont = 1 + (min(scaleX, scaleY) - 1) * fontStrength
 | What | Follows |
 |---|---|
 | Widget widths, side padding, gaps between columns, panel width limits | `scaleX` |
+| Margins, the same on all sides | the smaller of `scaleX` and `scaleY` |
 | Row heights, header height, vertical padding and gaps, panel height limits | `scaleY` |
 | Text sizes, outline thickness, corner radius | `scaleFont` |
 
@@ -237,8 +238,8 @@ Text that is too wide for its widget still ends in an ellipsis. There is still n
 | Package | Content | State |
 |---|---|---|
 | WP 3.4 (#23) | Finding grid cells, largest first, for widgets and panels; balanced packing; the order of a layout pass; widgets painted at their places. Grid rows are one standard row high for the time being. | done |
-| WP 3.15 (#77) | Layout theme: the `Layout` type, presets, `Metrics` moved out of the theme, per-panel overrides, scaling with the window | next |
-| WP 3.16 (#78) | Widget size requests (minimum, maximum, ratios), a widget's rectangle in a cell, alignment; content top-down and bottom-up (own, equal, spans dividing the minimum) | |
+| WP 3.15 (#77) | Layout theme: the `Layout` type, presets, `Metrics` moved out of the theme, per-panel overrides, scaling with the window. The settings for fit, equal sizes, limits and the content rule are stored but not yet in effect. | done |
+| WP 3.16 (#78) | Widget size requests (minimum, maximum, ratios), a widget's rectangle in a cell, alignment; content top-down and bottom-up (own, equal, spans dividing the minimum) | next |
 | WP 3.17 (#79) | Panel sizing: fill and fit-content in the grid, own and equal floating panels, limits; the overflow rules of section 7; collapse direction | |
 
 ## 10. Details settled while writing this down

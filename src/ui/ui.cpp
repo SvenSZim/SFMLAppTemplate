@@ -9,7 +9,6 @@
 #include "ui/render/profiler.hpp"
 #include "ui/render/renderer.hpp"
 #include "ui/render/text_cache.hpp"
-#include "ui/theme/metrics.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
 #include <SFML/Graphics/View.hpp>
@@ -28,6 +27,7 @@ struct UI::Impl {
         store(setup), // checks names and colours
         grid(setup.grid),
         theme(std::move(setup.theme)),
+        layout(std::move(setup.layout)),
         batches(store.panels().size()),
         renderer(&textCache) {
         layout::prepare(store, grid); // finds grid cells; refuses what cannot be laid out
@@ -39,16 +39,16 @@ struct UI::Impl {
 
         renderer.setProfiler(&profiler);
         profiler.setVisible(setup.profiler);
-        themeChanged();
         windowResized();
+        looksChanged();
     }
 
     // ----- What makes the next frame different -----
 
-    /// The theme's sizes, and everything worked out from them, are out of date.
-    void themeChanged() {
-        metrics = theme::scaled(theme.metrics);
-        profiler.setLook(theme);
+    /// The theme, the layout theme or the sizes changed: everything is painted and placed anew.
+    void looksChanged() {
+        sizes = layout.sizesAt(windowSize);
+        profiler.setLook(theme, sizes);
         for (model::Panel& panel : store.panels()) {
             panel.dirty = true;
         }
@@ -57,9 +57,13 @@ struct UI::Impl {
     }
 
     /// The window has a different size: one unit stays one pixel, and panels find new places.
+    /// If the sizes follow the window, text and outlines change too.
     void windowResized() {
         windowSize = sf::Vector2f(window.getSize());
         window.setView(sf::View(sf::FloatRect({ 0.f, 0.f }, windowSize)));
+        if (layout.sizesAt(windowSize) != sizes) {
+            looksChanged();
+        }
         placementOutdated = true;
         flag.request();
     }
@@ -79,11 +83,11 @@ struct UI::Impl {
             return;
         }
         placementOutdated = false;
-        layout::arrange(store, windowSize, grid, theme, metrics, &textMeasurer);
+        layout::arrange(store, windowSize, grid, theme, sizes, &textMeasurer);
 
         // The readout sits in the bottom-right corner (D43).
         const sf::Vector2f readout = profiler.batch().size();
-        profiler.setPosition({ windowSize.x - metrics.margin - readout.x, windowSize.y - metrics.margin - readout.y });
+        profiler.setPosition({ windowSize.x - sizes.margin - readout.x, windowSize.y - sizes.margin - readout.y });
     }
 
     /// model -> render: every batch gets its panel's place, and the panels that look different
@@ -108,17 +112,17 @@ struct UI::Impl {
                 const auto build = profiler.measure(render::Profiler::Section::Build);
                 const auto layers = batch.rebuild();
                 Painter frame(layers.frame, { 0.f, 0.f }, panel.rect.size(), &textMeasurer);
-                widgets::paintPanelFrame(frame, panel.title, theme, panel.colors, metrics);
+                widgets::paintPanelFrame(frame, panel.title, theme, panel.colors, sizes);
 
                 // Each widget paints itself at the place layout gave it. The content starts
                 // below the header.
-                const sf::Vector2f content(0.f, metrics.headerHeight);
+                const sf::Vector2f content(0.f, sizes.headerHeight);
                 for (const model::WidgetSlot& slot : store.widgetsOf(PanelId{ static_cast<std::uint32_t>(i) })) {
                     if (!slot.visible) {
                         continue;
                     }
                     Painter painter(layers.content, slot.rect.position() + content, slot.rect.size(), &textMeasurer);
-                    slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), metrics));
+                    slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), sizes));
                 }
             }
         }
@@ -130,7 +134,8 @@ struct UI::Impl {
     model::Store store;
     GridSetup grid;
     Theme theme;
-    Metrics metrics; // the theme's, with the GUI scale applied
+    Layout layout;
+    Sizes sizes; // the layout's, for the window as it is
     bool placementOutdated = true;
 
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
@@ -172,7 +177,42 @@ const Theme& UI::theme() const {
 void UI::setTheme(Theme theme) {
     m_impl->store.requireColors(theme); // a theme that does not fit is refused before anything changes
     m_impl->theme = std::move(theme);
-    m_impl->themeChanged();
+    m_impl->looksChanged();
+}
+
+// ----- Sizes and positions -----
+
+const Layout& UI::layout() const {
+    return m_impl->layout;
+}
+
+void UI::setLayout(Layout layout) {
+    Impl& impl = *m_impl;
+
+    // The panels that take their place from the layout theme get the new one's. If they do not
+    // fit, everything goes back to how it was.
+    std::vector<Placement> before;
+    before.reserve(impl.store.panels().size());
+    for (const model::Panel& panel : impl.store.panels()) {
+        before.push_back(panel.placement);
+    }
+    impl.store.applyLayout(layout);
+    try {
+        layout::prepare(impl.store, impl.grid);
+    } catch (...) {
+        impl.store.applyLayout(impl.layout);
+        for (std::size_t i = 0; i < before.size(); ++i) {
+            impl.store.panels()[i].placement = before[i];
+        }
+        throw;
+    }
+
+    impl.layout = std::move(layout);
+    impl.looksChanged();
+}
+
+const Sizes& UI::sizes() const {
+    return m_impl->sizes;
 }
 
 // ----- Measuring -----

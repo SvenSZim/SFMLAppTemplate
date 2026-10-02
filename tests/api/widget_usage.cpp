@@ -41,7 +41,7 @@ public:
 
     // Size: one row. The width is not the widget's to decide.
     [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
-        return { .height = context.metrics().rowHeight };
+        return { .height = context.sizes().rowHeight };
     }
 
     // Input: a click selects the segment under the pointer.
@@ -129,13 +129,20 @@ std::unique_ptr<Widget> SegmentedControl::create() const {
 
 enum class Algorithm { BreadthFirst, Dijkstra, AStar };
 
+// Sizes are not part of the theme: they belong to the layout theme.
+Layout makeLayout() {
+    Layout layout = layouts::overlay();
+    layout.metrics.rowHeight = 30.f;
+    layout.metrics.scale = 1.25f;        // everything a quarter larger, for a display of high resolution
+    layout.scaling.fontStrength = 0.25f; // text follows the window's size only a little
+    return layout;
+}
+
 Theme makeTheme() {
     // Layer 1, tokens: a theme is complete with these alone.
     Theme theme = themes::moon();
     theme.palette.accents[0].accent = sf::Color(212, 163, 115);
     theme.shape.radius = 14.f;
-    theme.metrics.rowHeight = 30.f;
-    theme.metrics.scale = 1.25f;
 
     // Text types: a size and a font each. Titles get their own font here.
     const auto titleFont = std::make_shared<sf::Font>();

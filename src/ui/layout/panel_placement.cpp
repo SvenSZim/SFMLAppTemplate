@@ -90,15 +90,13 @@ void share(std::vector<float>& heights, float available) {
 
 /// A floating panel is as wide as it asks to be, or as the theme says, but never wider than the
 /// window.
-[[nodiscard]] float floatingWidth(const model::Panel& panel, sf::Vector2f window, const Metrics& metrics, float scale) {
-    const float asked = panel.width > 0.f ? panel.width * scale : metrics.panelWidth;
+[[nodiscard]] float floatingWidth(const model::Panel& panel, sf::Vector2f window, const Sizes& sizes) {
+    const float asked = panel.width > 0.f ? panel.width * sizes.scale.x : sizes.panelWidth;
     return std::round(std::min(asked, window.x));
 }
 
 /// One stack of floating panels.
-void placeStack(
-    std::span<model::Panel> panels, Anchor anchor, sf::Vector2f window, const Metrics& metrics, float scale
-) {
+void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f window, const Sizes& sizes) {
     // The panels of this stack that the application wants to see, in the order listed.
     std::vector<model::Panel*> stack;
     for (model::Panel& panel : panels) {
@@ -111,9 +109,9 @@ void placeStack(
         return;
     }
 
-    const float header = metrics.headerHeight;
-    const float gap = metrics.margin;
-    const float available = window.y - 2.f * metrics.margin;
+    const float header = sizes.headerHeight;
+    const float gap = sizes.margin;
+    const float available = window.y - 2.f * sizes.margin;
 
     // If not even the headers fit, the last panels have to go.
     std::size_t count = stack.size();
@@ -130,7 +128,7 @@ void placeStack(
     std::vector<float> heights(count);
     float total = static_cast<float>(count - 1) * gap;
     for (std::size_t i = 0; i < count; ++i) {
-        heights[i] = wantedHeight(*stack[i], metrics);
+        heights[i] = wantedHeight(*stack[i], sizes);
         total += heights[i];
     }
     if (total > available) {
@@ -148,19 +146,19 @@ void placeStack(
 
     // Vertically: from the top, from the bottom, or centred.
     const Side side = vertical(anchor);
-    float y = metrics.margin;
+    float y = sizes.margin;
     if (side == Side::Middle) {
         y = std::round((window.y - total) * 0.5f);
     } else if (side == Side::End) {
-        y = window.y - metrics.margin;
+        y = window.y - sizes.margin;
     }
 
     for (std::size_t i = 0; i < count; ++i) {
         model::Panel& panel = *stack[i];
 
         // Horizontally: in a narrow window the margin shrinks first, then the panel.
-        const float width = floatingWidth(panel, window, metrics, scale);
-        const float margin = std::clamp((window.x - width) * 0.5f, 0.f, metrics.margin);
+        const float width = floatingWidth(panel, window, sizes);
+        const float margin = std::clamp((window.x - width) * 0.5f, 0.f, sizes.margin);
         float x = margin;
         if (horizontal(anchor) == Side::Middle) {
             x = (window.x - width) * 0.5f;
@@ -261,20 +259,18 @@ void preparePanels(model::Store& store, GridSetup grid) {
     }
 }
 
-float panelWidth(
-    const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Metrics& metrics, float scale
-) {
+float panelWidth(const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes) {
     if (const GridCell* cell = std::get_if<GridCell>(&panel.placement)) {
-        return cellRect(*cell, windowSize, grid, metrics.margin).width();
+        return cellRect(*cell, windowSize, grid, sizes.margin).width();
     }
-    return floatingWidth(panel, windowSize, metrics, scale);
+    return floatingWidth(panel, windowSize, sizes);
 }
 
-float wantedHeight(const model::Panel& panel, const Metrics& metrics) {
-    return metrics.headerHeight + (panel.collapsed ? 0.f : panel.contentHeight);
+float wantedHeight(const model::Panel& panel, const Sizes& sizes) {
+    return sizes.headerHeight + (panel.collapsed ? 0.f : panel.contentHeight);
 }
 
-void placePanels(model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Metrics& metrics, float scale) {
+void placePanels(model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes) {
     const std::span<model::Panel> panels = store.panels();
 
     for (model::Panel& panel : panels) {
@@ -283,20 +279,20 @@ void placePanels(model::Store& store, sf::Vector2f windowSize, GridSetup grid, c
             continue;
         }
         if (const GridCell* cell = std::get_if<GridCell>(&panel.placement)) {
-            FloatRect rect = cellRect(*cell, windowSize, grid, metrics.margin);
+            FloatRect rect = cellRect(*cell, windowSize, grid, sizes.margin);
             if (panel.collapsed) {
-                rect.setHeight(std::min(rect.height(), metrics.headerHeight));
+                rect.setHeight(std::min(rect.height(), sizes.headerHeight));
             }
             assign(panel, rect, rect.width() > 0.f && rect.height() > 0.f);
         }
     }
 
     for (const Anchor anchor : anchors) {
-        placeStack(panels, anchor, windowSize, metrics, scale);
+        placeStack(panels, anchor, windowSize, sizes);
     }
 }
 
-void placeViews(model::Store& store, sf::Vector2f windowSize, const Metrics& metrics) {
+void placeViews(model::Store& store, sf::Vector2f windowSize, const Sizes& sizes) {
     for (model::View& view : store.views()) {
         if (!view.widget.has_value()) {
             view.rect = FloatRect({ 0.f, 0.f }, windowSize);
@@ -310,7 +306,7 @@ void placeViews(model::Store& store, sf::Vector2f windowSize, const Metrics& met
             continue;
         }
         // A widget's rectangle is in its panel's content, which starts below the header.
-        const sf::Vector2f content = panel.rect.position() + sf::Vector2f(0.f, metrics.headerHeight);
+        const sf::Vector2f content = panel.rect.position() + sf::Vector2f(0.f, sizes.headerHeight);
         view.rect = FloatRect(slot.rect.position() + content, slot.rect.size());
     }
 }

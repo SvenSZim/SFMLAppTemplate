@@ -1,5 +1,6 @@
 #pragma once
 
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/setup.hpp"
 #include "atpl/ui/theme.hpp"
 
@@ -28,13 +29,13 @@ void prepare(model::Store& store, GridSetup grid);
 /// Runs when something changed that moves or resizes anything: the window, a panel collapsed,
 /// expanded, shown or hidden, or the theme. Not every frame.
 ///
-/// `metrics` are the theme's sizes with the GUI scale applied.
+/// `sizes` are the layout's sizes for this window (`Layout::sizesAt`).
 void arrange(
     model::Store& store,
     sf::Vector2f windowSize,
     GridSetup grid,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer = nullptr
 );
 

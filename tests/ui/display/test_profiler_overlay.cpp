@@ -40,7 +40,9 @@ struct Fixture {
         paint(first, sf::Color::Red);
         paint(second, sf::Color::Green);
         second.setPosition({ 100.f, 50.f });
-        profiler.setLook(Theme()); // no font: the readout has a background and no glyphs
+        profiler.setLook(
+            Theme(), Layout().sizesAt({ 1280.f, 720.f })
+        ); // no font: the readout has a background and no glyphs
         renderer.setProfiler(&profiler);
     }
 

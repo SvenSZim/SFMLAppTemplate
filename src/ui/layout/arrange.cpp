@@ -17,10 +17,9 @@ void arrange(
     sf::Vector2f windowSize,
     GridSetup grid,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer
 ) {
-    const float scale = theme.metrics.scale;
     const std::span<model::Panel> panels = store.panels();
     const auto idOf = [](std::size_t index) { return PanelId{ static_cast<std::uint32_t>(index) }; };
 
@@ -28,12 +27,12 @@ void arrange(
     std::vector<float> widths(panels.size());
     std::vector<bool> usesSpare(panels.size());
     for (std::size_t i = 0; i < panels.size(); ++i) {
-        widths[i] = panelWidth(panels[i], windowSize, grid, metrics, scale);
-        usesSpare[i] = layoutWidgets(store, idOf(i), widths[i], theme, metrics, measurer).usesSpareHeight;
+        widths[i] = panelWidth(panels[i], windowSize, grid, sizes);
+        usesSpare[i] = layoutWidgets(store, idOf(i), widths[i], theme, sizes, measurer).usesSpareHeight;
     }
 
     // 3: the panels.
-    placePanels(store, windowSize, grid, metrics, scale);
+    placePanels(store, windowSize, grid, sizes);
 
     // 4: height a panel has beyond what its content needs goes to the rows of its grid, or to
     // the packed widgets that stretch.
@@ -41,9 +40,9 @@ void arrange(
         const model::Panel& panel = panels[i];
         const bool open = panel.shown && !panel.collapsed;
         if (open && usesSpare[i]) {
-            const float available = panel.rect.height() - metrics.headerHeight;
+            const float available = panel.rect.height() - sizes.headerHeight;
             if (available > panel.contentHeight) {
-                layoutWidgets(store, idOf(i), widths[i], theme, metrics, measurer, available);
+                layoutWidgets(store, idOf(i), widths[i], theme, sizes, measurer, available);
             }
         }
         for (model::WidgetSlot& slot : store.widgetsOf(idOf(i))) {
@@ -52,7 +51,7 @@ void arrange(
     }
 
     // 5: the views.
-    placeViews(store, windowSize, metrics);
+    placeViews(store, windowSize, sizes);
 }
 
 } // namespace atpl::layout

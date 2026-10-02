@@ -6,6 +6,7 @@
 #include "ui/theme/color.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <type_traits>
 
 namespace atpl {
@@ -255,7 +256,9 @@ void applyScale(float scale, PartStyle& style) {
     style.shadow.offset *= scale;
     style.shadow.size *= scale;
     style.thickness *= scale;
-    style.textSize *= scale;
+    // Whole pixels: text stays sharp, and a window being resized does not change every text
+    // with every pixel of movement.
+    style.textSize = std::round(style.textSize * scale);
 }
 
 /// Moon: black and white.
@@ -304,7 +307,7 @@ bool Theme::supports(PanelColors colors) const {
            colors.accent < palette.accents.size();
 }
 
-PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen) const {
+PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen, float scale) const {
     const Colors colors = colorsFor(palette, chosen);
     PartStyle style = roleDefault(part.role, *this, colors);
     style.shown = part.shown == Shown::Yes;
@@ -313,7 +316,7 @@ PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen) cons
         applyEntry(*override, style);
     }
     applyState(part.role, state, *this, colors, style);
-    applyScale(metrics.scale, style);
+    applyScale(scale, style);
     return style;
 }
 

@@ -5,6 +5,7 @@ add_library(atpl_ui STATIC
   input/window_events.cpp
   layout/arrange.cpp
   layout/grid_packing.cpp
+  layout/layout.cpp
   layout/measure_context.cpp
   layout/packing.cpp
   layout/panel_placement.cpp
@@ -22,7 +23,6 @@ add_library(atpl_ui STATIC
   render/text_cache.cpp
   render/text_layout.cpp
   theme/color.cpp
-  theme/metrics.cpp
   theme/style.cpp
   theme/theme.cpp
   ui.cpp

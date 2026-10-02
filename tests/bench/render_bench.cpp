@@ -18,7 +18,6 @@
 #include "ui/render/profiler.hpp"
 #include "ui/render/renderer.hpp"
 #include "ui/render/text_cache.hpp"
-#include "ui/theme/metrics.hpp"
 
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -98,13 +97,12 @@ class Scene {
 public:
     explicit Scene(std::shared_ptr<const sf::Font> font) {
         m_theme.font = std::move(font);
-        m_metrics = theme::scaled(m_theme.metrics);
 
         float contentHeight = 0.f;
         for (const WidgetType type : widgetTypes) {
-            contentHeight += heightOf(type) + m_metrics.gap;
+            contentHeight += heightOf(type) + m_sizes.gap.y;
         }
-        m_panelSize = { m_metrics.panelWidth, m_metrics.headerHeight + m_metrics.padding * 2.f + contentHeight };
+        m_panelSize = { m_sizes.panelWidth, m_sizes.headerHeight + m_sizes.padding.x * 2.f + contentHeight };
 
         for (std::size_t panel = 0; panel < panelCount; ++panel) {
             m_list[panel] = &m_batches[panel];
@@ -118,15 +116,15 @@ public:
     }
 
     [[nodiscard]] const Theme& theme() const { return m_theme; }
+    [[nodiscard]] const Sizes& sizes() const { return m_sizes; }
     [[nodiscard]] std::span<PanelBatch* const> panels() const { return m_list; }
     [[nodiscard]] PanelBatch& batch(std::size_t panel) { return m_batches[panel]; }
     [[nodiscard]] sf::Vector2f panelSize() const { return m_panelSize; }
-    [[nodiscard]] float margin() const { return m_metrics.margin; }
+    [[nodiscard]] float margin() const { return m_sizes.margin; }
 
     /// Where a panel is when nobody drags it.
     [[nodiscard]] sf::Vector2f home(std::size_t panel) const {
-        return { m_metrics.margin + static_cast<float>(panel) * (m_metrics.panelWidth + m_metrics.margin),
-                 m_metrics.margin };
+        return { m_sizes.margin + static_cast<float>(panel) * (m_sizes.panelWidth + m_sizes.margin), m_sizes.margin };
     }
 
     /// Changes one widget's value; its panel has to be painted again.
@@ -147,7 +145,7 @@ public:
 
 private:
     [[nodiscard]] float heightOf(WidgetType type) const {
-        return type == WidgetType::Graph ? m_metrics.rowHeight * 2.5f : m_metrics.rowHeight;
+        return type == WidgetType::Graph ? m_sizes.rowHeight * 2.5f : m_sizes.rowHeight;
     }
 
     [[nodiscard]] PartStyle style(const Part& part, State state = State::Normal) const {
@@ -162,18 +160,18 @@ private:
         std::array<char, 24> title{};
         std::snprintf(title.data(), title.size(), "Panel %zu", panel + 1);
         frame.text(
-            FloatRect(m_metrics.padding, 0.f, m_panelSize.x - m_metrics.padding * 2.f, m_metrics.headerHeight),
+            FloatRect(m_sizes.padding.x, 0.f, m_panelSize.x - m_sizes.padding.x * 2.f, m_sizes.headerHeight),
             title.data(),
             style(Panel::Title)
         );
 
-        const float width = m_panelSize.x - m_metrics.padding * 2.f;
-        float top = m_metrics.headerHeight + m_metrics.padding;
+        const float width = m_panelSize.x - m_sizes.padding.x * 2.f;
+        float top = m_sizes.headerHeight + m_sizes.padding.x;
         for (std::size_t widget = 0; widget < widgetsPerPanel; ++widget) {
             const float height = heightOf(widgetTypes[widget]);
-            Painter painter(layers.content, { m_metrics.padding, top }, { width, height });
+            Painter painter(layers.content, { m_sizes.padding.x, top }, { width, height });
             paintWidget(painter, widgetTypes[widget], widgetLabels[widget], m_values[panel][widget]);
-            top += height + m_metrics.gap;
+            top += height + m_sizes.gap.y;
         }
     }
 
@@ -289,7 +287,7 @@ private:
     }
 
     Theme m_theme;
-    Metrics m_metrics;
+    Sizes m_sizes = Layout().sizesAt({ 1280.f, 720.f }); // the reference size: nothing is scaled
     sf::Vector2f m_panelSize;
     std::array<PanelBatch, panelCount> m_batches;
     std::array<PanelBatch*, panelCount> m_list{};
@@ -340,7 +338,7 @@ int main(int argc, char** argv) {
 
     // Room for the panels side by side, and for the readout next to them.
     render::Profiler profiler;
-    profiler.setLook(scene.theme());
+    profiler.setLook(scene.theme(), scene.sizes());
     const sf::Vector2f readoutPosition = { scene.home(panelCount).x, scene.margin() };
     profiler.setPosition(readoutPosition);
     const sf::Vector2u windowSize(

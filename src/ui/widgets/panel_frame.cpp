@@ -7,17 +7,17 @@
 namespace atpl::widgets {
 
 void paintPanelFrame(
-    Painter& painter, std::string_view title, const Theme& theme, PanelColors colors, const Metrics& metrics
+    Painter& painter, std::string_view title, const Theme& theme, PanelColors colors, const Sizes& sizes
 ) {
     const sf::Vector2f size = painter.size();
-    painter.box(FloatRect({ 0.f, 0.f }, size), theme.resolve(Panel::Background, State::Normal, colors));
+    painter.box(FloatRect({ 0.f, 0.f }, size), theme.resolve(Panel::Background, State::Normal, colors, sizes.text));
 
     // A panel squeezed below its header's height shows as much of the header as there is.
-    const float headerHeight = std::min(metrics.headerHeight, size.y);
+    const float headerHeight = std::min(sizes.headerHeight, size.y);
     painter.text(
-        FloatRect(metrics.padding, 0.f, size.x - metrics.padding * 2.f, headerHeight),
+        FloatRect(sizes.padding.x, 0.f, size.x - sizes.padding.x * 2.f, headerHeight),
         title,
-        theme.resolve(Panel::Title, State::Normal, colors)
+        theme.resolve(Panel::Title, State::Normal, colors, sizes.text)
     );
 }
 

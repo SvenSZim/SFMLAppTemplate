@@ -53,6 +53,19 @@ public:
     /// Replaces the theme. Everything is laid out and drawn anew with the next frame.
     void setTheme(Theme theme);
 
+    // Sizes and positions.
+
+    /// The layout theme in use.
+    [[nodiscard]] const Layout& layout() const;
+
+    /// Replaces the layout theme. Everything is laid out anew with the next frame.
+    /// Throws `SetupError`, and changes nothing, if the panels do not fit the new one: a panel
+    /// that takes its place from the layout theme and finds no room in the window's grid.
+    void setLayout(Layout layout);
+
+    /// The layout's sizes for the window as it is now, in pixels.
+    [[nodiscard]] const Sizes& sizes() const;
+
     // Measuring.
 
     /// Shows or hides the profiler readout: a small panel on top of everything that says what

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/theme.hpp"
 
 #include "ui/render/frame_stats.hpp"
@@ -113,9 +114,9 @@ public:
     void setVisible(bool visible);
     [[nodiscard]] bool isVisible() const { return m_batch.isVisible(); }
 
-    /// Takes the readout's colours, text sizes and spacing from the theme. Until this is called
-    /// the readout has no look and shows nothing.
-    void setLook(const Theme& theme, PanelColors colors = {});
+    /// Takes the readout's colours and text sizes from the theme and its spacing from the
+    /// layout's sizes. Until this is called the readout has no look and shows nothing.
+    void setLook(const Theme& theme, const Sizes& sizes, PanelColors colors = {});
 
     /// The readout's top-left corner in the window.
     void setPosition(sf::Vector2f position) { m_batch.setPosition(position); }
@@ -170,7 +171,7 @@ private:
     PartStyle m_background;
     PartStyle m_label;
     PartStyle m_value;
-    float m_padding = 0.f;
+    sf::Vector2f m_padding;
     float m_lineHeight = 0.f;
     float m_labelWidth = 0.f;
     float m_valueWidth = 0.f;

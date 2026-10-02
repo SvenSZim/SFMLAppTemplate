@@ -1,7 +1,6 @@
 #include "atpl/ui/error.hpp"
 
 #include "ui/layout/panel_placement.hpp"
-#include "ui/theme/metrics.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -17,8 +16,8 @@ using Catch::Matchers::ContainsSubstring;
 namespace {
 
 // Round numbers, so the expected rectangles can be worked out by hand.
-Metrics metrics() {
-    Metrics result;
+Sizes sizes() {
+    Sizes result;
     result.margin = 10.f;
     result.headerHeight = 30.f;
     result.panelWidth = 200.f;
@@ -67,7 +66,7 @@ bool shown(const Store& store, std::uint32_t panel) {
 }
 
 void place(Store& store, sf::Vector2f size = window, GridSetup grid = {}) {
-    layout::placePanels(store, size, grid, metrics());
+    layout::placePanels(store, size, grid, sizes());
 }
 
 } // namespace
@@ -146,8 +145,10 @@ TEST_CASE("a panel is as wide as it asks to be, or as the theme says", "[ui][lay
     REQUIRE(rectOf(store, 0).width() == 200.f);
     REQUIRE(rectOf(store, 1) == FloatRect(470.f, 10.f, 320.f, 100.f));
 
-    // A width a panel asks for grows with the GUI scale, like the theme's own sizes do.
-    layout::placePanels(store, window, {}, metrics(), 1.5f);
+    // A width a panel asks for scales like the layout's own sizes do.
+    Sizes larger = sizes();
+    larger.scale = { 1.5f, 1.f };
+    layout::placePanels(store, window, {}, larger);
     REQUIRE(rectOf(store, 1).width() == 480.f);
 }
 
@@ -384,10 +385,10 @@ TEST_CASE("the background view is the whole window", "[ui][layout][views]") {
     setup.background = "world";
     Store store{ setup };
 
-    layout::placeViews(store, window, metrics());
+    layout::placeViews(store, window, sizes());
     REQUIRE(store.view(ViewId{ 0 }).rect == FloatRect(0.f, 0.f, 800.f, 600.f));
 
-    layout::placeViews(store, { 1024.f, 768.f }, metrics());
+    layout::placeViews(store, { 1024.f, 768.f }, sizes());
     REQUIRE(store.view(ViewId{ 0 }).rect == FloatRect(0.f, 0.f, 1024.f, 768.f));
 }
 
@@ -399,13 +400,13 @@ TEST_CASE("a view widget's view is where its widget is in the window", "[ui][lay
     store.widget(WidgetId{ 0 }).rect = FloatRect(12.f, 12.f, 176.f, 99.f); // as widget layout will set it
 
     place(store);
-    layout::placeViews(store, window, metrics());
+    layout::placeViews(store, window, sizes());
     // The panel is at (590, 10); its content starts below the header of 30.
     REQUIRE(store.view(ViewId{ 0 }).rect == FloatRect(602.f, 52.f, 176.f, 99.f));
 
     // It moves with its panel.
     place(store, { 1000.f, 600.f });
-    layout::placeViews(store, { 1000.f, 600.f }, metrics());
+    layout::placeViews(store, { 1000.f, 600.f }, sizes());
     REQUIRE(store.view(ViewId{ 0 }).rect == FloatRect(802.f, 52.f, 176.f, 99.f));
 }
 
@@ -417,7 +418,7 @@ TEST_CASE("a view that is not on screen has an empty rectangle", "[ui][layout][v
     store.widget(WidgetId{ 0 }).rect = FloatRect(12.f, 12.f, 176.f, 99.f);
     const auto viewRect = [&] {
         place(store);
-        layout::placeViews(store, window, metrics());
+        layout::placeViews(store, window, sizes());
         return store.view(ViewId{ 0 }).rect;
     };
     REQUIRE(viewRect().width() == 176.f);

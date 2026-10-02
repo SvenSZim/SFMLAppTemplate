@@ -2,8 +2,6 @@
 
 #include "atpl/ui/widget.hpp"
 
-#include "ui/theme/metrics.hpp"
-
 #include <algorithm>
 #include <cstdio>
 #include <string_view>
@@ -114,19 +112,19 @@ void Profiler::setVisible(bool visible) {
     m_batch.setVisible(visible);
 }
 
-void Profiler::setLook(const Theme& theme, PanelColors colors) {
-    m_background = theme.resolve(Background, State::Normal, colors);
-    m_label = theme.resolve(Label, State::Normal, colors);
-    m_value = theme.resolve(Value, State::Normal, colors);
+void Profiler::setLook(const Theme& theme, const Sizes& sizes, PanelColors colors) {
+    m_background = theme.resolve(Background, State::Normal, colors, sizes.text);
+    m_label = theme.resolve(Label, State::Normal, colors, sizes.text);
+    m_value = theme.resolve(Value, State::Normal, colors, sizes.text);
 
     // Room for the longest line the readout can show, as multiples of the text size.
-    m_padding = theme::scaled(theme.metrics).padding;
+    m_padding = sizes.padding;
     m_lineHeight = m_value.textSize * 1.5f;
     m_labelWidth = m_label.textSize * 4.5f;
     m_valueWidth = m_value.textSize * 13.f;
     m_batch.setSize(
-        { m_padding * 2.f + m_labelWidth + m_valueWidth,
-          m_padding * 2.f + m_lineHeight * static_cast<float>(lineCount) }
+        { m_padding.x * 2.f + m_labelWidth + m_valueWidth,
+          m_padding.y * 2.f + m_lineHeight * static_cast<float>(lineCount) }
     );
     m_batch.markDirty();
 }
@@ -191,9 +189,11 @@ void Profiler::paint() {
 
     painter.box(FloatRect({ 0.f, 0.f }, size), m_background);
     for (std::size_t i = 0; i < lineCount; ++i) {
-        const float top = m_padding + m_lineHeight * static_cast<float>(i);
-        painter.text(FloatRect(m_padding, top, m_labelWidth, m_lineHeight), labels[i], m_label);
-        painter.text(FloatRect(m_padding + m_labelWidth, top, m_valueWidth, m_lineHeight), textOf(m_lines[i]), m_value);
+        const float top = m_padding.y + m_lineHeight * static_cast<float>(i);
+        painter.text(FloatRect(m_padding.x, top, m_labelWidth, m_lineHeight), labels[i], m_label);
+        painter.text(
+            FloatRect(m_padding.x + m_labelWidth, top, m_valueWidth, m_lineHeight), textOf(m_lines[i]), m_value
+        );
     }
 }
 

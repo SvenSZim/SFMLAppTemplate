@@ -100,11 +100,12 @@ The exact utility list for the first version is Q5.
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
 | `setup.hpp` | `UISetup` (background view, grid, panels, profiler readout), `PanelSetup`. |
-| `placement.hpp` | `Anchor`, `GridCell`, `Placement` (D25). `GridCell` is used for panels in the window and for widgets in a panel (D27). |
+| `placement.hpp` | `Anchor`, `GridCell`, `GridSpan`, `Placement` (D25, D44). Grid places are used for panels in the window and for widgets in a panel. |
+| `layout.hpp` | The layout theme (D44): `Layout` with its `Metrics`, `Scaling` and the defaults for placing panels and content; `PanelLayout`, what one panel does differently; `Sizes`, the sizes for the window as it is; `Alignment`, `Fit`, `SizeRule`; the presets in `layouts::`. |
 | `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
-| `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Metrics`, `Typography`; `Theme` and the built-in themes (P5, P11, D30). |
+| `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Typography`; `Theme` and the built-in themes (P5, P11, D30). |
 | `widget.hpp` | `Widget`, the interface widget types implement; `MeasureContext`, `InputContext`, `UpdateContext`, `Style`, `Painter` (P1, D30). |
 | `rect.hpp` | Rectangle type. From `ui/utils/rect`, trimmed. |
 
@@ -114,9 +115,9 @@ The exact utility list for the first version is Q5.
 |---|---|---|---|
 | `model/` | Panels, widget slots, views, name index, lifetime | — | Lay out, draw, handle input |
 | `input/` | Hit-testing, hover, press, drag capture, keyboard focus, what the UI consumes, emitting events (after asking `binding/` to write a changed value) | model, layout rects | Set geometry |
-| `layout/` | Every rectangle and size: panel placement, widget packing inside panels, view regions, visibility | model, widget `measure`, `Metrics` | Touch interaction state or colours |
+| `layout/` | Every rectangle and size: panel placement, widget packing inside panels, view regions, visibility | model, widget `measure`, the layout theme | Touch interaction state or colours |
 | `binding/` | Making a `Param<T>`, a `Series` or two functions look like a binding; syncing: each frame it compares each bound widget's revision and, only on a change, hands the widget the new value and marks its panel dirty; it writes the user's changes into the binding | model | Touch layout, drawing or interaction state; raise events |
-| `theme/` | Tokens, `Metrics`, role defaults, part entries, built-in themes, resolving a `Style` for a part and state | — | Decide any rectangle or position |
+| `theme/` | Tokens, role defaults, part entries, built-in themes, resolving a `Style` for a part and state | — | Decide any rectangle or position |
 | `render/` | Draw list, tessellation, per-panel batches, text cache, draw order, frame flag, profiler | model, layout rects, theme | Modify the model |
 | `widgets/` | One file per widget type: its behaviour only | its own state, contexts handed to it | Position itself, issue draw calls, read theme tokens directly |
 | `ui.cpp` | Calling the modules in order; the public facade | everything | Contain logic of a single concern |
@@ -129,7 +130,7 @@ src/ui/
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
 ├─ input/    input_system.hpp/.cpp  window_events.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
-├─ layout/   arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
+├─ layout/   layout.cpp  arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
 │            grid_packing.hpp/.cpp  packing.hpp/.cpp  measure_context.cpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
@@ -231,11 +232,11 @@ Rules:
   3. The grid has the rows it was given; a panel that names none has as many as its positioned widgets use.
   4. What finds no room is a `SetupError`, as is a cell outside the grid and, for widgets, two positions on the same cell.
   Cells are found once, when the UI is built, and kept in the model.
-- **Sizes in a panel's grid**: a row is one `Metrics::rowHeight` high. A panel that has more height than its rows need (a panel in the window's grid) shares it equally among the rows. A widget that takes several rows, or stretches, fills its cells; any other is at most as high as it asks to be and is centred in its row. A row nobody uses stays empty and works as a separator.
+- **Sizes in a panel's grid**: a row is one row height of the layout theme high. A panel that has more height than its rows need (a panel in the window's grid) shares it equally among the rows. A widget that takes several rows, or stretches, fills its cells; any other is at most as high as it asks to be and is centred in its row. A row nobody uses stays empty and works as a separator.
 - **Stretching when packed**: a widget that stretches (`SizeRequest::stretch`, a view) takes the height its column has to spare; what is below moves down.
 - Rectangles are in the panel's content, whose corner is below the header. The theme's `padding` lies between the panel's edge and the widgets, its `gap` between widgets. A widget never positions itself.
 - Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget. In a grid a widget can be given more or less height than it asked for, so it must cope with any size.
-- `Metrics` (padding, gaps, row heights, font sizes) is a token set next to the theme's colours. Only `layout/` and `measure()` read it. Nothing else defines sizes.
+- Sizes (margin, padding, gaps, row height, header height) belong to the layout theme (`Layout::metrics`), not to the theme. They follow the window: `Layout::sizesAt(window)` gives the `Sizes` in effect, in whole pixels, with widths scaled by the window's width, heights by its height, margins by the smaller of the two so that they are the same on all sides, and a gentler factor for text, outlines and radii (LAYOUT.md §6). Only `layout/` and `measure()` read them. Nothing else defines sizes.
 - **The order of a layout pass** (`layout/arrange`): a panel's width follows from the window alone; with it the widgets are laid out, which gives the content height; with the content heights the panels are placed; a panel with height to spare gives it to the rows of its grid or to its stretching widgets; views are where their widgets ended up. `contentOverflow` says how far a panel's content can be scrolled (WP 3.12).
 
 ### 4.6a Placing panels (R5, D25)
@@ -387,7 +388,7 @@ The theme resolves a part's style in three layers; a later layer overrides an ea
 
 | Layer | What | Example |
 |---|---|---|
-| 1. Tokens | Global values, in four groups: `palette` (the main colours and accents a panel chooses from), `shape` (radii, outline, outline gap, line thickness, shadow), `metrics` (sizes, GUI scale), `typography` (size and font per text type) | `theme.palette.accents[0].accent = ...;` `theme.shape.outlineGap = 2;` `theme.typography.title = {.size = 18, .font = bold};` |
+| 1. Tokens | Global values, in three groups: `palette` (the main colours and accents a panel chooses from), `shape` (radii, outline, outline gap, line thickness, shadow), `typography` (size and font per text type) | `theme.palette.accents[0].accent = ...;` `theme.shape.outlineGap = 2;` `theme.typography.title = {.size = 18, .font = bold};` |
 | 2. Role defaults | Style derived from the part's role, the tokens and the three colours of the part's panel; visibility from the part's own default | every track part is an outlined area with a small radius; ticks hidden |
 | 3. Part entries | Settings for one part; only the fields that are set have an effect | `theme[Slider::Ticks].shown = true;` `theme[Button::Face].radius = 0;` `theme[Switch::Track].borderGap = 0;` `theme[Button::Label].font = bold;` |
 
@@ -420,7 +421,7 @@ Consequences:
 - More detailed styling later (per panel, per widget instance) is another override layer on top; widgets do not change.
 - A different structure (a part the widget does not declare) needs widget code, not a theme change.
 
-Sizes come from `metrics` and from the text sizes in `typography`. Only `layout/` and `measure()` read them (4.6).
+Sizes come from the layout theme and from the text sizes in `typography`. `Theme::resolve` takes the factor for everything it measures in pixels (text sizes, outlines, radii, shadows) from its caller, which passes `Sizes::text`; text sizes come out in whole pixels. Only `layout/` and `measure()` read sizes (4.6).
 
 The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme`.
 
@@ -482,7 +483,7 @@ Main thread, one pass of `App`'s loop:
 What `ui.cpp` does in each step, as of WP 3.2 (the rest is added by the packages that build the modules):
 
 - **Construction**: the model is built from the setup, which checks names and colours; `layout::prepare` finds the grid cells of panels and widgets and refuses what cannot be laid out. One render batch is made per panel.
-- **`handleInput()`**: reads the window's events with `frame::nextEvent`, which is where an idle application sleeps. A resize sets the window's view back to one unit per pixel and marks the placement as out of date. Window events are forwarded (`input/window_events`).
+- **`handleInput()`**: reads the window's events with `frame::nextEvent`, which is where an idle application sleeps. A resize sets the window's view back to one unit per pixel, works out the layout theme's sizes for the new window size, and marks the placement as out of date; if the sizes changed, every panel is painted anew. Window events are forwarded (`input/window_events`).
 - **`update()`**: lays everything out (`layout::arrange`) if the placement is out of date: after a resize, after a panel was collapsed, expanded, shown or hidden, and after a new theme.
 - **`draw()`**: hands every panel's place to its batch, takes the model's dirty flags, paints the panels that changed (`widgets/panel_frame`, then each widget's `paint` at the place layout gave it), and lets the renderer present, which skips the frame if nothing changed.
 - **Handles** read and write the model, and say what that makes out of date. The facade keeps no state of its own beyond "the placement is out of date".

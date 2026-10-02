@@ -2,8 +2,6 @@
 
 #include "atpl/ui/ui.hpp"
 
-#include "ui/theme/metrics.hpp"
-
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -13,8 +11,10 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
+#include <variant>
 
 using namespace atpl;
 using Catch::Matchers::ContainsSubstring;
@@ -27,7 +27,7 @@ const sf::Color widgetColor(200, 30, 30);
 class PlainWidget final : public Widget {
 public:
     [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
-        return { .height = context.metrics().rowHeight };
+        return { .height = context.sizes().rowHeight };
     }
     void paint(Painter& painter, const Style&) const override {
         PartStyle red;
@@ -131,19 +131,19 @@ TEST_CASE("panels are placed in the window when the UI is updated", "[ui][facade
     UI ui(f.window, example());
     ui.update();
 
-    const Metrics metrics = theme::scaled(ui.theme().metrics);
-    const float margin = metrics.margin;
+    // The window is smaller than the layout's reference size, so everything is scaled down.
+    const Sizes sizes = ui.sizes();
+    REQUIRE(sizes == ui.layout().sizesAt({ 640.f, 400.f }));
+    const float margin = sizes.margin;
     const float cellWidth = (640.f - 3.f * margin) / 2.f;
 
     REQUIRE(ui.panel("Scene").rect() == FloatRect(margin, margin, cellWidth, 400.f - 2.f * margin));
     REQUIRE(ui.panel("Inspector").rect().left() == margin * 2.f + cellWidth);
 
     // The floating panels are stacked at the top left, each as high as its header and its widgets.
-    const float twoRows = metrics.padding * 2.f + metrics.rowHeight * 2.f + metrics.gap;
-    REQUIRE(
-        ui.panel("Controls").rect() == FloatRect(margin, margin, metrics.panelWidth, metrics.headerHeight + twoRows)
-    );
-    REQUIRE(ui.panel("Statistics").rect().top() == margin * 2.f + metrics.headerHeight + twoRows);
+    const float twoRows = sizes.padding.y * 2.f + sizes.rowHeight * 2.f + sizes.gap.y;
+    REQUIRE(ui.panel("Controls").rect() == FloatRect(margin, margin, sizes.panelWidth, sizes.headerHeight + twoRows));
+    REQUIRE(ui.panel("Statistics").rect().top() == margin * 2.f + sizes.headerHeight + twoRows);
 
     REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 640.f, 400.f));
 }
@@ -176,7 +176,7 @@ TEST_CASE("a frame is drawn only when something changed", "[ui][facade][display]
         ui.panel("Inspector").setCollapsed(true);
         REQUIRE(ui.panel("Inspector").isCollapsed());
         REQUIRE(ui.draw());
-        REQUIRE(ui.panel("Inspector").rect().height() == theme::scaled(ui.theme().metrics).headerHeight);
+        REQUIRE(ui.panel("Inspector").rect().height() == ui.sizes().headerHeight);
         REQUIRE_FALSE(ui.draw());
     }
     SECTION("a widget is disabled") {
@@ -206,7 +206,7 @@ TEST_CASE("hiding a panel moves the ones stacked after it", "[ui][facade][displa
     Fixture f;
     UI ui(f.window, example());
     ui.update();
-    const float margin = theme::scaled(ui.theme().metrics).margin;
+    const float margin = ui.sizes().margin;
     REQUIRE(ui.panel("Statistics").rect().top() > margin);
 
     ui.panel("Controls").setVisible(false);
@@ -229,6 +229,61 @@ TEST_CASE("a theme that does not fit the UI is refused and changes nothing", "[u
     wide.palette.accents.resize(4, wide.palette.accents.front());
     REQUIRE_NOTHROW(ui.setTheme(wide));
     REQUIRE(ui.theme().palette.window == wide.palette.window);
+}
+
+TEST_CASE("a panel that names no place gets the layout theme's", "[ui][facade][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.grid = { .columns = 2, .rows = 1 };
+    setup.panels = { { .name = "First" },
+                     { .name = "Second" },
+                     { .name = "Pinned", .placement = Anchor::BottomRight } };
+    UI ui(f.window, std::move(setup)); // the default layout theme: floating at the top left
+    ui.update();
+
+    const float margin = ui.sizes().margin;
+    REQUIRE(ui.panel("First").rect().position() == sf::Vector2f(margin, margin));
+    REQUIRE(ui.panel("Second").rect().left() == margin); // stacked below the first
+    REQUIRE(ui.panel("Second").rect().top() > ui.panel("First").rect().bottom());
+
+    // Another layout theme puts the same panels into the window's grid.
+    ui.setLayout(layouts::dashboard());
+    ui.update();
+    REQUIRE(ui.layout().fit == Fit::Fill);
+    REQUIRE(ui.panel("First").rect().height() == 400.f - 2.f * ui.sizes().margin); // fills its cell
+    REQUIRE(ui.panel("Second").rect().left() > ui.panel("First").rect().right());  // the next cell
+    REQUIRE(ui.panel("Second").rect().top() == ui.panel("First").rect().top());
+
+    // A panel that said where it goes stays there.
+    REQUIRE(ui.panel("Pinned").rect().right() == 640.f - ui.sizes().margin);
+    REQUIRE(ui.draw());
+}
+
+TEST_CASE("a layout theme the panels do not fit into is refused and changes nothing", "[ui][facade][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "First" }, { .name = "Second" } }; // a window grid of one cell
+    UI ui(f.window, std::move(setup));
+    ui.update();
+    const FloatRect before = ui.panel("Second").rect();
+
+    REQUIRE_THROWS_AS(ui.setLayout(layouts::dashboard()), SetupError); // two panels, one cell
+    REQUIRE(std::holds_alternative<Anchor>(ui.layout().placement));
+    ui.update();
+    REQUIRE(ui.panel("Second").rect() == before);
+}
+
+TEST_CASE("a layout theme with other sizes changes the sizes in use", "[ui][facade][display]") {
+    Fixture f;
+    UI ui(f.window, example());
+    Fixture::settle(ui);
+    REQUIRE_FALSE(ui.draw());
+    const float rowBefore = ui.sizes().rowHeight;
+
+    ui.setLayout(layouts::compact());
+    REQUIRE(ui.sizes().rowHeight < rowBefore);
+    REQUIRE(ui.draw()); // everything is laid out and painted anew
+    REQUIRE_FALSE(ui.draw());
 }
 
 TEST_CASE("the setup can switch the profiler readout on from the start", "[ui][facade][display]") {
@@ -270,12 +325,12 @@ TEST_CASE("widgets are painted at the place layout gave them", "[ui][facade][dis
     const sf::Image picture = f.picture();
 
     // The widget is one row high, a padding below the header and a padding in from the sides.
-    const Metrics metrics = theme::scaled(ui.theme().metrics);
+    const Sizes sizes = ui.sizes();
     const FloatRect panel = ui.panel("Controls").rect();
     const sf::Vector2f widgetCenter(
-        panel.center().x, panel.top() + metrics.headerHeight + metrics.padding + metrics.rowHeight * 0.5f
+        panel.center().x, panel.top() + sizes.headerHeight + sizes.padding.y + sizes.rowHeight * 0.5f
     );
-    const sf::Vector2f inHeader(panel.right() - metrics.padding, panel.top() + metrics.headerHeight * 0.5f);
+    const sf::Vector2f inHeader(panel.right() - sizes.padding.x, panel.top() + sizes.headerHeight * 0.5f);
     REQUIRE(picture.getPixel(sf::Vector2u(widgetCenter)) == widgetColor);
     REQUIRE(picture.getPixel(sf::Vector2u(inHeader)) == ui.theme().resolve(Panel::Background).color);
 }
@@ -285,8 +340,9 @@ TEST_CASE("resizing the window places the panels anew and tells the application"
     UI ui(f.window, example());
     Fixture::settle(ui);
     const float widthBefore = ui.panel("Scene").rect().width();
+    const Sizes sizesBefore = ui.sizes();
 
-    f.window.setSize({ 800u, 500u });
+    f.window.setSize({ 1100u, 650u });
 
     // The window system reports the new size when it gets to it.
     bool told = false;
@@ -296,17 +352,24 @@ TEST_CASE("resizing the window places the panels anew and tells the application"
         const auto events = ui.events();
         told = std::any_of(events.begin(), events.end(), [](const Event& event) {
             const auto* resized = event.getIf<WindowResized>();
-            return resized != nullptr && resized->size == sf::Vector2u(800u, 500u);
+            return resized != nullptr && resized->size == sf::Vector2u(1100u, 650u);
         });
         ui.update();
         ui.draw();
     }
     REQUIRE(told);
 
-    const float margin = theme::scaled(ui.theme().metrics).margin;
+    // The sizes follow the window: a larger window has larger margins, within the layout's limits.
+    REQUIRE(ui.sizes() == ui.layout().sizesAt({ 1100.f, 650.f }));
+    REQUIRE(ui.sizes() != sizesBefore);
+    const float margin = ui.sizes().margin;
+
     REQUIRE(ui.panel("Scene").rect().width() > widthBefore);
-    REQUIRE(ui.panel("Scene").rect() == FloatRect(margin, margin, (800.f - 3.f * margin) / 2.f, 500.f - 2.f * margin));
-    REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 800.f, 500.f));
+    REQUIRE(
+        ui.panel("Scene").rect() ==
+        FloatRect(margin, margin, std::round((1100.f - 3.f * margin) / 2.f), 650.f - 2.f * margin)
+    );
+    REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 1100.f, 650.f));
 }
 
 TEST_CASE("a view keeps the draw function the application gives it", "[ui][facade][display]") {

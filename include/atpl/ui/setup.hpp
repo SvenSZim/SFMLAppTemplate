@@ -1,10 +1,12 @@
 #pragma once
 
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/placement.hpp"
 #include "atpl/ui/theme.hpp"
 #include "atpl/ui/widgets.hpp"
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -41,7 +43,9 @@ struct Panel {
 struct PanelSetup {
     std::string name;
     std::string title; ///< Shown in the header. Empty: the name.
-    Placement placement = Anchor::TopLeft;
+    /// Where the panel goes: at an anchor, or in the window's grid. Empty: where the layout
+    /// theme says (`Layout::placement`).
+    std::optional<Placement> placement;
 
     /// Number of equal columns in the panel, 1 to 3. See `widgets` for how they are used.
     int columns = 1;
@@ -50,9 +54,12 @@ struct PanelSetup {
     /// position use, or no grid if there are none. See `widgets`.
     int rows = 0;
 
-    /// Width of a floating panel in pixels before GUI scaling. 0: the theme's default.
-    /// Ignored for panels in a grid cell.
+    /// Width of a floating panel in pixels, at the layout's reference window size. 0: the layout
+    /// theme's default. Ignored for panels in a grid cell.
     float width = 0.f;
+
+    /// What this panel does differently from the layout theme. See layout.hpp.
+    PanelLayout layout;
 
     /// The three colours the panel and its widgets are drawn in, as indices into the theme's
     /// `Palette::mains` (main1: background, main2: outlines) and `Palette::accents`.
@@ -67,8 +74,9 @@ struct PanelSetup {
     std::size_t main2 = 1;
     std::size_t accent = 0;
 
-    bool collapsible = true; ///< Whether the user can fold the panel down to its header.
-    bool collapsed = false;  ///< Whether it starts folded.
+    /// Whether the user can fold the panel down to its header. Empty: as the layout theme says.
+    std::optional<bool> collapsible;
+    bool collapsed = false; ///< Whether it starts folded.
 
     /// The panel's widgets. They are placed in one of two ways.
     ///
@@ -117,6 +125,9 @@ struct PanelSetup {
 struct UISetup {
     /// How everything looks. See theme.hpp.
     Theme theme;
+
+    /// How large everything is and where it goes. See layout.hpp.
+    Layout layout;
 
     /// Name of the background view: a view that fills the window behind all panels.
     /// Empty: no background view. Draw into it through `UI::view(name)`.
