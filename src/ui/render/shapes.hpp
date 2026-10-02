@@ -38,8 +38,25 @@ void appendBox(VertexList& out, const FloatRect& rect, const PartStyle& style);
 /// A straight line of the style's thickness and colour, with flat ends.
 void appendLine(VertexList& out, sf::Vector2f from, sf::Vector2f to, const PartStyle& style);
 
-/// Connected lines through all points, joined without gaps at the bends.
-/// Always adds `(points.size() - 1) * 6` vertices, or none for fewer than two points.
-void appendPolyline(VertexList& out, std::span<const sf::Vector2f> points, const PartStyle& style);
+/// Connected lines through all points, joined without gaps at the bends. Every point is moved
+/// by `offset` first. Always adds `(points.size() - 1) * 6` vertices, or none for fewer than two
+/// points.
+void appendPolyline(
+    VertexList& out, std::span<const sf::Vector2f> points, const PartStyle& style, sf::Vector2f offset = {}
+);
+
+/// The area between a curve and the horizontal line at `baseline` (both moved by `offset`).
+///
+/// The fill has the style's colour where the curve is furthest from the line and fades evenly to
+/// nothing at the line, so its strength depends only on the distance from the line. Where the
+/// curve crosses the line, both sides are filled. Always adds `(points.size() - 1) * 6` vertices,
+/// or none for fewer than two points or a curve that lies on the line.
+void appendArea(
+    VertexList& out,
+    std::span<const sf::Vector2f> points,
+    float baseline,
+    const PartStyle& style,
+    sf::Vector2f offset = {}
+);
 
 } // namespace atpl::render

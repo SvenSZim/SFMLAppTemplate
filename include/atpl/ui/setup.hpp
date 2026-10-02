@@ -27,11 +27,11 @@ struct GridSetup {
     int rows = 1;
 };
 
-/// The parts of a panel, for theming: `theme[Panel::Outline].thickness = 2.f;`.
+/// The parts of a panel, for theming: `theme[Panel::Background].borderThickness = 2.f;`.
+/// The panel's outline belongs to its background.
 struct Panel {
     static constexpr Kind kind{ "panel" };
     static constexpr Part Background{ kind, "background", Role::Surface };
-    static constexpr Part Outline{ kind, "outline", Role::Line, Shown::No };
     static constexpr Part Header{ kind, "header", Role::Surface };
     static constexpr Part Title{ kind, "title", Role::Title };
     static constexpr Part Scrollbar{ kind, "scrollbar", Role::Line };

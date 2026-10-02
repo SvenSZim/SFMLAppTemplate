@@ -14,6 +14,11 @@
 
 namespace atpl {
 
+namespace render {
+class DrawList;     // what a panel draws; internal
+class TextMeasurer; // how much room text takes; internal
+} // namespace render
+
 // The interface every widget type implements, and what a widget is handed to do its work.
 //
 // A widget owns its behaviour and nothing else:
@@ -106,6 +111,9 @@ enum class Align { Left, Center, Right };
 /// The resolved look of a widget's parts, handed to `Widget::paint`.
 class Style {
 public:
+    /// Made by the UI for each widget it paints. `scaledMetrics` must outlive the style.
+    Style(const Theme& theme, PanelColors colors, State state, const Metrics& scaledMetrics);
+
     /// The style of one of the widget's parts in the widget's current state.
     [[nodiscard]] PartStyle part(const Part& part) const;
 
@@ -116,7 +124,14 @@ public:
     /// The widget's current state.
     [[nodiscard]] State state() const;
 
+    /// The theme's sizes, with the GUI scale applied.
     [[nodiscard]] const Metrics& metrics() const;
+
+private:
+    const Theme* m_theme;
+    PanelColors m_colors;
+    State m_state;
+    const Metrics* m_metrics;
 };
 
 /// What a widget draws with. Coordinates are the widget's own: (0, 0) is its top-left corner.
@@ -125,6 +140,12 @@ public:
 /// is skipped, so a widget can draw its optional parts without checking.
 class Painter {
 public:
+    /// Made by the UI for each widget it paints: `origin` is the widget's top-left corner in its
+    /// panel, `size` its size.
+    Painter(
+        render::DrawList& list, sf::Vector2f origin, sf::Vector2f size, const render::TextMeasurer* measurer = nullptr
+    );
+
     /// The widget's size in pixels.
     [[nodiscard]] sf::Vector2f size() const;
 
@@ -137,6 +158,11 @@ public:
     /// Connected lines through all points, for curves.
     void polyline(std::span<const sf::Vector2f> points, const PartStyle& style);
 
+    /// The area between a curve and the horizontal line at `baseline`, in the style's colour.
+    /// It is strongest where the curve is furthest from the line and fades to nothing at the
+    /// line: the "shadow" of a graph. Parts of the curve above and below the line are both filled.
+    void area(std::span<const sf::Vector2f> points, float baseline, const PartStyle& style);
+
     /// One line of text inside a rectangle, in the style's colour, size and font. Text that is
     /// too wide ends in an ellipsis.
     void text(const FloatRect& rect, std::string_view text, const PartStyle& style, Align align = Align::Left);
@@ -146,6 +172,12 @@ public:
 
     /// The size `text` would have in this style.
     [[nodiscard]] sf::Vector2f textSize(std::string_view text, const PartStyle& style) const;
+
+private:
+    render::DrawList* m_list;
+    sf::Vector2f m_origin;
+    sf::Vector2f m_size;
+    const render::TextMeasurer* m_measurer;
 };
 
 /// The interface of a widget type. One object per widget on screen.

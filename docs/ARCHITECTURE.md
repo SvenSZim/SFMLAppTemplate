@@ -285,13 +285,19 @@ The template only forwards. It does not interpret forwarded input (D15). Pan and
 widget.paint() ──► Painter ──► draw list ──► PanelBatch (one vertex array + text) ──► window
 ```
 
-- `shapes`: tessellation of rounded rectangles, circles, lines, shadows. All shapes become triangles so that a panel is one draw call. The rounded-rectangle code comes from the current `renderer.cpp`.
+- `shapes`: tessellation of boxes (fill or gradient, outline with gap, corner radius, shadow), lines, polylines and areas under a curve. All shapes become triangles so that a panel is one draw call.
+- `draw_list`: what one panel draws: its triangles and its text runs. Reused from rebuild to rebuild without allocating.
+- `painter` (the public `Painter`): moves a widget's own coordinates to its place in the panel and hands shapes to `shapes` and text to the draw list. `text_measurer` is the interface it measures text through, so everything above it is testable without a font.
 - `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2).
 - `text_cache`: text geometry per widget, rebuilt when the string changes (level 3).
 - `renderer`: the frame flag (level 1), the fixed draw order, and calling view callbacks.
 - `profiler`: build time, draw-call count, frame time (D6).
 
 Draw order per frame: background view → panels in order (shapes, views, text) → overlay layer → profiler.
+
+Within a panel, text is always drawn on top of shapes: a panel is one batch of triangles followed by its text. What must cover text, such as an open dropdown list, goes on the overlay layer.
+
+An outline is a band of triangles between two edges, each with its own colour, like a shadow. Today both edges have the same colour. An outline that fades across its width or along the box is a possible extension (D36).
 
 ### 4.10 Painting and theme (P5, P11, D30)
 

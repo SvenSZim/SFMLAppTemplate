@@ -143,12 +143,11 @@ Theme makeTheme() {
     theme.typography.muted.size = 11.f;
 
     // Layer 3, part entries: for one part of one kind of widget.
-    theme[Slider::Ticks].shown = true; // an optional part of a built-in widget
-    theme[Panel::Outline].shown = true;
-    theme[Panel::Outline].thickness = 2.f;
-    theme[Button::Face].radius = 0.f;        // sharp buttons, everything else stays round
-    theme[Switch::Knob].radius = fullyRound; // a circle
-    theme[Button::Label].font = titleFont;   // one part with another font
+    theme[Slider::Ticks].shown = true;              // an optional part of a built-in widget
+    theme[Panel::Background].borderThickness = 2.f; // a thicker panel outline
+    theme[Button::Face].radius = 0.f;               // sharp buttons, everything else stays round
+    theme[Switch::Knob].radius = fullyRound;        // a circle
+    theme[Button::Label].font = titleFont;          // one part with another font
 
     // The application's own widget is themed the same way. Without these two lines it would
     // still look right: its parts get their look from their roles (layer 2).

@@ -26,7 +26,7 @@ Formatting is not a matter of taste here: run the formatter and move on.
 | Private or protected member | `m_camelCase` | `m_eventBuffer`, `m_nextId` |
 | Public data member of a plain struct | `camelCase`, no prefix | `setup.windowSize` |
 | Enumerator | `PascalCase` | `Role::Accent`, `Anchor::TopLeft` |
-| Part of a widget (a `static constexpr Part`) | `PascalCase`, like an enumerator | `Slider::Ticks`, `Panel::Outline` |
+| Part of a widget (a `static constexpr Part`) | `PascalCase`, like an enumerator | `Slider::Ticks`, `Panel::Header` |
 | Constant (`constexpr`, `static const`) | `camelCase` | `defaultPadding` |
 | Template parameter | `PascalCase`, `T` for a single one | `template <typename T>` |
 | Macro (avoid) | `ATPL_UPPER_CASE` | `ATPL_ASSERT` |
