@@ -1,6 +1,7 @@
 #pragma once
 
 #include "atpl/ui/event.hpp"
+#include "atpl/ui/rect.hpp"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -64,6 +65,10 @@ public:
 
     /// Moves and zooms so that the given part of the world fills the view, with nothing cut off.
     void show(sf::Vector2f worldTopLeft, sf::Vector2f worldSize);
+
+    /// The part of the world this camera shows, in world coordinates, as of the last `apply`.
+    /// For example to mark on a minimap what the main view sees.
+    [[nodiscard]] FloatRect visibleArea() const;
 };
 
 } // namespace atpl

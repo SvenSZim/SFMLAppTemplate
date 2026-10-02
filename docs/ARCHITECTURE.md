@@ -55,7 +55,8 @@ SFMLAppTemplate/
 │  │  └─ widgets/
 │  └─ app/
 ├─ examples/
-│  ├─ minimal/                 smallest possible app (also the smoke test)
+│  ├─ minimal/                 an SFML-only window; the smoke test until the API is implemented
+│  ├─ starter/                 the smallest app written against the API; compiled, not yet linked
 │  ├─ pathfinding/
 │  └─ particles/
 └─ tests/
@@ -368,7 +369,7 @@ The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme
 |---|---|
 | `app.hpp` | `App`: creates and owns the window (`WindowSetup`), creates the UI, runs the main loop. `onEvent(handler)` delivers every UI event on the main thread (D11); `onUpdate(handler)` runs once per pass of the loop. `run()` or `run(simulation)`; `quit()`. |
 | `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
-| `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). |
+| `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. |
 | `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name are added in WP 5.6. |
 
 ### 5.1 The simulation
@@ -381,7 +382,7 @@ An application's simulation derives from `Simulation<State, Command>` and implem
 | `tick(dt)` | Advances the simulation by `dt` seconds of simulated time. |
 | `writeState(state)` | Writes everything the main thread needs for drawing. |
 
-The base class owns the command queue and the state exchange. The main thread reads the newest published state with `state()`.
+The base class owns the command queue and the state exchange. The main thread draws from `state()`: the newest state the simulation had published when the current pass of the application's loop began. It stays the same for the whole pass, so every view drawn in one frame shows the same moment (D33).
 
 `SimulationControls` are `Param`s, so widgets bind to them directly:
 
@@ -411,6 +412,7 @@ Main thread, one pass of `App`'s loop:
 
 | Step | Owner | What happens |
 |---|---|---|
+| 0 | `app` | The newest published simulation state is taken, once, for this pass. |
 | 1 | `input` | `UI::handleInput()`: window events are read. Widgets react, bound parameters are written, panels are marked dirty, events are collected. |
 | 2 | application | `App` hands each event to the `onEvent` handler, which handles it or sends a command to the simulation. Then the `onUpdate` handler runs. |
 | 3 | `binding`, `widgets`, `layout` | `UI::update()`: bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
@@ -422,7 +424,7 @@ The two threads share only `Param<T>` values, the command queue and the publishe
 
 ## 7. What the application writes
 
-This is the agreed API (Phase 1). The same program, a little longer, is compiled with every build in `tests/api/app_usage.cpp`.
+This is the agreed API (Phase 1). `examples/starter/main.cpp` is the reference application: a simulation, three panels, a main view with pan and zoom, and a minimap. It is compiled with every build and becomes runnable when the API is implemented.
 
 ```cpp
 using namespace atpl;

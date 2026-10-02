@@ -87,6 +87,9 @@ private:
     virtual void runnerHandleCommands(std::chrono::milliseconds wait) = 0;
     virtual void runnerTick(float dt) = 0;
     virtual void runnerPublish() = 0;
+
+    // Called on the main thread, once at the start of each pass of the application's loop.
+    virtual void runnerShowNewestState() = 0;
 };
 
 /// The base class of an application's simulation.
@@ -123,9 +126,10 @@ public:
     /// simulation is paused. From any thread.
     void send(Command command) { m_commands.push(std::move(command)); }
 
-    /// The newest state the simulation has published. Main thread only. The reference stays valid
-    /// until the next call.
-    [[nodiscard]] const State& state() { return m_snapshot.read(); }
+    /// The state to draw: the newest one the simulation had published when the current pass of
+    /// the application's loop began. It stays the same for the whole pass, so every view drawn in
+    /// one frame shows the same moment. Main thread only.
+    [[nodiscard]] const State& state() const { return *m_shown; }
 
 protected:
     /// Called once before the first tick.
@@ -166,9 +170,12 @@ private:
         m_snapshot.publish();
     }
 
+    void runnerShowNewestState() final { m_shown = &m_snapshot.read(); }
+
     Queue<Command> m_commands;
     Snapshot<State> m_snapshot;
-    std::vector<Command> m_pending; // kept between ticks so handling commands does not allocate
+    const State* m_shown = &m_snapshot.read(); // what state() returns; replaced once per pass
+    std::vector<Command> m_pending;            // kept between ticks so handling commands does not allocate
 };
 
 } // namespace atpl
