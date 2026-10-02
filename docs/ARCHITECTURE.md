@@ -191,9 +191,9 @@ Rules:
 
 - A widget reports the size it wants through `measure()`, given the available width and the `Metrics`.
 - A panel has a number of equal columns (`PanelSetup::columns`, default 1). Its widgets are placed in one of two ways, chosen per panel (D27):
-  - **Automatic**: no widget has a position. `layout/` packs them top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
-  - **By cell**: every widget has a `GridCell` in the panel's grid, given with `at(cell, widget)`, with column and row spans. Rows are as high as their highest widget.
-  - A mix of both in one panel is a `SetupError`.
+  - **No widget has a position**: `layout/` packs them top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
+  - **At least one widget has a position** (a `GridCell` given with `at(cell, widget)`, with column and row spans): the panel is a grid. Positioned widgets take their cells; the others take, in order, the first free cell, row by row from left to right, without a span. Rows are as high as their highest widget.
+  - Giving one widget a position therefore changes how the others are placed. This is intended.
 - Either way, `layout/` assigns each widget its rectangle in panel-local coordinates. A widget never positions itself.
 - Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget.
 - `Metrics` (padding, gaps, row heights, font sizes) is a token set next to the theme's colours. Only `layout/` and `measure()` read it. Nothing else defines sizes.
@@ -208,6 +208,23 @@ Both kinds can be mixed. Typical arrangements:
 - Simulation as background, controls floating over it: a background view plus anchored panels.
 - Simulation inside the layout: a grid, one panel with a `View` widget spanning most cells, control panels in the rest.
 - Main view plus minimap: either of the above with a second `View` widget in a small panel.
+
+### 4.6b Overflow (D28)
+
+What happens when things do not fit. Rules for a start; to be revisited if they do not work in practice.
+
+| Case | Rule |
+|---|---|
+| A panel's content is higher than the panel can be | The content scrolls vertically inside the panel (mouse wheel, thin scrollbar). The header stays fixed. |
+| A stack of floating panels is higher than the window | Collapsed panels keep their header height. Expanded panels share the remaining height and scroll inside. If not even the headers fit, the last panels are hidden. |
+| A grid-cell panel in a small window | Its cell shrinks with the window; its content scrolls. |
+| A floating panel wider than the window | Its width is clamped to the window width. |
+| Text wider than its widget | Cut off with an ellipsis. |
+| A dropdown list that would leave the window | Opens upward, or is clamped to the window. |
+| Horizontal scrolling | None. |
+| Very small windows | The application may set a minimum window size (app setup). |
+
+Scrolling changes only an offset and a clip rectangle of the panel's batch; the geometry is not rebuilt (cache level 2 stays valid). The scroll offset is interaction state and belongs to `input/`; the content height and the visible height are layout outputs.
 
 ### 4.7 Views (Q3)
 

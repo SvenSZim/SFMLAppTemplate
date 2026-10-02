@@ -79,7 +79,8 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D24 | 2026-10-02 | Each widget has one public type, its descriptor: `atpl::Slider("Speed", params.speed, {.min = 0, .max = 10})`. It also carries the widget's parts for theming (`Slider::Ticks`). `Widget` is the interface widget types implement; the implementing classes are internal. Replaces the `Widget::Slider(...)` spelling of earlier sketches. | Accepted |
 | D25 | 2026-10-02 | Placement is stated per panel: an `Anchor` (floating at a window edge or corner) or a `GridCell` (cells of a window-wide grid). Both can be mixed in one UI. There is no UI-wide layout mode. | Accepted |
 | D26 | 2026-10-02 | The window is created and owned by the app layer; the UI is constructed with a reference to it. Window settings belong to the app layer. | Accepted |
-| D27 | 2026-10-02 | UI setup API as declared in `include/atpl/ui/` (WP 1.2). Options are structs with designated initializers; a widget's label defaults to its name. Numbers travel as `double` (exact up to 2^53; larger 64-bit values are bound as text), enums as the enumerator's index; writing back rounds and clamps. A descriptor rejects a wrong kind at compile time, binding by name at run time with `SetupError`. `requestRedraw()` exists on `UI` only. A view draws through `void(sf::RenderTarget&, sf::Vector2f size)`. Eight anchors; equal window grid cells. Widgets inside a panel: placed automatically into `PanelSetup::columns` columns (default 1) when no widget has a position, or every widget by `GridCell` through `at(cell, widget)`; mixing both in one panel is an error. | Accepted |
+| D27 | 2026-10-02 | UI setup API as declared in `include/atpl/ui/` (WP 1.2). Options are structs with designated initializers; a widget's label defaults to its name. Numbers travel as `double` (exact up to 2^53; larger 64-bit values are bound as text), enums as the enumerator's index; writing back rounds and clamps. A descriptor rejects a wrong kind at compile time, binding by name at run time with `SetupError`. `requestRedraw()` exists on `UI` only. A view draws through `void(sf::RenderTarget&, sf::Vector2f size)`. Eight anchors; equal window grid cells. Widgets inside a panel: packed automatically into `PanelSetup::columns` balanced columns (default 1) when no widget has a position; as soon as one has a `GridCell` (through `at(cell, widget)`), the panel is a grid and widgets without a position take the first free cell, row by row, without a span. That one position changes the placement of the others is intended. | Accepted |
+| D28 | 2026-10-02 | Overflow rules, for a start: panel content scrolls vertically inside the panel; a stack of floating panels is fitted to the window by letting expanded panels share the height and scroll, hiding the last panels only if not even headers fit; floating panel width is clamped to the window; text that does not fit ends in an ellipsis; a dropdown list stays inside the window; no horizontal scrolling; the app may set a minimum window size. See ARCHITECTURE.md §4.6b. To be revisited if they do not work in practice. | Accepted |
 
 ### Open questions
 
@@ -169,7 +170,7 @@ These are goals, checked in Phase 2:
 
 Work is tracked on GitHub:
 - Board: https://github.com/users/SvenSZim/projects/3 (columns: Backlog, Ready, In progress, Done)
-- 50 work packages as issues, titled `WP <phase>.<n>`, one milestone per phase, labels per area.
+- Work packages as issues, titled `WP <phase>.<n>`, one milestone per phase, labels per area.
 - Each issue has its goal, scope, done-when conditions, dependencies and the decisions it rests on.
 
 The phases below are the summary; the issues are the source of truth for scope and status.
@@ -208,6 +209,7 @@ Each phase ends with something that runs.
 - Widget pool: button, switch, slider, text display, progress bar, graph, dropdown, text input.
 - `Param<T>` and `Series` implementations (D10, P10).
 - Data bindings by name and in the descriptor (P2).
+- Panel scrolling and the other overflow rules (D28).
 
 **Done when:** every widget in the demo is interactive and bound to app data.
 
