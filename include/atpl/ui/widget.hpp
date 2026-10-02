@@ -2,6 +2,7 @@
 
 #include "atpl/ui/binding.hpp"
 #include "atpl/ui/event.hpp"
+#include "atpl/ui/id.hpp"
 #include "atpl/ui/layout.hpp"
 #include "atpl/ui/rect.hpp"
 #include "atpl/ui/theme.hpp"
@@ -19,6 +20,10 @@ namespace render {
 class DrawList;     // what a panel draws; internal
 class TextMeasurer; // how much room text takes; internal
 } // namespace render
+
+namespace input {
+class InputSystem; // what keeps hover, press, capture and focus; internal
+} // namespace input
 
 // The interface every widget type implements, and what a widget is handed to do its work.
 //
@@ -113,6 +118,17 @@ private:
 /// What a widget can do while handling input.
 class InputContext {
 public:
+    /// Made by the UI for the widget an event is meant for. `origin` is the widget's top-left
+    /// corner in the window.
+    InputContext(
+        input::InputSystem& input,
+        WidgetId widget,
+        sf::Vector2f origin,
+        sf::Vector2f size,
+        State state,
+        const Sizes& sizes
+    );
+
     /// The widget's size in pixels. The widget's own coordinates run from (0, 0) at its top-left
     /// corner to this.
     [[nodiscard]] sf::Vector2f size() const;
@@ -144,6 +160,14 @@ public:
 
     /// Reports that the user pressed the widget as a button. The UI raises `ButtonPressed`.
     void press();
+
+private:
+    input::InputSystem* m_input;
+    WidgetId m_widget;
+    sf::Vector2f m_origin;
+    sf::Vector2f m_size;
+    State m_state;
+    const Sizes* m_sizes;
 };
 
 /// What a widget can do while time passes.

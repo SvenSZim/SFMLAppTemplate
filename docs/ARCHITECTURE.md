@@ -128,7 +128,7 @@ Files:
 src/ui/
 ├─ ui.cpp     frame_loop.hpp/.cpp
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
-├─ input/    input_system.hpp/.cpp  window_events.hpp/.cpp
+├─ input/    input_system.hpp/.cpp  input_context.cpp  event.cpp  window_events.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   layout.cpp  arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
 │            grid_packing.hpp/.cpp  packing.hpp/.cpp  cell.hpp/.cpp  rules.hpp/.cpp
@@ -312,6 +312,14 @@ What the UI keeps for itself, and what it forwards:
 - Kept: pointer presses, releases, moves and scrolling over a panel; keys and text while a widget has keyboard focus.
 - A press and everything up to its release go to the same place. A drag that starts in a view keeps being forwarded when it crosses a panel; a drag that starts on a widget is never forwarded. Input is never cut off in the middle of an interaction.
 - Window events are always forwarded. A close request is only reported; the application decides.
+
+How `input/input_system` does it (WP 3.5):
+- **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn and enabled.
+- **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.
+- **Hover, pressed, focused** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
+- **Focus**: a widget takes it through its context. A press anywhere but on the focused widget takes it away. Keys and text go to the focused widget; without one they are forwarded.
+- **Pointer location**: the view under the pointer is a view widget when the pointer is over one, the background view when it is over no panel, and none over the rest of a panel.
+- **Widget reports**: `press()` raises `ButtonPressed`, `changeValue()` raises `ValueChanged` (writing the bound value comes with bindings, WP 3.8), `markDirty()` marks the panel.
 
 The template only forwards. It does not interpret forwarded input (D15). Pan and zoom for a view is an optional helper in `app` (section 5).
 

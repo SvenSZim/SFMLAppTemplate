@@ -62,6 +62,11 @@ public:
 
     [[nodiscard]] std::optional<ViewId> backgroundView() const { return m_backgroundView; }
 
+    /// The panels from the bottom to the top: those in the window's grid first, then the
+    /// floating ones, each in the order of the setup. This is the order they are drawn in, and,
+    /// the other way round, the order the pointer finds them in.
+    [[nodiscard]] std::vector<PanelId> stackingOrder() const;
+
     // ----- By name: for handles, never per frame -----
 
     [[nodiscard]] const NameIndex& names() const { return m_names; }
