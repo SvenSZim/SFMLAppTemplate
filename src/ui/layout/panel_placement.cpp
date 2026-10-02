@@ -2,7 +2,9 @@
 
 #include "atpl/ui/error.hpp"
 
+#include "ui/layout/cell.hpp"
 #include "ui/layout/grid_packing.hpp"
+#include "ui/layout/rules.hpp"
 
 #include <algorithm>
 #include <array>
@@ -91,6 +93,9 @@ void share(std::vector<float>& heights, float available) {
 /// A floating panel is as wide as it asks to be, or as the theme says, but never wider than the
 /// window.
 [[nodiscard]] float floatingWidth(const model::Panel& panel, sf::Vector2f window, const Sizes& sizes) {
+    if (panel.wantedWidth > 0.f) {
+        return std::round(std::min(panel.wantedWidth, window.x));
+    }
     const float asked = panel.width > 0.f ? panel.width * sizes.scale.x : sizes.panelWidth;
     return std::round(std::min(asked, window.x));
 }
@@ -101,7 +106,7 @@ void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f wind
     std::vector<model::Panel*> stack;
     for (model::Panel& panel : panels) {
         const Anchor* own = std::get_if<Anchor>(&panel.placement);
-        if (own != nullptr && *own == anchor && panel.visible) {
+        if (own != nullptr && *own == anchor && panel.visible && !panel.tooSmall) {
             stack.push_back(&panel);
         }
     }
@@ -267,24 +272,45 @@ float panelWidth(const model::Panel& panel, sf::Vector2f windowSize, GridSetup g
 }
 
 float wantedHeight(const model::Panel& panel, const Sizes& sizes) {
-    return sizes.headerHeight + (panel.collapsed ? 0.f : panel.contentHeight);
+    if (panel.collapsed) {
+        return sizes.headerHeight;
+    }
+    return panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
 }
 
-void placePanels(model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes) {
+void placePanels(
+    model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes, const Layout& layout
+) {
     const std::span<model::Panel> panels = store.panels();
 
     for (model::Panel& panel : panels) {
-        if (!panel.visible) {
+        if (!panel.visible || panel.tooSmall) {
             assign(panel, {}, false);
             continue;
         }
-        if (const GridCell* cell = std::get_if<GridCell>(&panel.placement)) {
-            FloatRect rect = cellRect(*cell, windowSize, grid, sizes.margin);
-            if (panel.collapsed) {
-                rect.setHeight(std::min(rect.height(), sizes.headerHeight));
-            }
-            assign(panel, rect, rect.width() > 0.f && rect.height() > 0.f);
+        const GridCell* cell = std::get_if<GridCell>(&panel.placement);
+        if (cell == nullptr) {
+            continue;
         }
+
+        // Its cells, all of them or as much as its content wants, placed in them.
+        const PanelRules rules = rulesFor(layout, panel);
+        const FloatRect cells = cellRect(*cell, windowSize, grid, sizes.margin);
+        FloatRect rect = cells;
+        if (rules.fit == Fit::Content && panel.wantedWidth > 0.f) {
+            const float height = panel.wantedHeight > 0.f ? panel.wantedHeight : wantedHeight(panel, sizes);
+            rect = aligned({ panel.wantedWidth, height }, cells, rules.alignment);
+        }
+
+        // A collapsed panel is its header, at the side of its place the rules say.
+        if (panel.collapsed) {
+            rect = aligned({ rect.width(), sizes.headerHeight }, rect, rules.collapseTowards);
+        }
+        assign(
+            panel,
+            rect,
+            rect.width() > 0.f && rect.height() >= std::min(sizes.headerHeight, cells.height()) && rect.height() > 0.f
+        );
     }
 
     for (const Anchor anchor : anchors) {

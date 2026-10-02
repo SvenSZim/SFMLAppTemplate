@@ -1,6 +1,6 @@
 # Layout concept
 
-**Status: accepted (D44), being built.** This document describes how sizes and positions are decided. It is the authority for layout; [ARCHITECTURE.md](ARCHITECTURE.md) §4.6, §4.6a and §4.6b describe what is built so far and are brought in line package by package. Section 9 lists the earlier decisions this changes and the packages that build it.
+**Status: accepted (D44), built (WP 3.4, 3.15 to 3.17).** This document describes how sizes and positions are decided. It is the authority for layout; [ARCHITECTURE.md](ARCHITECTURE.md) §4.6, §4.6a and §4.6b describe what is built so far and are brought in line package by package. Section 9 lists the earlier decisions this changes and the packages that build it.
 
 ## 1. The idea in one page
 
@@ -50,6 +50,7 @@ What a layout theme holds (names are a proposal):
 | Floating panels | `width`, `height` | each `Own` (from the panel's content) or `Equal` (the same for all floating panels) |
 | Floating panels | `limit` | the most a floating panel may take: fixed pixels and a fraction of the window |
 | Content | `rows` | bottom-up content: `Own` (every widget its own height) or `Equal` (equal cells) |
+| Content | `cells` | panels sized by their content whose content is a grid: each its own cells (`Own`, the default), or the same cells in all of them (`Equal`), so that equal grids make equal panels |
 | Content | `widgetAlignment` | where a widget sits in a cell that is larger than the widget may be |
 | Collapsing | `collapsible`, `collapseTowards` | whether panels fold to their header, and to which of nine positions |
 | Overflow | `stackOverflow` | a stack of floating panels that does not fit: hide the last ones, or card stack (D42) |
@@ -245,7 +246,7 @@ Text that is too wide for its widget still ends in an ellipsis. There is still n
 | WP 3.4 (#23) | Finding grid cells, largest first, for widgets and panels; balanced packing; the order of a layout pass; widgets painted at their places. | done |
 | WP 3.15 (#77) | Layout theme: the `Layout` type, presets, `Metrics` moved out of the theme, per-panel overrides, scaling with the window. The settings for fit, equal sizes, limits and the content rule are stored but not yet in effect. | done |
 | WP 3.16 (#78) | Widget size requests (minimum, maximum, ratios), a widget's rectangle in a cell, alignment; content top-down and bottom-up (own, equal, spans dividing the minimum) | done |
-| WP 3.17 (#79) | Panel sizing: fill and fit-content in the grid, own and equal floating panels, limits; the overflow rules of section 7; collapse direction | next |
+| WP 3.17 (#79) | Panel sizing: fill and fit-content in the grid, own and equal floating panels, limits; the overflow rules of section 7; collapse direction | done |
 
 ## 10. Details settled while writing this down
 

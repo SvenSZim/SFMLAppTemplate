@@ -653,9 +653,7 @@ TEST_CASE("top-down: a panel in a small window squeezes its rows before it scrol
     REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 25.f);
 }
 
-TEST_CASE("bottom-up: a panel as large as its content gives spare height to its dynamic widgets", "[ui][layout]") {
-    // The same panel, but it fits its content instead of filling its cells: its widgets are
-    // packed. (Until panels are sized by their content, WP 3.17, it still has its cells' height.)
+TEST_CASE("bottom-up: a panel that fits its content in the grid is as large as its widgets want", "[ui][layout]") {
     UISetup setup;
     setup.panels = {
         { .name = "Scene",
@@ -667,8 +665,11 @@ TEST_CASE("bottom-up: a panel as large as its content gives spare height to its 
     layout::prepare(store, {});
     layout::arrange(store, { 800.f, 600.f }, {}, theme, sizes());
 
-    REQUIRE(rectOf(store, 0) == FloatRect(10.f, 10.f, 760.f, 20.f));
-    REQUIRE(rectOf(store, 1) == FloatRect(10.f, 35.f, 760.f, 505.f)); // down to a padding above the end
+    // Packed: 10 + 20 + 5 + 40 + 10 = 85 of content below a header of 30; as wide as the layout's
+    // panel width, since nothing wants more. At the top left of its cell.
+    REQUIRE(store.panel(panel).rect == FloatRect(10.f, 10.f, 200.f, 115.f));
+    REQUIRE(rectOf(store, 0) == FloatRect(10.f, 10.f, 180.f, 20.f));
+    REQUIRE(rectOf(store, 1) == FloatRect(10.f, 35.f, 180.f, 40.f));
 }
 
 TEST_CASE("a panel takes its widgets' alignment from the layout theme, or says it itself", "[ui][layout]") {
@@ -698,12 +699,12 @@ TEST_CASE("a panel that cannot be as high as its content says how far it has to 
     Store store{ setup };
     layout::prepare(store, {});
 
-    // Content: 10 + 300 + 5 + 300 + 10 = 625. In a window of 400 the panel is 380 high: 350 for
-    // content.
+    // Content: 10 + 300 + 5 + 300 + 10 = 625. In a window of 400 a floating panel may take nine
+    // tenths of the height: 360, of which 330 are content.
     layout::arrange(store, { 800.f, 400.f }, {}, theme, sizes());
-    REQUIRE(store.panel(panel).rect.height() == 380.f);
+    REQUIRE(store.panel(panel).rect.height() == 360.f);
     REQUIRE(store.panel(panel).contentHeight == 625.f);
-    REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 275.f);
+    REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 295.f);
 
     layout::arrange(store, { 800.f, 1000.f }, {}, theme, sizes());
     REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 0.f);

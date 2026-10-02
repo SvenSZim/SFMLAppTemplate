@@ -19,13 +19,18 @@ void prepare(model::Store& store, GridSetup grid, const Layout& layout = {});
 /// Lays out the whole UI: every widget in its panel, every panel and every view in the window.
 ///
 /// The steps depend on each other in this order:
-///   1. A panel's width follows from the window alone.
-///   2. With the width, its widgets are laid out at the sizes they prefer; that gives the height
-///      its content would like.
-///   3. With the content heights, the panels are placed.
-///   4. With the height a panel actually got, its content is laid out for good: spare height
+///   1. Widths. A panel in the grid that fills its cells has theirs. Any other is as wide as its
+///      content prefers, its title, and the layout's panel width (whichever is widest), or as it
+///      says itself; floating panels with `SizeRule::Equal` all get the widest; floating panels
+///      stay within their limit.
+///   2. With the widths, the widgets at the sizes they prefer: the height each panel would
+///      like; again equal for floating panels with `SizeRule::Equal`, and within the limit.
+///   3. The panels are placed.
+///   4. With the room each panel actually got, its content is laid out for good: spare height
 ///      goes to the rows of its grid or to its dynamic widgets, and a grid short of height
-///      squeezes its rows down to the widgets' minimum.
+///      squeezes its rows down to the widgets' minimum. A panel whose content area is narrower
+///      than its widest widget needs at least, or lower than its highest, is left out, and the
+///      panels are placed again without it. A widget narrower than it needs is not drawn.
 ///   5. Views are where their widgets ended up.
 ///
 /// Runs when something changed that moves or resizes anything: the window, a panel collapsed,

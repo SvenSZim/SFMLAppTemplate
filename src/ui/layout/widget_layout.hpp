@@ -61,6 +61,12 @@ struct WidgetLayout {
     /// Whether the widgets would use more height if the panel had any to spare: a grid, whose
     /// rows share it, or a packed widget that is dynamic.
     bool usesSpareHeight = false;
+
+    /// The largest minimum width and height of a single widget.
+    sf::Vector2f widestAndHighest;
+
+    /// In a grid: the size a cell would like, from the widgets' preferred sizes.
+    sf::Vector2f cell;
 };
 
 /// Gives every widget of the panel its rectangle, for a panel `panelWidth` wide, and writes the
@@ -71,9 +77,15 @@ struct WidgetLayout {
 /// it equally, packed widgets that are dynamic fill their column), and a grid that is short of
 /// height squeezes its rows down to the widgets' minimum.
 ///
+/// A widget whose room is narrower than its minimum width does not fit: it is marked so and is
+/// not drawn; its place stays empty.
+///
 /// Inside its cell or its place in a column, a widget takes what its size request allows: a
 /// dynamic widget all of it, a constant one at most its maximum, both within their limits on
 /// shape. What is smaller than its room is placed in it at `rules.widgetAlignment`.
+///
+/// In a grid, `cellAtLeast` makes cells at least that large: for panels whose cells are the same
+/// size as other panels' (`SizeRule::Equal` for `Layout::cells`).
 ///
 /// `sizes` are the layout's sizes for the window as it is.
 WidgetLayout layoutWidgets(
@@ -84,7 +96,8 @@ WidgetLayout layoutWidgets(
     const Sizes& sizes,
     const render::TextMeasurer* measurer = nullptr,
     std::optional<float> availableHeight = std::nullopt,
-    const PanelRules& rules = {}
+    const PanelRules& rules = {},
+    sf::Vector2f cellAtLeast = {}
 );
 
 /// How much of a panel's content does not fit into the height the panel has for it, or 0. This

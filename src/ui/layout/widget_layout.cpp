@@ -124,6 +124,9 @@ WidgetLayout packed(
 
     for (std::size_t i = 0; i < slots.size(); ++i) {
         slots[i].rect = placeInCell(requests[i], places[i], rules.widgetAlignment);
+        slots[i].fits = places[i].width() >= requests[i].min.x;
+        result.widestAndHighest.x = std::max(result.widestAndHighest.x, requests[i].min.x);
+        result.widestAndHighest.y = std::max(result.widestAndHighest.y, requests[i].min.y);
     }
     return result;
 }
@@ -139,7 +142,8 @@ WidgetLayout grid(
     const Sizes& sizes,
     const render::TextMeasurer* measurer,
     std::optional<float> availableHeight,
-    const PanelRules& rules
+    const PanelRules& rules,
+    sf::Vector2f cellAtLeast
 ) {
     WidgetLayout result;
     result.usesSpareHeight = true;
@@ -165,12 +169,14 @@ WidgetLayout grid(
         wanted.y = std::max(wanted.y, perCell(requests[i].preferred.y, cell.rowSpan, sizes.gap.y));
         leastHeight = std::max(leastHeight, perCell(requests[i].min.y, cell.rowSpan, sizes.gap.y));
     }
-    result.contentWidth = contentWidthFor(std::ceil(wanted.x), columns, sizes);
+    wanted = { std::max(std::ceil(wanted.x), cellAtLeast.x), std::max(std::ceil(wanted.y), cellAtLeast.y) };
+    result.cell = wanted;
+    result.contentWidth = contentWidthFor(wanted.x, columns, sizes);
 
     // Rows are as high as the widgets prefer. A panel with height to spare shares it among its
     // rows; one that is short of height squeezes them, down to what the widgets need at least.
     // Below that the content is higher than the panel, and scrolls.
-    float rowHeight = std::ceil(wanted.y);
+    float rowHeight = wanted.y;
     if (availableHeight.has_value()) {
         const float shared = (*availableHeight - sizes.padding.y * 2.f - gaps) / rowCount;
         rowHeight = shared >= rowHeight ? shared : std::max(std::floor(shared), std::ceil(leastHeight));
@@ -190,6 +196,9 @@ WidgetLayout grid(
         const float top = topOf(cell.row);
         const FloatRect area(left, top, widthOf(cell), bottomOf(cell.row + cell.rowSpan - 1) - top);
         slots[i].rect = placeInCell(requests[i], area, rules.widgetAlignment);
+        slots[i].fits = area.width() >= requests[i].min.x;
+        result.widestAndHighest.x = std::max(result.widestAndHighest.x, requests[i].min.x);
+        result.widestAndHighest.y = std::max(result.widestAndHighest.y, requests[i].min.y);
     }
     return result;
 }
@@ -300,19 +309,30 @@ WidgetLayout layoutWidgets(
     const Sizes& sizes,
     const render::TextMeasurer* measurer,
     std::optional<float> availableHeight,
-    const PanelRules& rules
+    const PanelRules& rules,
+    sf::Vector2f cellAtLeast
 ) {
     model::Panel& panel = store.panel(panelId);
     const std::span<model::WidgetSlot> slots = store.widgetsOf(panelId);
 
     WidgetLayout result;
     if (!slots.empty()) {
-        result =
-            panel.grid
-                ? grid(slots, panelWidth, panel.columns, panel.rows, theme, sizes, measurer, availableHeight, rules)
-                : packed(slots, panelWidth, panel.columns, theme, sizes, measurer, availableHeight, rules);
+        result = panel.grid ? grid(
+                                  slots,
+                                  panelWidth,
+                                  panel.columns,
+                                  panel.rows,
+                                  theme,
+                                  sizes,
+                                  measurer,
+                                  availableHeight,
+                                  rules,
+                                  cellAtLeast
+                              )
+                            : packed(slots, panelWidth, panel.columns, theme, sizes, measurer, availableHeight, rules);
     }
     panel.contentHeight = result.contentHeight;
+    panel.widestAndHighest = result.widestAndHighest;
     return result;
 }
 

@@ -34,8 +34,9 @@ struct WidgetSlot {
     /// changes. Empty in a panel whose widgets are packed.
     std::optional<GridCell> cell;
 
-    FloatRect rect; ///< In its panel's content coordinates.
-    bool visible = true;
+    FloatRect rect;      ///< In its panel's content coordinates.
+    bool fits = true;    ///< Whether its room is at least as wide as the widget needs at least.
+    bool visible = true; ///< Whether it is drawn: its panel is open, and it fits.
 
     // ----- Written by input -----
 

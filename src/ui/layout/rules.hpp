@@ -14,6 +14,7 @@ struct PanelRules {
     SizeRule height = SizeRule::Own;
     PanelLimit limit;
     SizeRule rows = SizeRule::Own;
+    SizeRule cells = SizeRule::Own;
     Alignment widgetAlignment = Alignment::Center;
     Alignment collapseTowards = Alignment::TopLeft;
 };
