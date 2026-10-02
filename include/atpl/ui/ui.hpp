@@ -1,11 +1,13 @@
 #pragma once
 
 #include "atpl/ui/error.hpp"
+#include "atpl/ui/event.hpp"
 #include "atpl/ui/handle.hpp"
 #include "atpl/ui/setup.hpp"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 
+#include <span>
 #include <string_view>
 
 namespace atpl {
@@ -47,6 +49,11 @@ public:
     /// Reads the window's pending input. Widgets react, bound values are written, and events
     /// for the application are collected.
     void handleInput();
+
+    /// The events collected by the last `handleInput()`, in the order they happened: widget
+    /// events and the input the UI had no use for. See event.hpp.
+    /// The list is replaced by the next `handleInput()`.
+    [[nodiscard]] std::span<const Event> events() const;
 
     /// Advances animations and picks up bound values that changed.
     void update();

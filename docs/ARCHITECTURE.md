@@ -92,6 +92,8 @@ The exact utility list for the first version is Q5.
 | File | Content |
 |---|---|
 | `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `requestRedraw()` (any thread); events (WP 1.3). |
+| `event.hpp` | `Event` and the twelve event types (D29). |
+| `value.hpp` | `Value`: a widget's value of any kind, as carried by `ValueChanged`. |
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
 | `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`. |
@@ -99,7 +101,6 @@ The exact utility list for the first version is Q5.
 | `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `View` (D24). `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
-| `event.hpp` | `Event`: the one type for widget events and forwarded input (P4). |
 | `theme.hpp` | `Theme` (tokens, part entries), `Metrics`, built-in themes, `Style`, `Kind`, `Part`, `Role` (P5, P11). |
 | `widget.hpp` | `Widget` interface, `Painter`, input and measure contexts, for app-defined widgets (P1). |
 | `rect.hpp` | Rectangle type. From `ui/utils/rect`, trimmed. |
@@ -236,14 +237,27 @@ Both are the same thing to the app: a named view with a draw callback, set throu
 
 View regions are clipped to rectangles; a view cannot have rounded corners unless it is rendered to a texture first (opt-in, D7).
 
-### 4.8 Events (P4, D11, Q9)
+### 4.8 Events (P4, D11, D15, D29)
 
-One `Event` type, one stream, read on the main thread:
-- **Widget events**: button pressed, value changed. They identify the widget.
-- **Forwarded input**: mouse button, mouse move, wheel, key, text that the UI did not consume. Mouse events name the view they happened in (or the background) and carry the position in window pixels and relative to that view.
-- **Window events**: closed, resized.
+One `Event` type, one stream, read on the main thread after `UI::handleInput()` through `UI::events()`:
 
-The template only forwards. It does not interpret forwarded input (Q9). Pan and zoom for a view is an optional helper in `app` (section 5).
+| Group | Types |
+|---|---|
+| Widget events | `ButtonPressed`, `ValueChanged` (with the new value and `final`: false while a drag or typing is still going on) |
+| Pointer | `PointerPressed`, `PointerReleased`, `PointerMoved`, `Scrolled` |
+| Keyboard | `KeyPressed`, `KeyReleased`, `TextEntered` |
+| Window | `WindowClosed`, `WindowResized`, `WindowFocusChanged` |
+
+- The types are the template's own; `sf::Event` does not appear. Keys and mouse buttons use SFML's enums. The list can grow.
+- Widget events carry the widget's id, name and panel name, so they can be matched by `"Name"`, `"Panel/Name"` or id.
+- Pointer and key events carry where the pointer is: window position, the view under it (if any) and the position relative to that view.
+
+What the UI keeps for itself, and what it forwards:
+- Kept: pointer presses, releases, moves and scrolling over a panel; keys and text while a widget has keyboard focus.
+- A press and everything up to its release go to the same place. A drag that starts in a view keeps being forwarded when it crosses a panel; a drag that starts on a widget is never forwarded. Input is never cut off in the middle of an interaction.
+- Window events are always forwarded. A close request is only reported; the application decides.
+
+The template only forwards. It does not interpret forwarded input (D15). Pan and zoom for a view is an optional helper in `app` (section 5).
 
 ### 4.9 Rendering (D3–D7, plan section 5)
 
