@@ -362,72 +362,128 @@ Sizes come from `metrics` and from the text sizes in `typography`. Only `layout/
 
 The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme`.
 
-## 5. `app` — running an application
+## 5. `app` — running an application (D32)
 
 | File (`include/atpl/app/`) | Content |
 |---|---|
-| `app.hpp` | `App`: creates the window and UI, runs the main loop, delivers events to the application's handler on the main thread (D11). |
-| `simulation.hpp` | The interface an application's simulation implements, and the runner: own thread, fixed timestep, pause, single step, speed (P3). |
-| `camera.hpp` | Optional pan/zoom helper for a view. It reads forwarded input events and produces an `sf::View` (Q9). |
+| `app.hpp` | `App`: creates and owns the window (`WindowSetup`), creates the UI, runs the main loop. `onEvent(handler)` delivers every UI event on the main thread (D11); `onUpdate(handler)` runs once per pass of the loop. `run()` or `run(simulation)`; `quit()`. |
+| `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
+| `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). |
 | `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name are added in WP 5.6. |
+
+### 5.1 The simulation
+
+An application's simulation derives from `Simulation<State, Command>` and implements three functions, all called on the simulation thread:
+
+| Function | What it does |
+|---|---|
+| `onCommand(command)` | Handles one command the application sent with `send(command)`. |
+| `tick(dt)` | Advances the simulation by `dt` seconds of simulated time. |
+| `writeState(state)` | Writes everything the main thread needs for drawing. |
+
+The base class owns the command queue and the state exchange. The main thread reads the newest published state with `state()`.
+
+`SimulationControls` are `Param`s, so widgets bind to them directly:
+
+| Control | Meaning |
+|---|---|
+| `paused` | No ticks while true. Commands are still handled; a paused simulation sleeps until one arrives. |
+| `tickRate` | Ticks per second of simulated time. The step size of a tick is always `1 / tickRate`, which keeps a run reproducible. |
+| `speed` | How fast simulated time passes compared to real time. Changes how often ticks happen, not their size. |
+| `unlimited` | Ticks follow each other without waiting. For training runs and searches. |
+| `step(n)` | Runs `n` ticks while paused. |
+| `ticksPerSecond`, `tickMilliseconds`, `tickCount`, `time` | Measurements, written by the simulation thread. |
+
+Rules:
+- `writeState` is not called after every tick: at most once per frame the main thread draws, and once more when the simulation pauses or stops, so the last state is always shown.
+- An exception thrown by the simulation ends the run and is thrown again on the main thread, from `App::run`.
+- `App::run(simulation)` starts the thread, and stops and joins it when the application ends.
+
+### 5.2 The application loop
+
+- Closing the window ends the application by default (`AppSetup::quitOnClose`). Turned off, the request only arrives as a `WindowClosed` event.
+- `App` loads the bundled font if the theme has none.
+- The loop only spins while there is something to do (section 6), so `onUpdate` is not a clock.
 
 ## 6. One frame
 
-Main thread:
+Main thread, one pass of `App`'s loop:
 
 | Step | Owner | What happens |
 |---|---|---|
-| 1 | `input` | Window events are read. Widgets react, bound parameters are written, panels are marked dirty, events are emitted. |
-| 2 | application | Reads the events. Handles them or pushes commands to the simulation. |
-| 3 | `binding`, `widgets`, `layout` | Bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
-| 4 | `render` | If nothing needs a redraw, the frame is skipped and the loop waits for input (with a timeout of one display frame). Otherwise dirty panels are rebuilt and everything is drawn. |
+| 1 | `input` | `UI::handleInput()`: window events are read. Widgets react, bound parameters are written, panels are marked dirty, events are collected. |
+| 2 | application | `App` hands each event to the `onEvent` handler, which handles it or sends a command to the simulation. Then the `onUpdate` handler runs. |
+| 3 | `binding`, `widgets`, `layout` | `UI::update()`: bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
+| 4 | `render` | `UI::draw()`: if nothing needs a redraw, the frame is skipped and the loop waits for input (with a timeout of one display frame). Otherwise dirty panels are rebuilt and everything is drawn, including the views, whose draw functions read `simulation.state()`. |
 
-Simulation thread, per tick: take pending commands → advance the simulation → publish a snapshot → request a redraw.
+Simulation thread, one pass: handle pending commands → if not paused, tick → if the main thread has taken the last state, write a new one → request a redraw.
 
-The two threads share only `Param<T>` values, the command queue and the snapshot.
+The two threads share only `Param<T>` values, the command queue and the published state.
 
 ## 7. What the application writes
 
-The setup part is final API (WP 1.2) and is compiled with every build in `tests/api/ui_usage.cpp`. The `App` part is a sketch until WP 1.5.
+This is the agreed API (Phase 1). The same program, a little longer, is compiled with every build in `tests/api/app_usage.cpp`.
 
 ```cpp
 using namespace atpl;
 
 struct Params {
-    Param<float> speed = 5.f;
-    Param<bool>  gravity = true;
+    Param<float> gravity = 9.81f;
+    Param<int>   particleCount = 2000;
+};
+enum class Command { Reset };
+struct World { std::vector<sf::Vector2f> positions; };
+
+class Particles final : public Simulation<World, Command> {
+public:
+    explicit Particles(Params& params) : m_params(params) {}
+
+private:
+    void onCommand(const Command&) override { m_positions.clear(); }
+    void tick(float dt) override { /* advance m_positions, reading m_params */ }
+    void writeState(World& state) const override { state.positions = m_positions; }
+
+    Params& m_params;
+    std::vector<sf::Vector2f> m_positions;
 };
 
 int main() {
     Params params;
-    MySimulation sim{params};
+    Particles simulation(params);
+    Camera camera("world");
 
     App app({
-        .window = {.title = "Showcase", .size = {1280, 720}},
+        .window = {.title = "Particles"},
         .ui = {
-            .background = "world",                                   // background view
+            .background = "world",                                        // the simulation, behind the panels
             .panels = {
-                {.name = "Controls", .placement = Anchor::TopLeft, .widgets = {
-                    Button("Reset"),
-                    Slider("Speed", params.speed, {.min = 0, .max = 10}),   // bound in the descriptor
-                    Switch("Gravity"),
+                {.name = "Simulation", .placement = Anchor::TopLeft, .widgets = {
+                    Switch("Pause", simulation.controls.paused),          // controls are parameters
+                    Slider("Speed", simulation.controls.speed, {.min = 0.25, .max = 8}),
+                    TextDisplay("Ticks/s", simulation.controls.ticksPerSecond),
                 }},
-                {.name = "Map", .placement = Anchor::BottomRight, .widgets = {
-                    View("minimap"),
+                {.name = "Particles", .placement = Anchor::TopRight, .widgets = {
+                    Slider("Count", params.particleCount, {.min = 0, .max = 20000}),
+                    Slider("Gravity"),
+                    Button("Reset"),
                 }},
             },
         },
     });
 
-    app.ui().widget("Gravity").bind(params.gravity);                 // bound by name
-    app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) { sim.draw(target, size); });
-    app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) { sim.drawMap(target, size); });
+    app.ui().widget("Gravity").bind(params.gravity);                      // bound by name
 
-    app.onEvent([&](const Event& event) {
-        if (event.isButton("Reset")) sim.commands().push(Command::Reset);
+    app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
+        camera.apply(target, size);
+        draw(target, simulation.state());                                 // newest published state
     });
 
-    app.run(sim);
+    app.onEvent([&](const Event& event) {
+        if (event.isButton("Reset")) simulation.send(Command::Reset);
+        if (camera.handle(event)) app.ui().requestRedraw();
+    });
+
+    return app.run(simulation);
 }
 ```
 
