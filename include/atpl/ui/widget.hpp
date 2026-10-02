@@ -44,6 +44,16 @@ struct SizeRequest {
 /// What a widget can ask while being measured.
 class MeasureContext {
 public:
+    /// Made by the UI for each widget it measures. `theme`, `scaledMetrics` and `measurer` must
+    /// outlive the context; without a measurer, text measures as nothing.
+    MeasureContext(
+        float width,
+        const Theme& theme,
+        PanelColors colors,
+        const Metrics& scaledMetrics,
+        const render::TextMeasurer* measurer = nullptr
+    );
+
     /// The width the widget will get, in pixels. Widths are decided by layout, never by widgets.
     [[nodiscard]] float width() const;
 
@@ -56,6 +66,13 @@ public:
 
     /// The height text would have when drawn as `part` and wrapped to `width`.
     [[nodiscard]] float wrappedTextHeight(std::string_view text, const Part& part, float width) const;
+
+private:
+    float m_width;
+    const Theme* m_theme;
+    PanelColors m_colors;
+    const Metrics* m_metrics;
+    const render::TextMeasurer* m_measurer;
 };
 
 /// What a widget can do while handling input.

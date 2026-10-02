@@ -43,8 +43,12 @@ struct PanelSetup {
     std::string title; ///< Shown in the header. Empty: the name.
     Placement placement = Anchor::TopLeft;
 
-    /// Number of equal columns in the panel, at least 1. See `widgets` for how they are used.
+    /// Number of equal columns in the panel, 1 to 3. See `widgets` for how they are used.
     int columns = 1;
+
+    /// Number of equal rows, which makes the panel a grid. 0: as many rows as the widgets with a
+    /// position use, or no grid if there are none. See `widgets`.
+    int rows = 0;
 
     /// Width of a floating panel in pixels before GUI scaling. 0: the theme's default.
     /// Ignored for panels in a grid cell.
@@ -66,33 +70,44 @@ struct PanelSetup {
     bool collapsible = true; ///< Whether the user can fold the panel down to its header.
     bool collapsed = false;  ///< Whether it starts folded.
 
-    /// The panel's widgets. How they are placed depends on whether any of them has a position:
+    /// The panel's widgets. They are placed in one of two ways.
     ///
-    /// - No widget has a position: they are packed top to bottom into `columns` columns of
-    ///   balanced height, in the order given. With two columns and four widgets, the first two
-    ///   go into the left column and the last two into the right.
+    /// **Packed**, if the panel says nothing about rows and no widget has a position or a span:
+    /// each widget gets the height it needs, and they are stacked top to bottom into `columns`
+    /// columns of balanced height, in the order given. With two columns and four widgets, the
+    /// first two go into the left column and the last two into the right.
     ///
-    ///       .columns = 2,
-    ///       .widgets = { Slider("Speed"), Slider("Size"), Switch("Gravity"), Button("Reset") },
+    ///     .columns = 2,
+    ///     .widgets = { Slider("Speed"), Slider("Size"), Switch("Gravity"), Button("Reset") },
     ///
-    /// - At least one widget has a position, given with `at(...)`: the panel is a grid. Positioned
-    ///   widgets take their cells. The others then take, in the order given, the first free cell,
-    ///   looking row by row from left to right, each without a span. Rows are as high as their
-    ///   highest widget.
+    /// **As a grid**, if the panel has `rows`, or a widget has a position (`at`) or a span
+    /// (`spanning`): the panel is split into `columns` equal columns and equal rows. A widget
+    /// takes one cell, or as many as its span says, and gets their size whatever height it would
+    /// need by itself.
     ///
-    ///       .columns = 2,
-    ///       .widgets = {
-    ///           Slider("Speed"),                                      // first free cell: 0, 0
-    ///           Slider("Size"),                                       // next free cell:  1, 0
-    ///           at({.row = 1, .columnSpan = 2}, Graph("Tick time")),  // whole second row
-    ///           Button("Reset"),                                      // next free cell:  0, 2
-    ///       },
+    /// - Widgets with a position take their cells.
+    /// - The others follow, the larger ones first and equal ones in the order given, each into
+    ///   the first free cells that hold it, looking row by row from the left.
+    /// - The grid has `rows` rows; if that is 0, as many as the widgets with a position use.
+    /// - A row nobody uses stays empty: a separator.
     ///
-    /// Giving one widget a position therefore changes how all others in the panel are placed.
-    /// This is intended: the first way packs tightly, the second gives control.
+    ///     .columns = 2,
+    ///     .rows = 5,
+    ///     .widgets = {
+    ///         Slider("Speed"),                                           // 0, 3
+    ///         Slider("Size"),                                            // 1, 3
+    ///         spanning({.columns = 2, .rows = 3}, Graph("Tick time")),   // the largest: first, rows 0 to 2
+    ///         Button("Reset"),                                           // 0, 4
+    ///     },
     ///
-    /// A cell outside the panel's columns, or two positioned widgets on the same cell, throws
-    /// `SetupError`.
+    /// To have the graph below the sliders instead, give it a position:
+    /// `at({.row = 1, .columnSpan = 2, .rowSpan = 3}, Graph("Tick time"))`.
+    ///
+    /// A row is one `Metrics::rowHeight` high. A panel in the window's grid that has more height
+    /// than its rows need shares it among them.
+    ///
+    /// `SetupError` is thrown for a cell outside the grid, for two widgets with a position on
+    /// the same cell, and for a widget that finds no room: more rows are needed then.
     ///
     /// Content that is higher than the panel can be is scrolled vertically inside the panel.
     std::vector<WidgetSetup> widgets;

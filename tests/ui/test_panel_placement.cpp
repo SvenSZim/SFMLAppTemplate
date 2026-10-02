@@ -436,52 +436,109 @@ TEST_CASE("a view that is not on screen has an empty rectangle", "[ui][layout][v
 
 // ----- Setups that cannot work -----
 
+TEST_CASE("panels that leave their place in the grid open get the first free cells", "[ui][layout][panels]") {
+    const GridSetup grid{ .columns = 4, .rows = 2 };
+    UISetup setup;
+    setup.panels = {
+        { .name = "small", .placement = GridSpan{} },
+        { .name = "fixed", .placement = GridCell{ .column = 0, .row = 0 } },
+        { .name = "wide", .placement = GridSpan{ .columns = 3, .rows = 2 } },
+        { .name = "floating", .placement = Anchor::Top },
+    };
+    Store store{ setup };
+    layout::preparePanels(store, grid);
+
+    const auto cellOf = [&](std::uint32_t panel) {
+        return std::get<GridCell>(store.panel(PanelId{ panel }).placement);
+    };
+    REQUIRE(cellOf(1).column == 0); // the one with a position keeps it
+    REQUIRE(cellOf(1).row == 0);
+
+    // The large panel is placed before the small ones: columns 1 to 3, both rows.
+    REQUIRE(cellOf(2).column == 1);
+    REQUIRE(cellOf(2).row == 0);
+    REQUIRE(cellOf(2).columnSpan == 3);
+    REQUIRE(cellOf(2).rowSpan == 2);
+
+    // Only 0, 1 is left for the small one.
+    REQUIRE(cellOf(0).column == 0);
+    REQUIRE(cellOf(0).row == 1);
+
+    REQUIRE(std::holds_alternative<Anchor>(store.panel(PanelId{ 3 }).placement)); // floating panels are left alone
+}
+
+TEST_CASE("a panel that finds no room in the grid is refused", "[ui][layout][panels]") {
+    UISetup setup;
+    setup.panels = {
+        { .name = "Scene", .placement = GridSpan{ .columns = 2 } },
+        { .name = "Inspector", .placement = GridSpan{} },
+    };
+    Store store{ setup };
+    REQUIRE_THROWS_AS(layout::preparePanels(store, { .columns = 2, .rows = 1 }), SetupError);
+    REQUIRE_THROWS_WITH(
+        layout::preparePanels(store, { .columns = 2, .rows = 1 }),
+        ContainsSubstring("panel \"Inspector\" finds no room in the window's grid")
+    );
+    REQUIRE_NOTHROW(layout::preparePanels(store, { .columns = 3, .rows = 1 }));
+
+    setup.panels = { { .name = "Scene", .placement = GridSpan{ .columns = 5 } } };
+    Store tooWide{ setup };
+    REQUIRE_THROWS_WITH(
+        layout::preparePanels(tooWide, { .columns = 4, .rows = 1 }),
+        ContainsSubstring("panel \"Scene\" spans 5 columns")
+    );
+}
+
+TEST_CASE("panels with a position may share cells", "[ui][layout][panels]") {
+    Store store = storeOf({ inGrid("editor", { .column = 0 }), inGrid("preview", { .column = 0 }) });
+    REQUIRE_NOTHROW(layout::preparePanels(store, {}));
+    place(store);
+    REQUIRE(rectOf(store, 0) == rectOf(store, 1));
+}
+
 TEST_CASE("placements that can never work are refused", "[ui][layout][panels]") {
     const GridSetup grid{ .columns = 3, .rows = 2 };
 
     SECTION("everything inside the grid is fine") {
-        const Store store = storeOf(
+        Store store = storeOf(
             {
                 inGrid("corner", { .column = 2, .row = 1 }),
                 inGrid("all", { .column = 0, .row = 0, .columnSpan = 3, .rowSpan = 2 }),
                 floating("floating", Anchor::Top),
             }
         );
-        REQUIRE_NOTHROW(layout::requirePlaceable(store, grid));
+        REQUIRE_NOTHROW(layout::preparePanels(store, grid));
     }
     SECTION("a cell outside the grid") {
-        const Store store = storeOf({ inGrid("Map", { .column = 3, .row = 0 }) });
-        REQUIRE_THROWS_AS(layout::requirePlaceable(store, grid), SetupError);
+        Store store = storeOf({ inGrid("Map", { .column = 3, .row = 0 }) });
+        REQUIRE_THROWS_AS(layout::preparePanels(store, grid), SetupError);
         REQUIRE_THROWS_WITH(
-            layout::requirePlaceable(store, grid),
-            ContainsSubstring("panel \"Map\" is placed outside the window's grid")
+            layout::preparePanels(store, grid), ContainsSubstring("panel \"Map\" is placed outside the window's grid")
         );
-        REQUIRE_THROWS_WITH(layout::requirePlaceable(store, grid), ContainsSubstring("3 columns and 2 rows"));
+        REQUIRE_THROWS_WITH(layout::preparePanels(store, grid), ContainsSubstring("3 columns and 2 rows"));
     }
     SECTION("a span that reaches outside the grid") {
-        const Store store = storeOf({ inGrid("Map", { .column = 1, .row = 1, .columnSpan = 3 }) });
-        REQUIRE_THROWS_AS(layout::requirePlaceable(store, grid), SetupError);
+        Store store = storeOf({ inGrid("Map", { .column = 1, .row = 1, .columnSpan = 3 }) });
+        REQUIRE_THROWS_AS(layout::preparePanels(store, grid), SetupError);
     }
     SECTION("a negative cell") {
-        const Store store = storeOf({ inGrid("Map", { .column = -1 }) });
-        REQUIRE_THROWS_AS(layout::requirePlaceable(store, grid), SetupError);
+        Store store = storeOf({ inGrid("Map", { .column = -1 }) });
+        REQUIRE_THROWS_AS(layout::preparePanels(store, grid), SetupError);
     }
     SECTION("a span of nothing") {
-        const Store store = storeOf({ inGrid("Map", { .rowSpan = 0 }) });
-        REQUIRE_THROWS_WITH(layout::requirePlaceable(store, grid), ContainsSubstring("spans less than one grid cell"));
+        Store store = storeOf({ inGrid("Map", { .rowSpan = 0 }) });
+        REQUIRE_THROWS_WITH(layout::preparePanels(store, grid), ContainsSubstring("spans less than one grid cell"));
     }
     SECTION("a grid without columns") {
-        const Store store = storeOf({ floating("Controls", Anchor::Top) });
-        REQUIRE_THROWS_WITH(
-            layout::requirePlaceable(store, { .columns = 0, .rows = 1 }), ContainsSubstring("at least 1")
-        );
+        Store store = storeOf({ floating("Controls", Anchor::Top) });
+        REQUIRE_THROWS_WITH(layout::preparePanels(store, { .columns = 0, .rows = 1 }), ContainsSubstring("at least 1"));
     }
     SECTION("a negative width") {
         std::vector<PanelSetup> panels = { floating("Controls", Anchor::Top) };
         panels[0].width = -5.f;
-        const Store store = storeOf(std::move(panels));
+        Store store = storeOf(std::move(panels));
         REQUIRE_THROWS_WITH(
-            layout::requirePlaceable(store, grid), ContainsSubstring("panel \"Controls\" has a negative width")
+            layout::preparePanels(store, grid), ContainsSubstring("panel \"Controls\" has a negative width")
         );
     }
 }

@@ -20,9 +20,12 @@ struct WidgetSlot {
 
     std::string name;
     PanelId panel;
-    std::optional<GridCell> cell; ///< Its position in the panel's grid, if it was given one.
-    PanelColors colors;           ///< Its panel's colours, with its own override applied.
-    std::optional<ViewId> view;   ///< Set if the widget is a view.
+    /// Its cells in its panel's grid: the ones it was given, or, once layout has found them when
+    /// the UI is built, the ones it got. Empty in a panel whose widgets are packed.
+    std::optional<GridCell> cell;
+    GridSpan span;              ///< How many cells it takes.
+    PanelColors colors;         ///< Its panel's colours, with its own override applied.
+    std::optional<ViewId> view; ///< Set if the widget is a view.
 
     /// The widget itself: its behaviour and its type-specific state. Never null.
     std::unique_ptr<Widget> widget;

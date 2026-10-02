@@ -2,8 +2,9 @@
 
 #include "ui/frame_loop.hpp"
 #include "ui/input/window_events.hpp"
-#include "ui/layout/panel_placement.hpp"
+#include "ui/layout/arrange.hpp"
 #include "ui/model/store.hpp"
+#include "ui/render/font_measurer.hpp"
 #include "ui/render/panel_batch.hpp"
 #include "ui/render/profiler.hpp"
 #include "ui/render/renderer.hpp"
@@ -29,7 +30,7 @@ struct UI::Impl {
         theme(std::move(setup.theme)),
         batches(store.panels().size()),
         renderer(&textCache) {
-        layout::requirePlaceable(store, grid);
+        layout::prepare(store, grid); // finds grid cells; refuses what cannot be laid out
 
         drawOrder.reserve(batches.size());
         for (render::PanelBatch& batch : batches) {
@@ -72,17 +73,17 @@ struct UI::Impl {
 
     // ----- The steps -----
 
-    /// layout: where every panel and view is.
+    /// layout: where every widget, panel and view is.
     void placeIfOutdated() {
         if (!placementOutdated) {
             return;
         }
         placementOutdated = false;
-        layout::placePanels(store, windowSize, grid, metrics, theme.metrics.scale);
-        layout::placeViews(store, windowSize, metrics);
+        layout::arrange(store, windowSize, grid, theme, metrics, &textMeasurer);
 
-        // The readout sits in the top-right corner (D41).
-        profiler.setPosition({ windowSize.x - metrics.margin - profiler.batch().size().x, metrics.margin });
+        // The readout sits in the bottom-right corner (D43).
+        const sf::Vector2f readout = profiler.batch().size();
+        profiler.setPosition({ windowSize.x - metrics.margin - readout.x, windowSize.y - metrics.margin - readout.y });
     }
 
     /// model -> render: every batch gets its panel's place, and the panels that look different
@@ -106,8 +107,19 @@ struct UI::Impl {
             if (batch.isDirty()) {
                 const auto build = profiler.measure(render::Profiler::Section::Build);
                 const auto layers = batch.rebuild();
-                Painter painter(layers.frame, { 0.f, 0.f }, panel.rect.size());
-                widgets::paintPanelFrame(painter, panel.title, theme, panel.colors, metrics);
+                Painter frame(layers.frame, { 0.f, 0.f }, panel.rect.size(), &textMeasurer);
+                widgets::paintPanelFrame(frame, panel.title, theme, panel.colors, metrics);
+
+                // Each widget paints itself at the place layout gave it. The content starts
+                // below the header.
+                const sf::Vector2f content(0.f, metrics.headerHeight);
+                for (const model::WidgetSlot& slot : store.widgetsOf(PanelId{ static_cast<std::uint32_t>(i) })) {
+                    if (!slot.visible) {
+                        continue;
+                    }
+                    Painter painter(layers.content, slot.rect.position() + content, slot.rect.size(), &textMeasurer);
+                    slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), metrics));
+                }
             }
         }
     }
@@ -123,6 +135,7 @@ struct UI::Impl {
 
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
     std::vector<render::PanelBatch*> drawOrder; // what the renderer is given
+    render::FontMeasurer textMeasurer;
     render::TextCache textCache;
     render::Renderer renderer;
     render::Profiler profiler;

@@ -336,6 +336,9 @@ public:
     /// The widget's position in its panel's grid, if it was given one with `at`.
     [[nodiscard]] std::optional<GridCell> cell() const;
 
+    /// How many cells of its panel's grid the widget takes: what `at` or `spanning` said, or one.
+    [[nodiscard]] GridSpan span() const;
+
     /// The colours the widget was given with `colored`; empty fields mean its panel's.
     [[nodiscard]] ColorOverride colors() const;
 
@@ -350,6 +353,7 @@ public:
 
 private:
     friend WidgetSetup at(GridCell cell, WidgetSetup widget);
+    friend WidgetSetup spanning(GridSpan span, WidgetSetup widget);
     friend WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
 
     std::string m_name;
@@ -357,6 +361,7 @@ private:
     bool m_isView = false;
     std::function<std::unique_ptr<Widget>()> m_create;
     std::optional<GridCell> m_cell;
+    GridSpan m_span;
     ColorOverride m_colors;
 };
 
@@ -398,11 +403,18 @@ WidgetSetup::WidgetSetup(D descriptor) :
 /// See `PanelSetup::widgets` for the rules.
 [[nodiscard]] WidgetSetup at(GridCell cell, WidgetSetup widget);
 
+/// Gives a widget a size in its panel's grid and leaves its position to the panel:
+///
+///     spanning({.columns = 2, .rows = 3}, Graph("Tick time", stats.tickTimes))
+///
+/// See `PanelSetup::widgets` for the rules.
+[[nodiscard]] WidgetSetup spanning(GridSpan span, WidgetSetup widget);
+
 /// Gives a single widget colours that differ from its panel's:
 ///
 ///     colored({.accent = 3}, Button("Delete"))
 ///
-/// Only the colours that are named differ. Can be combined with `at`.
+/// Only the colours that are named differ. Can be combined with `at` and `spanning`.
 [[nodiscard]] WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
 
 } // namespace atpl
