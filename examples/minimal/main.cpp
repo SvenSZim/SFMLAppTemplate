@@ -1,7 +1,8 @@
 // The smallest application that shows the UI: a window with a few empty panels.
 //
 // It drives the UI by hand, which is what `App` will do for an application once it exists
-// (Phase 4): read input, update, draw; and nothing at all while nothing happens.
+// (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
+// window's close button ends it.
 //
 //   minimal [--layout overlay|dashboard|cards|compact] [--profiler] [--smoke-test]
 //
@@ -102,7 +103,7 @@ int run(int argc, char* argv[]) {
     while (window.isOpen()) {
         ui.handleInput(); // sleeps while there is nothing to do
         for (const Event& event : ui.events()) {
-            if (event.is<WindowClosed>()) {
+            if (event.is<WindowClosed>() || event.isKey(sf::Keyboard::Key::Escape)) {
                 window.close();
             }
         }

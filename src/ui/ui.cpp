@@ -1,6 +1,7 @@
 #include "atpl/ui/ui.hpp"
 
 #include "ui/frame_loop.hpp"
+#include "ui/input/input_system.hpp"
 #include "ui/input/window_events.hpp"
 #include "ui/layout/arrange.hpp"
 #include "ui/layout/widget_layout.hpp"
@@ -32,11 +33,7 @@ struct UI::Impl {
         batches(store.panels().size()),
         renderer(&textCache) {
         layout::prepare(store, grid, layout); // finds grid cells; refuses what cannot be laid out
-
-        drawOrder.reserve(batches.size());
-        for (render::PanelBatch& batch : batches) {
-            drawOrder.push_back(&batch);
-        }
+        stackingChanged();
 
         renderer.setProfiler(&profiler);
         profiler.setVisible(setup.profiler);
@@ -76,6 +73,16 @@ struct UI::Impl {
         flag.request();
     }
 
+    /// Panels may have moved between the window's grid and floating: the order they are drawn
+    /// in, and found by the pointer in, follows.
+    void stackingChanged() {
+        stacking = store.stackingOrder();
+        drawOrder.clear();
+        for (const PanelId panel : stacking) {
+            drawOrder.push_back(&batches[panel.index]);
+        }
+    }
+
     // ----- The steps -----
 
     /// layout: where every widget, panel and view is.
@@ -85,6 +92,7 @@ struct UI::Impl {
         }
         placementOutdated = false;
         layout::arrange(store, windowSize, grid, theme, sizes, &textMeasurer, layout);
+        input.forgetHover(store); // what is under the pointer may have changed; the next move says
 
         // The readout sits in the bottom-right corner (D43).
         const sf::Vector2f readout = profiler.batch().size();
@@ -140,13 +148,15 @@ struct UI::Impl {
     bool placementOutdated = true;
 
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
-    std::vector<render::PanelBatch*> drawOrder; // what the renderer is given
+    std::vector<PanelId> stacking;              // the panels from the bottom to the top
+    std::vector<render::PanelBatch*> drawOrder; // the same, as the renderer is given them
     render::FontMeasurer textMeasurer;
     render::TextCache textCache;
     render::Renderer renderer;
     render::Profiler profiler;
     frame::RedrawFlag flag;
 
+    input::InputSystem input;
     std::vector<Event> events;
 };
 
@@ -211,6 +221,7 @@ void UI::setLayout(Layout layout) {
     }
 
     impl.layout = std::move(layout);
+    impl.stackingChanged();
     impl.looksChanged();
 }
 
@@ -242,8 +253,10 @@ void UI::handleInput() {
             impl.windowResized();
         }
         if (const std::optional<Event> forwarded = input::windowEvent(*event)) {
-            impl.events.push_back(*forwarded);
+            impl.events.push_back(*forwarded); // the window's own events always reach the application
+            continue;
         }
+        impl.input.handle(*event, impl.store, impl.stacking, impl.sizes, impl.events);
     }
 }
 

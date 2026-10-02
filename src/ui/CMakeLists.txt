@@ -2,6 +2,9 @@
 # Depends on atpl_core and SFML Graphics. This target must never link atpl_app.
 add_library(atpl_ui STATIC
   frame_loop.cpp
+  input/event.cpp
+  input/input_context.cpp
+  input/input_system.cpp
   input/window_events.cpp
   layout/arrange.cpp
   layout/cell.cpp

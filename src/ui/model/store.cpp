@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <string>
+#include <variant>
 
 namespace atpl::model {
 
@@ -138,6 +139,19 @@ void Store::requireColors(const Theme& theme) const {
             model::requireColors("widget " + inQuotes(panel.name + "/" + slot.name), slot.colors, theme);
         }
     }
+}
+
+std::vector<PanelId> Store::stackingOrder() const {
+    std::vector<PanelId> order;
+    order.reserve(m_panels.size());
+    for (const bool floating : { false, true }) {
+        for (std::size_t i = 0; i < m_panels.size(); ++i) {
+            if (std::holds_alternative<Anchor>(m_panels[i].placement) == floating) {
+                order.push_back(PanelId{ idOf(i) });
+            }
+        }
+    }
+    return order;
 }
 
 Panel& Store::panel(PanelId id) {

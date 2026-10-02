@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 using namespace atpl;
 using atpl::model::Store;
@@ -408,6 +409,20 @@ TEST_CASE("a theme can be checked against a UI before it replaces another", "[ui
     Theme wide = themes::moon();
     wide.palette.accents.resize(4, wide.palette.accents.front());
     REQUIRE_NOTHROW(store.requireColors(wide));
+}
+
+TEST_CASE("panels in the window's grid lie below the floating ones", "[ui][model]") {
+    UISetup setup;
+    setup.panels = {
+        { .name = "float 1", .placement = Anchor::TopLeft },
+        { .name = "grid 1", .placement = GridCell{} },
+        { .name = "float 2", .placement = Anchor::Bottom },
+        { .name = "grid 2", .placement = GridCell{} },
+    };
+    const Store store{ setup };
+
+    // From the bottom to the top: the grid panels, then the floating ones, each in setup order.
+    REQUIRE(store.stackingOrder() == std::vector<PanelId>{ PanelId{ 1 }, PanelId{ 3 }, PanelId{ 0 }, PanelId{ 2 } });
 }
 
 TEST_CASE("a store can be moved, and its ids and names stay valid", "[ui][model]") {
