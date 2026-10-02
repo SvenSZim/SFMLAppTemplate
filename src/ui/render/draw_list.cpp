@@ -13,6 +13,7 @@ void DrawList::addText(
         m_texts.emplace_back();
     }
     TextRun& run = m_texts[m_textCount++];
+    ++m_textRevision;
     run.rect = rect;
     run.text.assign(text); // reuses the memory of the entry's earlier text
     run.color = style.color;
@@ -25,6 +26,7 @@ void DrawList::addText(
 void DrawList::clear() {
     m_shapes.clear();
     m_textCount = 0;
+    ++m_textRevision;
 }
 
 } // namespace atpl::render

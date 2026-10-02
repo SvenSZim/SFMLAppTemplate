@@ -56,6 +56,7 @@ atpl_add_tests(ui
   ui/test_panel_batch.cpp
   ui/test_rect.cpp
   ui/test_shapes.cpp
+  ui/test_text_layout.cpp
   ui/test_theme.cpp
   ui/test_theme_resolve.cpp
 )
@@ -64,7 +65,10 @@ atpl_add_tests(app
 )
 atpl_add_display_tests(ui
   ui/display/test_renderer.cpp
+  ui/display/test_text.cpp
 )
+# The text tests load the real font.
+atpl_copy_resources(atpl_ui_display_tests)
 # The resource tests load the real font, so they need the resources next to their executable.
 atpl_copy_resources(atpl_app_tests)
 

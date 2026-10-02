@@ -75,7 +75,7 @@ void Renderer::drawLayer(
     }
 
     if (m_textRenderer != nullptr && !layer.texts().empty()) {
-        stats.drawCalls += m_textRenderer->draw(target, states, layer.texts());
+        stats.drawCalls += m_textRenderer->draw(target, states, layer);
     }
 }
 

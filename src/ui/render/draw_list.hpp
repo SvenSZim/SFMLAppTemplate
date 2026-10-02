@@ -50,12 +50,17 @@ public:
     /// Empties the list but keeps its memory.
     void clear();
 
+    /// Changes whenever the text of the list may have changed: with every `clear` and every
+    /// text that is added. While it stays the same, so does the text.
+    [[nodiscard]] std::size_t textRevision() const { return m_textRevision; }
+
     [[nodiscard]] bool empty() const { return m_shapes.empty() && m_textCount == 0; }
 
 private:
     VertexList m_shapes;
     std::vector<TextRun> m_texts; // entries beyond m_textCount are kept for their memory
     std::size_t m_textCount = 0;
+    std::size_t m_textRevision = 0;
 };
 
 } // namespace atpl::render

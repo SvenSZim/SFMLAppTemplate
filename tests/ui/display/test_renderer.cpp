@@ -256,9 +256,8 @@ TEST_CASE("text is handed to the text renderer, layer by layer, after that layer
         std::vector<std::string> seen;
         std::vector<sf::Vector2f> origins;
 
-        std::size_t
-        draw(sf::RenderTarget&, const sf::RenderStates& states, std::span<const render::TextRun> runs) override {
-            for (const render::TextRun& run : runs) {
+        std::size_t draw(sf::RenderTarget&, const sf::RenderStates& states, const render::DrawList& layer) override {
+            for (const render::TextRun& run : layer.texts()) {
                 seen.push_back(run.text);
                 origins.push_back(states.transform.transformPoint({ 0.f, 0.f }));
             }
