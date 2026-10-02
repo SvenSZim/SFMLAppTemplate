@@ -35,6 +35,7 @@ atpl_add_tests(core
 )
 atpl_add_tests(ui
   ui/test_binding.cpp
+  ui/test_event.cpp
   ui/test_packing.cpp
   ui/test_rect.cpp
 )
@@ -65,6 +66,7 @@ endforeach()
 add_library(atpl_api_check OBJECT
   ${atpl_header_check_sources}
   api/core_usage.cpp
+  api/event_usage.cpp
   api/ui_usage.cpp
 )
 target_link_libraries(atpl_api_check PRIVATE atpl::app)
