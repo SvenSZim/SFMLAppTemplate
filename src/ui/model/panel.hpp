@@ -15,8 +15,16 @@ struct Panel {
 
     std::string name;
     std::string title; ///< What the header shows: the setup's title, or the name if it had none.
+    /// An anchor or grid cells. A panel that left its place in the grid open (`GridSpan`) has
+    /// its cells here once layout has found them, when the UI is built.
     Placement placement = Anchor::TopLeft;
     int columns = 1;
+
+    /// Whether the widgets are placed in a grid of equal cells instead of being packed, and how
+    /// many rows that grid has. Worked out by layout when the UI is built.
+    bool grid = false;
+    int rows = 0;
+
     float width = 0.f; ///< As in the setup: before GUI scaling, 0 for the theme's default.
     PanelColors colors;
     bool collapsible = true;

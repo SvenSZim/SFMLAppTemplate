@@ -3,8 +3,12 @@
 add_library(atpl_ui STATIC
   frame_loop.cpp
   input/window_events.cpp
+  layout/arrange.cpp
+  layout/grid_packing.cpp
+  layout/measure_context.cpp
   layout/packing.cpp
   layout/panel_placement.cpp
+  layout/widget_layout.cpp
   model/name_index.cpp
   model/setup.cpp
   model/store.cpp

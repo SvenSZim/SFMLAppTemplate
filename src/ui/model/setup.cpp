@@ -13,6 +13,10 @@ std::optional<GridCell> WidgetSetup::cell() const {
     return m_cell;
 }
 
+GridSpan WidgetSetup::span() const {
+    return m_span;
+}
+
 ColorOverride WidgetSetup::colors() const {
     return m_colors;
 }
@@ -31,6 +35,13 @@ std::unique_ptr<Widget> WidgetSetup::create() const {
 
 WidgetSetup at(GridCell cell, WidgetSetup widget) {
     widget.m_cell = cell;
+    widget.m_span = { .columns = cell.columnSpan, .rows = cell.rowSpan };
+    return widget;
+}
+
+WidgetSetup spanning(GridSpan span, WidgetSetup widget) {
+    widget.m_cell.reset(); // a size without a position
+    widget.m_span = span;
     return widget;
 }
 

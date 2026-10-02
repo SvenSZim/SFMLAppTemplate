@@ -71,6 +71,7 @@ For editors and language servers, CMake writes `compile_commands.json` into the 
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Vision, requirements, decision log, roadmap |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Target structure, responsibilities, frame flow |
+| [docs/LAYOUT.md](docs/LAYOUT.md) | How sizes and positions are decided: layout themes, top-down and bottom-up |
 | [docs/CODE_STYLE.md](docs/CODE_STYLE.md) | Code conventions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow: issues, branches, commits, pull requests |
 

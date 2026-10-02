@@ -2,6 +2,8 @@
 
 #include "atpl/ui/error.hpp"
 
+#include "ui/layout/grid_packing.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -86,6 +88,13 @@ void share(std::vector<float>& heights, float available) {
     }
 }
 
+/// A floating panel is as wide as it asks to be, or as the theme says, but never wider than the
+/// window.
+[[nodiscard]] float floatingWidth(const model::Panel& panel, sf::Vector2f window, const Metrics& metrics, float scale) {
+    const float asked = panel.width > 0.f ? panel.width * scale : metrics.panelWidth;
+    return std::round(std::min(asked, window.x));
+}
+
 /// One stack of floating panels.
 void placeStack(
     std::span<model::Panel> panels, Anchor anchor, sf::Vector2f window, const Metrics& metrics, float scale
@@ -150,8 +159,7 @@ void placeStack(
         model::Panel& panel = *stack[i];
 
         // Horizontally: in a narrow window the margin shrinks first, then the panel.
-        const float asked = panel.width > 0.f ? panel.width * scale : metrics.panelWidth;
-        const float width = std::round(std::min(asked, window.x));
+        const float width = floatingWidth(panel, window, metrics, scale);
         const float margin = std::clamp((window.x - width) * 0.5f, 0.f, metrics.margin);
         float x = margin;
         if (horizontal(anchor) == Side::Middle) {
@@ -190,37 +198,76 @@ void placeStack(
 
 } // namespace
 
-void requirePlaceable(const model::Store& store, GridSetup grid) {
+void preparePanels(model::Store& store, GridSetup grid) {
     if (grid.columns < 1 || grid.rows < 1) {
         throw SetupError(
             "the window's grid has " + std::to_string(grid.columns) + " columns and " + std::to_string(grid.rows) +
             " rows; it needs at least 1 of each"
         );
     }
+    const std::string gridSize =
+        std::to_string(grid.columns) + " columns and " + std::to_string(grid.rows) + " rows (counted from 0)";
 
-    for (const model::Panel& panel : store.panels()) {
+    // The panels that are in the grid, with a position or without.
+    std::vector<model::Panel*> inGrid;
+    std::vector<GridItem> items;
+    for (model::Panel& panel : store.panels()) {
         if (panel.width < 0.f) {
             throw SetupError("panel " + inQuotes(panel.name) + " has a negative width");
         }
-
-        const GridCell* cell = std::get_if<GridCell>(&panel.placement);
-        if (cell == nullptr) {
-            continue;
-        }
-        if (cell->columnSpan < 1 || cell->rowSpan < 1) {
-            throw SetupError("panel " + inQuotes(panel.name) + " spans less than one grid cell");
-        }
-        if (cell->column < 0 || cell->row < 0 || cell->column + cell->columnSpan > grid.columns ||
-            cell->row + cell->rowSpan > grid.rows) {
-            throw SetupError(
-                "panel " + inQuotes(panel.name) + " is placed outside the window's grid: columns " +
-                std::to_string(cell->column) + " to " + std::to_string(cell->column + cell->columnSpan - 1) +
-                ", rows " + std::to_string(cell->row) + " to " + std::to_string(cell->row + cell->rowSpan - 1) +
-                ", but the grid has " + std::to_string(grid.columns) + " columns and " + std::to_string(grid.rows) +
-                " rows (counted from 0)"
-            );
+        if (const GridCell* cell = std::get_if<GridCell>(&panel.placement)) {
+            inGrid.push_back(&panel);
+            items.push_back({ .cell = *cell, .span = {} });
+        } else if (const GridSpan* span = std::get_if<GridSpan>(&panel.placement)) {
+            inGrid.push_back(&panel);
+            items.push_back({ .cell = std::nullopt, .span = *span });
         }
     }
+
+    // Panels with a position may share cells: an application can show one of several panels in
+    // the same place (D40).
+    const GridPacking packing = packGrid(items, grid.columns, grid.rows, true);
+    if (packing.failed.has_value()) {
+        const std::string panel = "panel " + inQuotes(inGrid[*packing.failed]->name);
+        const GridItem& item = items[*packing.failed];
+        switch (packing.problem) {
+            case GridProblem::BadSpan:
+                throw SetupError(panel + " spans less than one grid cell");
+            case GridProblem::Outside:
+                if (item.cell.has_value()) {
+                    throw SetupError(
+                        panel + " is placed outside the window's grid: columns " + std::to_string(item.cell->column) +
+                        " to " + std::to_string(item.cell->column + item.cell->columnSpan - 1) + ", rows " +
+                        std::to_string(item.cell->row) + " to " +
+                        std::to_string(item.cell->row + item.cell->rowSpan - 1) + ", but the grid has " + gridSize
+                    );
+                }
+                throw SetupError(
+                    panel + " spans " + std::to_string(item.span.columns) + " columns and " +
+                    std::to_string(item.span.rows) + " rows, but the window's grid has only " + gridSize
+                );
+            case GridProblem::Overlap:
+            case GridProblem::NoRoom:
+                break;
+        }
+        throw SetupError(
+            panel + " finds no room in the window's grid: no " + std::to_string(item.span.columns) + " by " +
+            std::to_string(item.span.rows) + " cells are free; the grid has " + gridSize
+        );
+    }
+
+    for (std::size_t i = 0; i < inGrid.size(); ++i) {
+        inGrid[i]->placement = packing.cells[i];
+    }
+}
+
+float panelWidth(
+    const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Metrics& metrics, float scale
+) {
+    if (const GridCell* cell = std::get_if<GridCell>(&panel.placement)) {
+        return cellRect(*cell, windowSize, grid, metrics.margin).width();
+    }
+    return floatingWidth(panel, windowSize, metrics, scale);
 }
 
 float wantedHeight(const model::Panel& panel, const Metrics& metrics) {

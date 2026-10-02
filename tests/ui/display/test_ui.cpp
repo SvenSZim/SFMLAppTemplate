@@ -21,10 +21,19 @@ using Catch::Matchers::ContainsSubstring;
 
 namespace {
 
+const sf::Color widgetColor(200, 30, 30);
+
+/// One row high, and painted as a plain red box.
 class PlainWidget final : public Widget {
 public:
-    [[nodiscard]] SizeRequest measure(const MeasureContext&) const override { return {}; }
-    void paint(Painter&, const Style&) const override {}
+    [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
+        return { .height = context.metrics().rowHeight };
+    }
+    void paint(Painter& painter, const Style&) const override {
+        PartStyle red;
+        red.color = widgetColor;
+        painter.box(FloatRect({ 0.f, 0.f }, painter.size()), red);
+    }
 };
 
 struct Plain {
@@ -129,9 +138,12 @@ TEST_CASE("panels are placed in the window when the UI is updated", "[ui][facade
     REQUIRE(ui.panel("Scene").rect() == FloatRect(margin, margin, cellWidth, 400.f - 2.f * margin));
     REQUIRE(ui.panel("Inspector").rect().left() == margin * 2.f + cellWidth);
 
-    // The floating panels are stacked at the top left; without widgets laid out they are headers.
-    REQUIRE(ui.panel("Controls").rect() == FloatRect(margin, margin, metrics.panelWidth, metrics.headerHeight));
-    REQUIRE(ui.panel("Statistics").rect().top() == margin * 2.f + metrics.headerHeight);
+    // The floating panels are stacked at the top left, each as high as its header and its widgets.
+    const float twoRows = metrics.padding * 2.f + metrics.rowHeight * 2.f + metrics.gap;
+    REQUIRE(
+        ui.panel("Controls").rect() == FloatRect(margin, margin, metrics.panelWidth, metrics.headerHeight + twoRows)
+    );
+    REQUIRE(ui.panel("Statistics").rect().top() == margin * 2.f + metrics.headerHeight + twoRows);
 
     REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 640.f, 400.f));
 }
@@ -245,6 +257,27 @@ TEST_CASE("declared panels appear on screen in their theme's colours", "[ui][fac
     const sf::Vector2u outside(480u, 200u); // the empty right half
     REQUIRE(picture.getPixel(inside) == ui.theme().resolve(Panel::Background).color);
     REQUIRE(picture.getPixel(outside) == ui.theme().palette.window);
+}
+
+TEST_CASE("widgets are painted at the place layout gave them", "[ui][facade][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "Controls", .placement = Anchor::TopLeft, .widgets = { Plain{ "Speed" } } } };
+    UI ui(f.window, std::move(setup));
+
+    ui.update();
+    REQUIRE(ui.draw());
+    const sf::Image picture = f.picture();
+
+    // The widget is one row high, a padding below the header and a padding in from the sides.
+    const Metrics metrics = theme::scaled(ui.theme().metrics);
+    const FloatRect panel = ui.panel("Controls").rect();
+    const sf::Vector2f widgetCenter(
+        panel.center().x, panel.top() + metrics.headerHeight + metrics.padding + metrics.rowHeight * 0.5f
+    );
+    const sf::Vector2f inHeader(panel.right() - metrics.padding, panel.top() + metrics.headerHeight * 0.5f);
+    REQUIRE(picture.getPixel(sf::Vector2u(widgetCenter)) == widgetColor);
+    REQUIRE(picture.getPixel(sf::Vector2u(inHeader)) == ui.theme().resolve(Panel::Background).color);
 }
 
 TEST_CASE("resizing the window places the panels anew and tells the application", "[ui][facade][display]") {

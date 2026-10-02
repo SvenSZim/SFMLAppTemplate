@@ -89,16 +89,19 @@ UISetup makeSetup(Params& params, Stats& stats, VolumeBinding& volume) {
                 .title = "Stats",
                 .placement = Anchor::BottomLeft,
                 .columns = 2,
+                .rows = 7,
                 .collapsed = true,
-                // Every widget placed by cell: two values side by side, wide widgets below.
+                // A grid of equal cells: two values side by side, and below them two wide widgets
+                // of three rows each. The graph says where it goes; the network view only says
+                // how large it is and gets the first place that holds it.
                 .widgets = {
                     at({.column = 0, .row = 0}, TextDisplay("Ticks/s", stats.ticksPerSecond, {.format = "{:.1f}"})),
                     at({.column = 1, .row = 0}, ProgressBar("Progress", stats.progress)),
                     at(
-                        {.row = 1, .columnSpan = 2},
+                        {.row = 1, .columnSpan = 2, .rowSpan = 3},
                         Graph("Tick time", stats.tickTimes, {.label = "Tick time (ms)", .min = 0.f})
                     ),
-                    at({.row = 2, .columnSpan = 2}, NetworkView{.name = "Network", .layers = 4}),
+                    spanning({.columns = 2, .rows = 3}, NetworkView{.name = "Network", .layers = 4}),
                 },
             },
             // A panel in the grid: the two right-hand columns of the upper row hold a minimap.

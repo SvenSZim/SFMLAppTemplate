@@ -19,9 +19,20 @@ namespace atpl::layout {
 // resized, a panel was collapsed, expanded, shown or hidden, its content got a different height,
 // or the theme was replaced. They do not run every frame.
 
+/// Finds the cells of every panel that is in the window's grid, once, when the UI is built.
+/// Panels with a `GridCell` take it; panels with a `GridSpan` get the first free cells that hold
+/// them, the larger ones first (see grid_packing.hpp). Afterwards every grid panel's placement
+/// is a `GridCell`.
+///
 /// Throws `SetupError` for a placement that can never work: a grid without columns or rows, a
-/// panel in a cell outside the grid or with a span below 1, a panel with a negative width.
-void requirePlaceable(const model::Store& store, GridSetup grid);
+/// panel outside the grid or with a span below 1, a panel that finds no room, a negative width.
+void preparePanels(model::Store& store, GridSetup grid);
+
+/// How wide a panel is in a window of this size. Known before anything else about its place, so
+/// that its widgets can be laid out first: their height decides the panel's.
+[[nodiscard]] float panelWidth(
+    const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Metrics& metrics, float scale = 1.f
+);
 
 /// The height a panel wants: its header, plus its content unless it is collapsed.
 [[nodiscard]] float wantedHeight(const model::Panel& panel, const Metrics& metrics);

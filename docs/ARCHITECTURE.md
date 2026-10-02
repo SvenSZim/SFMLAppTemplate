@@ -129,7 +129,8 @@ src/ui/
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
 ├─ input/    input_system.hpp/.cpp  window_events.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
-├─ layout/   panel_placement.hpp/.cpp  packing.hpp/.cpp
+├─ layout/   arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
+│            grid_packing.hpp/.cpp  packing.hpp/.cpp  measure_context.cpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
@@ -217,29 +218,39 @@ Rules:
 - Numbers of every C++ type travel as `double`, enums as the index of the enumerator. Exact for `float`, for integers up to 32 bits and for 64-bit integers up to 2^53; larger 64-bit values are bound as text to be shown exactly. Writing back rounds integers and clamps to the type's range (`numberTo<T>`).
 - A descriptor only accepts sources of its widget's kind, checked by the compiler. Binding by name is checked when it runs and throws `SetupError` for a wrong kind.
 
-### 4.6 In-panel layout (P12)
+### 4.6 In-panel layout (P12, D44)
 
-- A widget reports the size it wants through `measure()`, given the available width and the `Metrics`.
-- A panel has a number of equal columns (`PanelSetup::columns`, default 1). Its widgets are placed in one of two ways, chosen per panel (D27):
-  - **No widget has a position**: `layout/` packs them top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
-  - **At least one widget has a position** (a `GridCell` given with `at(cell, widget)`, with column and row spans): the panel is a grid. Positioned widgets take their cells; the others take, in order, the first free cell, row by row from left to right, without a span. Rows are as high as their highest widget.
-  - Giving one widget a position therefore changes how the others are placed. This is intended.
-- Either way, `layout/` assigns each widget its rectangle in panel-local coordinates. A widget never positions itself.
-- Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget.
+> The layout concept is [LAYOUT.md](LAYOUT.md) (D44). This section, 4.6a and 4.6b describe what is built so far; they are brought in line with it by WP 3.15 to 3.17.
+
+- A panel has a number of equal columns (`PanelSetup::columns`, 1 to 3, default 1). Its widgets are placed in one of two ways, chosen per panel:
+  - **Packed**: the panel says nothing about rows, and no widget has a position or a span. A widget reports the height it wants through `measure()`, given the width it gets, and gets that height. `layout/` stacks the widgets top to bottom into the columns with balanced heights, in the order listed (`packing.hpp`).
+  - **Grid**: the panel has `rows`, or a widget has a position (`at(cell, widget)`) or a span (`spanning(span, widget)`). The panel is split into equal columns and equal rows, and a widget gets the cells it takes, whatever height it would ask for by itself.
+- **Finding cells in a grid** (`layout/grid_packing`), the same for widgets in a panel and for panels in the window:
+  1. Things with a position take their cells.
+  2. The others follow, the larger ones first and equal ones in the order listed, each into the first free cells that hold it, looking row by row from the left. No rearranging.
+  3. The grid has the rows it was given; a panel that names none has as many as its positioned widgets use.
+  4. What finds no room is a `SetupError`, as is a cell outside the grid and, for widgets, two positions on the same cell.
+  Cells are found once, when the UI is built, and kept in the model.
+- **Sizes in a panel's grid**: a row is one `Metrics::rowHeight` high. A panel that has more height than its rows need (a panel in the window's grid) shares it equally among the rows. A widget that takes several rows, or stretches, fills its cells; any other is at most as high as it asks to be and is centred in its row. A row nobody uses stays empty and works as a separator.
+- **Stretching when packed**: a widget that stretches (`SizeRequest::stretch`, a view) takes the height its column has to spare; what is below moves down.
+- Rectangles are in the panel's content, whose corner is below the header. The theme's `padding` lies between the panel's edge and the widgets, its `gap` between widgets. A widget never positions itself.
+- Inside its own rectangle, a widget arranges its parts (label, track, knob). `paint` and `handleInput` use the same part rectangles, computed in one place per widget. In a grid a widget can be given more or less height than it asked for, so it must cope with any size.
 - `Metrics` (padding, gaps, row heights, font sizes) is a token set next to the theme's colours. Only `layout/` and `measure()` read it. Nothing else defines sizes.
+- **The order of a layout pass** (`layout/arrange`): a panel's width follows from the window alone; with it the widgets are laid out, which gives the content height; with the content heights the panels are placed; a panel with height to spare gives it to the rows of its grid or to its stretching widgets; views are where their widgets ended up. `contentOverflow` says how far a panel's content can be scrolled (WP 3.12).
 
 ### 4.6a Placing panels (R5, D25)
 
 Each panel states its own placement:
 - **`Anchor`**: the panel floats at an edge or corner of the window, on top of the background view and of the grid. Panels that share an anchor are stacked in the order they are listed.
 - **`GridCell`**: the panel fills one or more cells of the window's grid (`UISetup::grid`, equal cells).
+- **`GridSpan`**: the panel fills that many cells of the window's grid, wherever there is room: the first free cells that hold it, larger panels first (4.6).
 
 Both kinds can be mixed; floating panels lie on top of the grid. The rules, in `layout/panel_placement`:
 - **Floating**: a panel is `margin` away from the window's edges. Panels that share an anchor form a stack with `margin` between them: downwards from a top anchor, upwards from a bottom anchor (the first listed is the lowest), centred as a whole for `Left` and `Right`. A panel is as wide as its setup says (times the GUI scale) or as the theme's `panelWidth`, and as high as its header plus its content, or its header alone when collapsed.
-- **Grid**: equal cells, with `margin` around the grid and between cells. A panel covers its cells and the margins between them. Edges are rounded to whole pixels so that neighbours line up. A collapsed grid panel is its header at the top of its cells. Grid panels may share cells; nothing checks for that.
+- **Grid**: equal cells, with `margin` around the grid and between cells. A panel covers its cells and the margins between them. Edges are rounded to whole pixels so that neighbours line up. A collapsed grid panel is its header at the top of its cells. Panels with a `GridCell` may share cells (D40); panels with a `GridSpan` are placed clear of all others, and one that finds no room is a `SetupError`.
 - A panel the application hides (`PanelHandle::setVisible(false)`) leaves no gap.
 - A panel whose size changed, or that appears, is marked dirty; one that only moved is not (the batch is moved, not rebuilt).
-- `requirePlaceable` refuses, with `SetupError`, a grid without columns or rows, a cell or span outside the grid, and a negative width.
+- `preparePanels` finds the cells when the UI is built and refuses, with `SetupError`, a grid without columns or rows, a cell or span outside the grid, a panel without room, and a negative width.
 - **Views**: the background view is the whole window; a view widget's view is its widget's rectangle in the window, or empty while the widget is not on screen.
 
 Placement runs when something changed that moves or resizes panels (window size, collapsed, visible, content height, theme), not every frame.
@@ -470,10 +481,10 @@ Main thread, one pass of `App`'s loop:
 
 What `ui.cpp` does in each step, as of WP 3.2 (the rest is added by the packages that build the modules):
 
-- **Construction**: the model is built from the setup, which checks names and colours; `layout::requirePlaceable` checks the placements. One render batch is made per panel.
+- **Construction**: the model is built from the setup, which checks names and colours; `layout::prepare` finds the grid cells of panels and widgets and refuses what cannot be laid out. One render batch is made per panel.
 - **`handleInput()`**: reads the window's events with `frame::nextEvent`, which is where an idle application sleeps. A resize sets the window's view back to one unit per pixel and marks the placement as out of date. Window events are forwarded (`input/window_events`).
-- **`update()`**: places panels and views if the placement is out of date: after a resize, after a panel was collapsed, expanded, shown or hidden, and after a new theme.
-- **`draw()`**: hands every panel's place to its batch, takes the model's dirty flags, paints the panels that changed (`widgets/panel_frame`), and lets the renderer present, which skips the frame if nothing changed.
+- **`update()`**: lays everything out (`layout::arrange`) if the placement is out of date: after a resize, after a panel was collapsed, expanded, shown or hidden, and after a new theme.
+- **`draw()`**: hands every panel's place to its batch, takes the model's dirty flags, paints the panels that changed (`widgets/panel_frame`, then each widget's `paint` at the place layout gave it), and lets the renderer present, which skips the frame if nothing changed.
 - **Handles** read and write the model, and say what that makes out of date. The facade keeps no state of its own beyond "the placement is out of date".
 
 
