@@ -55,6 +55,10 @@ TEST_CASE("each piece of text has the role of its text type", "[ui][theme]") {
     REQUIRE(Slider::Label.role == Role::MutedText);
     REQUIRE(Slider::ValueText.role == Role::Text);
     REQUIRE(Button::Label.role == Role::Text);
+
+    // A button's face is a neutral area that text sits on, not a bright knob.
+    REQUIRE(Button::Face.role == Role::Track);
+    REQUIRE(Slider::Knob.role == Role::Handle);
 }
 
 TEST_CASE("text types have a size each and share the default font unless they name one", "[ui][theme]") {

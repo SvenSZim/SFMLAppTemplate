@@ -10,7 +10,8 @@ namespace atpl::render {
 namespace {
 
 constexpr int maxCornerSegments = 32;
-constexpr float maxCurveError = 0.25f; // pixels between a straight piece and the true circle
+constexpr float maxCurveError = 0.25f;      // pixels between a straight piece and the true circle
+constexpr float minFillHalfThickness = 1.f; // what an outline's gap always leaves of the fill, per side
 
 /// Directions along a quarter circle, from angle 0 to 90 degrees, for every segment count.
 /// Computed once; a corner of any radius is these directions scaled.
@@ -93,13 +94,58 @@ void appendTriangle(VertexList& out, sf::Vector2f a, sf::Vector2f b, sf::Vector2
     out.push_back({ c, color });
 }
 
+/// The colour of every point of a filled box: one colour, or a gradient across the box.
+/// A colour that changes evenly across a box also changes evenly across each triangle, so giving
+/// every vertex the colour of its position draws the gradient exactly, at no extra cost.
+class Fill {
+public:
+    explicit Fill(sf::Color color) :
+        m_end(color) {}
+
+    Fill(const FloatRect& rect, const PartStyle& style) :
+        m_gradient(style.gradient),
+        m_start(style.gradientStart),
+        m_end(style.color),
+        m_origin(style.gradient == Gradient::Vertical ? rect.top() : rect.left()),
+        m_length(style.gradient == Gradient::Vertical ? rect.height() : rect.width()) {}
+
+    [[nodiscard]] sf::Color at(sf::Vector2f position) const {
+        if (m_gradient == Gradient::None || m_length <= 0.f) {
+            return m_end;
+        }
+        const float along = m_gradient == Gradient::Vertical ? position.y : position.x;
+        const float t = std::clamp((along - m_origin) / m_length, 0.f, 1.f);
+        const auto channel = [t](std::uint8_t from, std::uint8_t to) {
+            return static_cast<std::uint8_t>(
+                std::lround(static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * t)
+            );
+        };
+        return { channel(m_start.r, m_end.r),
+                 channel(m_start.g, m_end.g),
+                 channel(m_start.b, m_end.b),
+                 channel(m_start.a, m_end.a) };
+    }
+
+private:
+    Gradient m_gradient = Gradient::None;
+    sf::Color m_start;
+    sf::Color m_end;
+    float m_origin = 0.f;
+    float m_length = 0.f;
+};
+
 /// The area inside an outline.
-void appendFill(VertexList& out, const Outline& outline, sf::Color color) {
+void appendFill(VertexList& out, const Outline& outline, const Fill& fill) {
     const FloatRect& r = outline.rect;
+    const auto vertex = [&](sf::Vector2f position) { out.push_back({ position, fill.at(position) }); };
 
     if (outline.segments == 0) { // sharp corners: two triangles
-        appendTriangle(out, r.topLeft(), r.topRight(), r.bottomRight(), color);
-        appendTriangle(out, r.topLeft(), r.bottomRight(), r.bottomLeft(), color);
+        vertex(r.topLeft());
+        vertex(r.topRight());
+        vertex(r.bottomRight());
+        vertex(r.topLeft());
+        vertex(r.bottomRight());
+        vertex(r.bottomLeft());
         return;
     }
 
@@ -109,7 +155,9 @@ void appendFill(VertexList& out, const Outline& outline, sf::Color color) {
     sf::Vector2f previous = outline.point(count - 1);
     for (int i = 0; i < count; ++i) {
         const sf::Vector2f current = outline.point(i);
-        appendTriangle(out, center, previous, current, color);
+        vertex(center);
+        vertex(previous);
+        vertex(current);
         previous = current;
     }
 }
@@ -156,7 +204,7 @@ void appendShadow(VertexList& out, const FloatRect& rect, float radius, const Sh
     const sf::Color atEdge = withAlpha(shadow.color, alphaAtEdge);
     const sf::Color clear = withAlpha(shadow.color, 0.f);
 
-    appendFill(out, core, solid);
+    appendFill(out, core, Fill(solid));
     appendRing(out, edge, atEdge, core, solid);
     appendRing(out, rim, clear, edge, atEdge);
 }
@@ -208,12 +256,22 @@ void appendBox(VertexList& out, const FloatRect& rect, const PartStyle& style) {
     }
 
     const Outline outer = outlineOf(rect, radius, segments);
-    if (style.color.a > 0) {
-        appendFill(out, outer, style.color);
+    const bool hasOutline = style.borderThickness > 0.f && style.border.a > 0;
+    const float thickness = hasOutline ? std::min(style.borderThickness, halfSmallerSide(rect)) : 0.f;
+
+    // With a gap, the fill starts further in than the outline ends. On a very thin box the gap
+    // gives way first, so that some fill always remains.
+    const float room = std::max(halfSmallerSide(rect) - thickness - minFillHalfThickness, 0.f);
+    const float gap = hasOutline ? std::clamp(style.borderGap, 0.f, room) : 0.f;
+    const float fillInset = gap > 0.f ? thickness + gap : 0.f;
+
+    const bool hasGradient = style.gradient != Gradient::None && style.gradientStart.a > 0;
+    if (style.color.a > 0 || hasGradient) {
+        const FloatRect fillRect = rect.inset(fillInset);
+        appendFill(out, outlineOf(fillRect, radius - fillInset, segments), Fill(fillRect, style));
     }
 
-    if (style.borderThickness > 0.f && style.border.a > 0) {
-        const float thickness = std::min(style.borderThickness, halfSmallerSide(rect));
+    if (hasOutline) {
         const Outline inner = outlineOf(rect.inset(thickness), radius - thickness, segments);
         appendRing(out, outer, style.border, inner, style.border);
     }

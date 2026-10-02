@@ -132,7 +132,7 @@ enum class Algorithm { BreadthFirst, Dijkstra, AStar };
 Theme makeTheme() {
     // Layer 1, tokens: a theme is complete with these alone.
     Theme theme = themes::moon();
-    theme.palette.accent = sf::Color(212, 163, 115);
+    theme.palette.accents[0].accent = sf::Color(212, 163, 115);
     theme.shape.radius = 14.f;
     theme.metrics.rowHeight = 30.f;
     theme.metrics.scale = 1.25f;
@@ -164,11 +164,14 @@ UISetup makeSetup() {
         .panels = {
             {
                 .name = "Search",
+                .accent = 0, // which of the theme's accent colours this panel uses
                 .widgets = {
                     Paragraph("Intro", {.heading = "Path search", .text = "Pick an algorithm and watch it explore."}),
                     // Listed like any built-in widget.
                     SegmentedControl{ .name = "Algorithm", .segments = { "BFS", "Dijkstra", "A*" } },
                     Slider("Speed", {.min = 1.0, .max = 60.0}),
+                    // One widget in other colours than its panel.
+                    colored({.accent = 0}, Button("Clear walls")),
                     Paragraph("Hint", {.footer = "Right-click places a wall."}),
                 },
             },
@@ -182,7 +185,7 @@ void link(UI& ui, Param<Algorithm>& algorithm) {
 
     // Themes can be changed while running.
     Theme lighter = ui.theme();
-    lighter.palette.surface = sf::Color(60, 60, 64);
+    lighter.palette.mains[0] = sf::Color(60, 60, 64); // the first main colour: panel backgrounds
     ui.setTheme(lighter);
 }
 

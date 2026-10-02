@@ -347,11 +347,32 @@ The theme resolves a part's style in three layers; a later layer overrides an ea
 
 | Layer | What | Example |
 |---|---|---|
-| 1. Tokens | Global values, in four groups: `palette` (colours), `shape` (radii, thicknesses, shadow), `metrics` (sizes, GUI scale), `typography` (size and font per text type) | `theme.palette.accent = ...;` `theme.typography.title = {.size = 18, .font = bold};` |
-| 2. Role defaults | Style derived from the part's role and the tokens; visibility from the part's own default | every track part is neutral with a small radius; ticks hidden |
-| 3. Part entries | Settings for one part; only the fields that are set have an effect | `theme[Slider::Ticks].shown = true;` `theme[Button::Face].radius = 0;` `theme[Button::Label].font = bold;` |
+| 1. Tokens | Global values, in four groups: `palette` (the main colours and accents a panel chooses from), `shape` (radii, outline, outline gap, line thickness, shadow), `metrics` (sizes, GUI scale), `typography` (size and font per text type) | `theme.palette.accents[0].accent = ...;` `theme.shape.outlineGap = 2;` `theme.typography.title = {.size = 18, .font = bold};` |
+| 2. Role defaults | Style derived from the part's role, the tokens and the three colours of the part's panel; visibility from the part's own default | every track part is an outlined area with a small radius; ticks hidden |
+| 3. Part entries | Settings for one part; only the fields that are set have an effect | `theme[Slider::Ticks].shown = true;` `theme[Button::Face].radius = 0;` `theme[Switch::Track].borderGap = 0;` `theme[Button::Label].font = bold;` |
 
-States: the UI tracks hovered, pressed, focused and disabled per widget; a widget can add `Active` for a part that is "on". The theme derives the look of each state from the part's base colour.
+**Colours (D34).** A theme offers a list of main colours and a list of accents. A panel is drawn in three of them, chosen by index in its setup; a single widget can deviate with `colored(...)`:
+
+| Colour | Chosen with | Used for |
+|---|---|---|
+| main1 | `PanelSetup::main1` (default 0) | the panel's background |
+| main2 | `PanelSetup::main2` (default 1) | the outline of the panel and of everything that can be operated; lines |
+| accent | `PanelSetup::accent` (default 0) | fills (slider, progress bar, a switch that is on, graph curve); what outlines turn to in use |
+
+Everything else is derived: text is the light or dark colour that reads best on main1, muted text lies between text and main1 and stays readable, the areas of buttons and fields are main1 moved a little towards main2, knobs have the text colour. An accent can define where a gradient starts; accent-coloured boxes then fade in from that colour. An index the theme does not have is a `SetupError`.
+
+**Outlines.** Panels and everything that can be operated have an outline of `shape.outline` in main2. Between outline and fill lies `shape.outlineGap`, the same for every part unless a part entry sets `borderGap`. The outline stays at the box's edge and the fill moves inwards, so layout is unaffected. Knobs have no outline.
+
+**States.** The UI tracks hovered, pressed, focused and disabled per widget; a widget can add `Active` for a part that is "on".
+
+| State | Effect |
+|---|---|
+| Hovered | the outline of an area moves partly to the accent; a knob takes on some of the accent |
+| Pressed, Focused | the outline is the accent; a pressed area is tinted slightly |
+| Active | a track is filled with the accent; text and knobs on it take the light or dark colour that reads best there |
+| Disabled | everything fades |
+
+The built-in themes: `themes::moon()` (the default: black, grey outlines, white accents as gradients, no shadows) and `themes::colorful()` (warm brown-grey with sand, green, blue and red accents, soft shadows). A test checks both for readable contrast.
 
 Consequences:
 - A theme that sets only tokens is complete. It needs no per-widget entries.
