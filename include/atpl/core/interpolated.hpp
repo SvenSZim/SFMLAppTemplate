@@ -9,8 +9,8 @@ namespace atpl {
 
 /// Shared part of every animated value: duration, transition and the clock.
 ///
-/// Animated values run on real time, not on frame count. `Derived` supplies `getValue()` and
-/// `setValue()`. `Clock` exists so tests can drive time by hand; applications use the default.
+/// Animated values run on real time, not on frame count. `Derived` supplies `get()` and
+/// `set()`. `Clock` exists so tests can drive time by hand; applications use the default.
 template <class Derived, typename T, typename Clock = std::chrono::steady_clock>
 class InterpolatedBase {
 public:
@@ -27,14 +27,14 @@ public:
 
     void setTransition(TransitionFunction function) { m_transition = function; }
 
-    [[nodiscard]] T getValue() const { return self().getValue(); }
+    [[nodiscard]] T get() const { return self().get(); }
 
-    void setValue(const T& newValue) { self().setValue(newValue); }
+    void set(const T& newValue) { self().set(newValue); }
 
-    [[nodiscard]] operator T() const { return self().getValue(); }
+    [[nodiscard]] operator T() const { return self().get(); }
 
     Derived& operator=(const T& newValue) {
-        self().setValue(newValue);
+        self().set(newValue);
         return self();
     }
 
@@ -101,7 +101,7 @@ public:
     /// The target the value is moving to (or resting at).
     [[nodiscard]] const T& target() const { return m_end; }
 
-    [[nodiscard]] T getValue() const {
+    [[nodiscard]] T get() const {
         const float t = status();
         if (t >= 1.0f) {
             return m_end;
@@ -111,8 +111,8 @@ public:
     }
 
     /// Starts a transition from the current value to `newValue`.
-    void setValue(const T& newValue) {
-        m_start = getValue();
+    void set(const T& newValue) {
+        m_start = get();
         m_end = newValue;
         m_startTime = this->now();
     }

@@ -108,7 +108,7 @@ TEST_CASE("a rect can be animated as an interpolated value", "[ui][rect]") {
     REQUIRE(rect.running());
 
     ManualClock::advance(0.5f);
-    const FloatRect halfway = rect.getValue();
+    const FloatRect halfway = rect.get();
     REQUIRE(halfway.left() == Approx(25.f));
     REQUIRE(halfway.top() == Approx(5.f));
     REQUIRE(halfway.width() == Approx(100.f));
@@ -116,5 +116,5 @@ TEST_CASE("a rect can be animated as an interpolated value", "[ui][rect]") {
 
     ManualClock::advance(0.5f);
     REQUIRE_FALSE(rect.running());
-    REQUIRE(rect.getValue() == FloatRect(50.f, 10.f, 100.f, 220.f));
+    REQUIRE(rect.get() == FloatRect(50.f, 10.f, 100.f, 220.f));
 }
