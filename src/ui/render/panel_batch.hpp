@@ -49,10 +49,17 @@ public:
     /// How often the batch has been rebuilt. For tests and for the profiler.
     [[nodiscard]] std::size_t rebuildCount() const { return m_rebuildCount; }
 
+    // ----- Whether a frame is needed -----
+
+    /// Whether the batch would look different on screen than when it was last presented: it was
+    /// rebuilt, moved, scrolled, clipped differently, shown or hidden. Clears the mark.
+    /// The renderer asks this to decide whether a frame has to be drawn.
+    [[nodiscard]] bool takeChanged();
+
     // ----- Placing: none of this rebuilds, except a new size -----
 
     /// The panel's top-left corner in the window.
-    void setPosition(sf::Vector2f position) { m_position = position; }
+    void setPosition(sf::Vector2f position);
     [[nodiscard]] sf::Vector2f position() const { return m_position; }
 
     /// The panel's size. A panel of a different size looks different, so this marks the batch
@@ -62,14 +69,14 @@ public:
 
     /// The area the content may be seen in, in the panel's coordinates. Empty: the content is
     /// not clipped.
-    void setContentClip(std::optional<FloatRect> clip) { m_contentClip = clip; }
+    void setContentClip(std::optional<FloatRect> clip);
 
     /// How far the content is scrolled: it is drawn this many pixels further up.
-    void setScroll(float offset) { m_scroll = offset; }
+    void setScroll(float offset);
     [[nodiscard]] float scroll() const { return m_scroll; }
 
     /// A hidden panel is not drawn. It keeps its geometry.
-    void setVisible(bool visible) { m_visible = visible; }
+    void setVisible(bool visible);
     [[nodiscard]] bool isVisible() const { return m_visible; }
 
     // ----- Drawing -----
@@ -90,6 +97,7 @@ private:
     DrawList m_frame;
     DrawList m_content;
     bool m_dirty = true;
+    bool m_changed = true;
     bool m_visible = true;
     std::size_t m_rebuildCount = 0;
 

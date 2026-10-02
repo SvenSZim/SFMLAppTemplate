@@ -51,6 +51,7 @@ atpl_add_tests(core
 atpl_add_tests(ui
   ui/test_binding.cpp
   ui/test_event.cpp
+  ui/test_frame.cpp
   ui/test_packing.cpp
   ui/test_painter.cpp
   ui/test_panel_batch.cpp
@@ -64,6 +65,7 @@ atpl_add_tests(app
   app/test_resources.cpp
 )
 atpl_add_display_tests(ui
+  ui/display/test_frame_loop.cpp
   ui/display/test_renderer.cpp
   ui/display/test_text.cpp
 )
