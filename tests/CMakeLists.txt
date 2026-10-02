@@ -34,6 +34,7 @@ atpl_add_tests(core
   core/test_version.cpp
 )
 atpl_add_tests(ui
+  ui/test_binding.cpp
   ui/test_packing.cpp
   ui/test_rect.cpp
 )

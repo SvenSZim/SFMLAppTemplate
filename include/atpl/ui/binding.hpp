@@ -4,10 +4,10 @@
 #include "atpl/core/revision.hpp"
 #include "atpl/core/series.hpp"
 
-#include <cmath>
 #include <concepts>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -77,9 +77,54 @@ public:
 template <typename T>
 concept BoolValue = std::same_as<T, bool>;
 
-/// Every number type except `bool`. Converted to and from `double`.
+/// Every number type except `bool`. Widgets work with numbers as `double`.
+///
+/// Reading (application type to `double`) is exact for `float`, for every integer type of up to
+/// 32 bits, and for 64-bit integers up to 2^53 (about 9 * 10^15) in size. Larger 64-bit values
+/// lose their lowest digits; to show such a value exactly, bind it as text.
+///
+/// Writing (`double` to application type) goes through `numberTo<T>`: integers are rounded to the
+/// nearest value, and anything outside the type's range is clamped to the range.
 template <typename T>
 concept NumberValue = std::is_arithmetic_v<T> && !std::same_as<T, bool>;
+
+/// Converts a number coming from a widget to the application's number type without ever leaving
+/// the type's range: integers are rounded to nearest and clamped, `float` is clamped to its
+/// finite range. Not-a-number becomes 0 for integers and stays not-a-number for floating point.
+template <NumberValue T>
+[[nodiscard]] constexpr T numberTo(double value) {
+    if (value != value) { // not a number
+        return std::floating_point<T> ? static_cast<T>(value) : T{};
+    }
+
+    // As doubles, the limits of 64-bit integers round outwards to a power of two. Comparing with
+    // >= and <= therefore catches every value that does not fit, including those limits themselves.
+    const double lowest = static_cast<double>(std::numeric_limits<T>::lowest());
+    const double highest = static_cast<double>(std::numeric_limits<T>::max());
+
+    if constexpr (std::floating_point<T>) {
+        if (value <= lowest) {
+            return std::numeric_limits<T>::lowest();
+        }
+        if (value >= highest) {
+            return std::numeric_limits<T>::max();
+        }
+        return static_cast<T>(value);
+    } else {
+        // Round half away from zero, as std::round does, without leaving constexpr. From 2^52 on
+        // every double is a whole number already, and adding 0.5 there would round a second time.
+        constexpr double wholeFrom = 4503599627370496.0; // 2^52
+        const bool isWhole = value >= wholeFrom || value <= -wholeFrom;
+        const double rounded = isWhole ? value : (value < 0.0 ? value - 0.5 : value + 0.5);
+        if (rounded <= lowest) {
+            return std::numeric_limits<T>::lowest();
+        }
+        if (rounded >= highest) {
+            return std::numeric_limits<T>::max();
+        }
+        return static_cast<T>(rounded); // truncates towards zero, completing the rounding
+    }
+}
 
 /// Enums. The enumerator's value is the index: the first option is 0.
 template <typename T>
@@ -164,13 +209,7 @@ AnyBinding AnyBinding::fromFunctions(Getter getter, Setter setter) {
     } else if constexpr (NumberValue<T>) {
         return ofNumber(
             [get = std::move(getter)] { return static_cast<double>(get()); },
-            [set = std::move(setter)](double value) {
-                if constexpr (std::integral<T>) {
-                    set(static_cast<T>(std::llround(value)));
-                } else {
-                    set(static_cast<T>(value));
-                }
-            }
+            [set = std::move(setter)](double value) { set(numberTo<T>(value)); }
         );
     } else if constexpr (IndexValue<T>) {
         return ofIndex(
