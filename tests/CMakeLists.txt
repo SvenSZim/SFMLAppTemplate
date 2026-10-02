@@ -59,6 +59,7 @@ atpl_add_tests(ui
   ui/test_name_index.cpp
   ui/test_packing.cpp
   ui/test_painter.cpp
+  ui/test_panel_frame.cpp
   ui/test_panel_placement.cpp
   ui/test_panel_batch.cpp
   ui/test_profiler.cpp
@@ -67,6 +68,7 @@ atpl_add_tests(ui
   ui/test_text_layout.cpp
   ui/test_theme.cpp
   ui/test_theme_resolve.cpp
+  ui/test_window_events.cpp
 )
 atpl_add_tests(app
   app/test_resources.cpp
@@ -76,6 +78,7 @@ atpl_add_display_tests(ui
   ui/display/test_profiler_overlay.cpp
   ui/display/test_renderer.cpp
   ui/display/test_text.cpp
+  ui/display/test_ui.cpp
 )
 # The text tests load the real font.
 atpl_copy_resources(atpl_ui_display_tests)

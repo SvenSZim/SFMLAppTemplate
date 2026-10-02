@@ -7,6 +7,7 @@
 
 #include <SFML/Graphics/RenderWindow.hpp>
 
+#include <memory>
 #include <span>
 #include <string_view>
 
@@ -85,6 +86,14 @@ public:
     /// Asks for a frame to be drawn although nothing in the UI changed: the application has
     /// something new for its views. May be called from any thread.
     void requestRedraw();
+
+private:
+    friend class WidgetHandle;
+    friend class ViewHandle;
+    friend class PanelHandle;
+
+    struct Impl; // the modules the UI is made of; see src/ui/ui.cpp
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace atpl

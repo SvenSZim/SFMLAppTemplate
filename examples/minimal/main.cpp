@@ -1,79 +1,95 @@
-// The smallest application: a window with one line of text.
+// The smallest application that shows the UI: a window with a few empty panels.
 //
-// Until the public API exists (Phase 1) this talks to SFML directly. It already follows the
-// rules the template will enforce: anti-aliasing on, vsync on, no work while nothing happens,
-// resources found next to the executable, and a clear error if one is missing.
+// It drives the UI by hand, which is what `App` will do for an application once it exists
+// (Phase 4): read input, update, draw; and nothing at all while nothing happens.
 //
-// Run with --smoke-test to draw a few frames and exit, for automated checks.
+//   minimal [--profiler] [--smoke-test]
+//
+// --profiler shows the profiler readout. --smoke-test draws a few frames and exits, for
+// automated checks.
 
 #include "atpl/app/resources.hpp"
 #include "atpl/core/version.hpp"
+#include "atpl/ui/ui.hpp"
 
-#include <SFML/Graphics.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
 
 #include <exception>
 #include <iostream>
-#include <optional>
+#include <memory>
 #include <string>
 #include <string_view>
 
 namespace {
 
-int run(int argc, char* argv[]) {
-    const bool smokeTest = argc > 1 && std::string_view(argv[1]) == "--smoke-test";
-    const std::string title = "atpl minimal " + std::string(atpl::versionString());
+using namespace atpl;
 
-    const atpl::Resources resources = atpl::Resources::nextToExecutable(argv[0]);
-    const sf::Font font = resources.loadFont("fonts/default.ttf");
+UISetup describeUI(std::shared_ptr<const sf::Font> font, bool profiler) {
+    UISetup setup{
+        // Two panels in the window's grid, as an application with its simulation in a panel
+        // would have them ...
+        .grid = {.columns = 4, .rows = 1},
+        .panels = {
+            {
+                .name = "Scene",
+                .placement = GridCell{.column = 0, .columnSpan = 3},
+                .collapsible = false,
+            },
+            { .name = "Inspector", .placement = GridCell{.column = 3} },
+            // ... and three that float on top of them.
+            { .name = "Controls", .placement = Anchor::Left },
+            { .name = "Statistics", .placement = Anchor::Left },
+            { .name = "Playback", .placement = Anchor::Bottom, .width = 420.f },
+        },
+        .profiler = profiler,
+    };
+    setup.theme.font = std::move(font);
+    return setup;
+}
+
+int run(int argc, char* argv[]) {
+    bool smokeTest = false;
+    bool profiler = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view argument = argv[i];
+        smokeTest = smokeTest || argument == "--smoke-test";
+        profiler = profiler || argument == "--profiler";
+    }
+
+    const Resources resources = Resources::nextToExecutable(argv[0]);
+    const auto font = std::make_shared<const sf::Font>(resources.loadFont("fonts/default.ttf"));
 
     sf::ContextSettings settings;
     settings.antiAliasingLevel = 8;
-
-    sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title, sf::Style::Default, sf::State::Windowed, settings);
+    sf::RenderWindow window(
+        sf::VideoMode({ 1280, 720 }),
+        "atpl minimal " + std::string(versionString()),
+        sf::Style::Default,
+        sf::State::Windowed,
+        settings
+    );
     window.setVerticalSyncEnabled(true);
 
-    const sf::Color background(36, 34, 32);
-    sf::Text label(font, title + "  -  press Escape to close", 18);
-    label.setFillColor(sf::Color(234, 229, 223));
-    label.setPosition({ 24.f, 20.f });
+    UI ui(window, describeUI(font, profiler));
 
-    // Nothing on screen changes by itself, so the loop sleeps until an event arrives.
-    // The timeout only bounds how long a missed redraw could stay on screen.
-    const sf::Time idleWait = sf::milliseconds(250);
-
-    const auto handle = [&window](const sf::Event& event) {
-        if (event.is<sf::Event::Closed>()) {
-            window.close();
-        } else if (const auto* key = event.getIf<sf::Event::KeyPressed>()) {
-            if (key->code == sf::Keyboard::Key::Escape) {
+    int passesLeft = 5; // only counted in a smoke test
+    while (window.isOpen()) {
+        ui.handleInput(); // sleeps while there is nothing to do
+        for (const Event& event : ui.events()) {
+            if (event.is<WindowClosed>()) {
                 window.close();
             }
-        } else if (const auto* resized = event.getIf<sf::Event::Resized>()) {
-            // Keep one unit per pixel instead of stretching the old view.
-            window.setView(sf::View(sf::FloatRect({ 0.f, 0.f }, sf::Vector2f(resized->size))));
         }
-    };
+        ui.update();
+        ui.draw(); // draws only if something changed
 
-    int framesLeft = 3; // only counted in a smoke test
-    while (window.isOpen()) {
-        if (!smokeTest) {
-            if (const std::optional event = window.waitEvent(idleWait)) {
-                handle(*event);
+        if (smokeTest) {
+            ui.requestRedraw();
+            if (--passesLeft == 0) {
+                window.close();
             }
         }
-        while (const std::optional event = window.pollEvent()) {
-            handle(*event);
-        }
-
-        window.clear(background);
-        window.draw(label);
-        window.display();
-
-        if (smokeTest && --framesLeft == 0) {
-            window.close();
-        }
     }
-
     return 0;
 }
 
