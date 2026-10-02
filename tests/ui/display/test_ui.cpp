@@ -27,7 +27,7 @@ const sf::Color widgetColor(200, 30, 30);
 class PlainWidget final : public Widget {
 public:
     [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
-        return { .height = context.sizes().rowHeight };
+        return { .min = { 0.f, context.sizes().rowHeight } };
     }
     void paint(Painter& painter, const Style&) const override {
         PartStyle red;

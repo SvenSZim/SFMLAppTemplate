@@ -31,6 +31,7 @@ struct Panel {
     /// many rows that grid has. Worked out by layout when the UI is built.
     bool grid = false;
     int rows = 0;
+    int declaredRows = 0; ///< What the setup said; 0 for none.
 
     float width = 0.f; ///< As in the setup: before scaling, 0 for the layout theme's default.
     PanelColors colors;

@@ -25,7 +25,7 @@ window                                    widgets' minimum sizes
 
 Which direction a panel's inside uses follows from the panel: if the panel's size is given from outside (grid, fill), its content is laid out top-down; otherwise bottom-up.
 
-Every widget states a minimum size. A *constant* widget (slider, button) also states a maximum; a *dynamic* widget (graph, view) takes whatever it is given.
+Every widget states a minimum and a preferred size. A *constant* widget (slider, button) also states a maximum; a *dynamic* widget (graph, view) takes whatever it is given.
 
 Everything grows and shrinks with the window, within limits the layout theme sets.
 
@@ -127,8 +127,8 @@ The content area is split into equal columns and equal rows, with the padding ar
 
 Two rules, chosen by the layout theme (`rows`):
 
-- **Own**: every widget is as high as it needs to be. Widgets are stacked top to bottom into the panel's columns, in the order listed, with columns of balanced height. There are no rows. (This is today's packing.) A column is as wide as the widest minimum width in the panel.
-- **Equal**: the content is a grid of equal cells, as in 4.1, and the cell size is the largest minimum size among the panel's widgets. A widget that spans several cells counts with its minimum size **divided over its span** first: a graph that needs 300 x 180 and spans 2 x 3 cells asks for cells of about 150 x 60, not 300 x 180.
+- **Own**: every widget is as high as it prefers to be. Widgets are stacked top to bottom into the panel's columns, in the order listed, with columns of balanced height. There are no rows. (This is today's packing.) A column is as wide as the widest preferred width in the panel.
+- **Equal**: the content is a grid of equal cells, as in 4.1, and the cell size is the largest preferred size among the panel's widgets. A widget that spans several cells counts with its size **divided over its span** first: a graph that needs 300 x 180 and spans 2 x 3 cells asks for cells of about 150 x 60, not 300 x 180.
 
 Either way the panel's size is its content plus padding and header, then limited as section 3.2 says.
 
@@ -139,15 +139,20 @@ If the panel ends up with more room than its content needs (equal-size panels, o
 ```cpp
 struct SizeRequest {
     sf::Vector2f min;                  // the least it needs to be displayable
+    sf::Vector2f preferred;            // its normal size; never less than min
     std::optional<sf::Vector2f> max;   // constant widgets: never larger. Empty: dynamic.
     float widestRatio = 0.f;           // width / height at most this. 0: no limit.
     float tallestRatio = 0.f;          // height / width at most this. 0: no limit.
 };
 ```
 
-- **Minimum**: from the widget's font size and its complexity. A slider needs room for its label, its track and its value; a graph needs room for a curve and its labels.
-- **Constant widgets** (button, switch, slider, progress bar, text display, text input, dropdown): a maximum width and height, and the two ratio limits.
+- **Preferred**: the widget's normal, comfortable size, typically one row of the layout high. Bottom-up sizes are derived from it: a panel that is as large as its content is as large as its widgets prefer.
+- **Minimum**: the least the widget needs to be displayable at all, from its font size and its complexity. A slider needs room for its label, its track and its value; a graph needs room for a curve and its labels. A grid that is short of room squeezes its widgets down to this; below it the overflow rules of section 7 apply.
+- **Maximum**: the most a widget makes use of. A grid with room to spare lets its widgets grow up to this.
+- **Constant widgets** (button, switch, slider, progress bar, text display, text input, dropdown): all three, and the two ratio limits.
 - **Dynamic widgets** (graph, view, paragraph): no maximum, by design. The ratios are optional (a view may ask to keep 16:9).
+
+All three are worked out from the layout's sizes for the window as it is, so they grow and shrink with the window like everything else.
 
 Given a cell, a widget's rectangle is:
 
@@ -155,7 +160,7 @@ Given a cell, a widget's rectangle is:
 2. Constant: the cell, cut down to its maximum and then to its ratios.
 3. If the result is smaller than the cell, it is placed in the cell at `widgetAlignment`.
 
-Dynamic widgets are handled differently when sizes are derived bottom-up: they contribute their minimum, and afterwards absorb whatever room is left over, where constant widgets stop at their maximum.
+Dynamic widgets are handled differently when sizes are derived bottom-up: they contribute their preferred size, and afterwards absorb whatever room is left over, where constant widgets stop at their maximum.
 
 A widget never positions itself. Inside its rectangle it arranges its own parts, and must cope with any size between its minimum and its maximum.
 
@@ -184,7 +189,7 @@ scaleFont = 1 + (min(scaleX, scaleY) - 1) * fontStrength
 
 In this order:
 
-1. **Height is short inside a panel**: the panel's content scrolls. Only an expanded panel scrolls.
+1. **Height is short inside a panel**: a grid squeezes its rows, down to the largest minimum among its widgets; beyond that, and in a packed panel at once, the content scrolls. Only an expanded panel scrolls.
 2. **Width is short for a widget** (its cell is narrower than its minimum width): that widget is not drawn. Its place stays empty; nothing moves.
 3. **A panel is not drawn** if
    - it is smaller than its header needs, or
@@ -237,10 +242,10 @@ Text that is too wide for its widget still ends in an ellipsis. There is still n
 
 | Package | Content | State |
 |---|---|---|
-| WP 3.4 (#23) | Finding grid cells, largest first, for widgets and panels; balanced packing; the order of a layout pass; widgets painted at their places. Grid rows are one standard row high for the time being. | done |
+| WP 3.4 (#23) | Finding grid cells, largest first, for widgets and panels; balanced packing; the order of a layout pass; widgets painted at their places. | done |
 | WP 3.15 (#77) | Layout theme: the `Layout` type, presets, `Metrics` moved out of the theme, per-panel overrides, scaling with the window. The settings for fit, equal sizes, limits and the content rule are stored but not yet in effect. | done |
-| WP 3.16 (#78) | Widget size requests (minimum, maximum, ratios), a widget's rectangle in a cell, alignment; content top-down and bottom-up (own, equal, spans dividing the minimum) | next |
-| WP 3.17 (#79) | Panel sizing: fill and fit-content in the grid, own and equal floating panels, limits; the overflow rules of section 7; collapse direction | |
+| WP 3.16 (#78) | Widget size requests (minimum, maximum, ratios), a widget's rectangle in a cell, alignment; content top-down and bottom-up (own, equal, spans dividing the minimum) | done |
+| WP 3.17 (#79) | Panel sizing: fill and fit-content in the grid, own and equal floating panels, limits; the overflow rules of section 7; collapse direction | next |
 
 ## 10. Details settled while writing this down
 
@@ -250,5 +255,5 @@ Text that is too wide for its widget still ends in an ellipsis. There is still n
 4. **A floating panel's own width** comes from its widgets' minimum widths. Today it is a fixed theme value (280 px).
 5. **A top-down panel that names no rows and no positions** gets as many rows as its widgets need.
 6. **Fonts are rounded to whole pixels** when scaling.
-7. **A widget's minimum height may depend on the width it gets** (a paragraph that wraps). Layout therefore asks in two steps: first for minimum widths, then, with the widths known, for heights.
+7. **A widget's minimum height may depend on the width it gets** (a paragraph that wraps). Layout therefore offers the widget the width of its column or its cells when it asks; one question is enough, because a minimum width does not depend on anything.
 8. **The GUI scale stays** as a separate factor for high-resolution displays.

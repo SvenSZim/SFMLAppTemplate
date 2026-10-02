@@ -32,14 +32,46 @@ class TextMeasurer; // how much room text takes; internal
 // To add a widget type: implement `Widget`, declare its parts, and write a descriptor with a
 // `name` and a `create()` (see widgets.hpp).
 
-/// What `Widget::measure` answers.
+/// What `Widget::measure` answers: the size the widget would like, and how far it can go below
+/// and above it.
+///
+///   min         the least it needs to be displayable at all. Below this it is not drawn.
+///   preferred   its normal, comfortable size. A panel that is as large as its content is sized
+///               from this.
+///   max         the most it makes use of. In a grid with room to spare it grows up to here.
+///
+/// There are two kinds of widgets when it comes to size (docs/LAYOUT.md):
+///
+///   constant   has a maximum: a slider or a button gains nothing from being huge. Given more
+///              room than that, it stays at its maximum and is placed in the room by the layout
+///              theme's alignment.
+///   dynamic    has no maximum: a graph or a view fills whatever it is given.
+///
+/// All three are worked out from the layout's sizes (`context.sizes()`), so they grow and shrink
+/// with the window like everything else.
+///
+///     const float row = context.sizes().rowHeight;
+///     return { .min = { 80.f, row * 0.75f }, .preferred = { 160.f, row }, .max = sf::Vector2f(100000.f, row * 1.25f)
+///     }; return { .min = { 120.f, 60.f }, .preferred = { 240.f, 120.f } };   // dynamic
 struct SizeRequest {
-    /// The height the widget wants at the width it was offered, in pixels.
-    float height = 0.f;
+    /// The least the widget needs to be displayable, in pixels: from its text sizes and from
+    /// how much it has to show.
+    sf::Vector2f min;
 
-    /// True if the widget takes all height that is left over in its panel instead: a view in a
-    /// panel of fixed height. `height` is then the least it needs.
-    bool stretch = false;
+    /// The size the widget has when nothing presses or stretches it. Where this is smaller than
+    /// `min`, `min` counts: a widget that sets only `min` prefers its minimum.
+    sf::Vector2f preferred;
+
+    /// The most the widget makes use of. Empty: the widget is dynamic.
+    std::optional<sf::Vector2f> max;
+
+    /// Limits on the widget's shape, each 0 for none: its width divided by its height is at most
+    /// `widestRatio`, its height divided by its width at most `tallestRatio`. Both together pin
+    /// the shape: 16 / 9 and 9 / 16 keep a view at 16:9.
+    float widestRatio = 0.f;
+    float tallestRatio = 0.f;
+
+    [[nodiscard]] bool isDynamic() const { return !max.has_value(); }
 };
 
 /// What a widget can ask while being measured.
@@ -55,7 +87,9 @@ public:
         const render::TextMeasurer* measurer = nullptr
     );
 
-    /// The width the widget will get, in pixels. Widths are decided by layout, never by widgets.
+    /// The width the widget is offered, in pixels: of its column or its cells. Widths are
+    /// decided by layout, never by widgets. A widget whose height depends on its width (text
+    /// that wraps) works its minimum height out from this.
     [[nodiscard]] float width() const;
 
     /// The layout's sizes for the window as it is now, in pixels.

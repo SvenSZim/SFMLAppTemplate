@@ -154,10 +154,11 @@ struct Layout {
     // ----- Content of a panel -----
 
     /// When a panel's size follows from its content: every widget as high as it needs
-    /// (`Own`), or a grid of equal cells sized by the largest (`Equal`) (planned).
+    /// (`Own`), or a grid of equal cells sized by the largest (`Equal`). A panel whose size is
+    /// given from outside always has a grid.
     SizeRule rows = SizeRule::Own;
 
-    /// Where a widget sits in a cell that is larger than the widget may be (planned).
+    /// Where a widget sits in room that is larger than the widget may be.
     Alignment widgetAlignment = Alignment::Center;
 
     /// The sizes for a window of this size.

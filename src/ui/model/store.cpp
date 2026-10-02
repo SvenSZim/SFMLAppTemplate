@@ -75,7 +75,7 @@ Store::Store(const UISetup& setup) {
         panel.declaredCollapsible = panelSetup.collapsible;
         panel.layout = panelSetup.layout;
         panel.columns = panelSetup.columns;
-        panel.rows = panelSetup.rows;
+        panel.declaredRows = panelSetup.rows;
         panel.width = panelSetup.width;
         panel.colors = { .main1 = panelSetup.main1, .main2 = panelSetup.main2, .accent = panelSetup.accent };
         panel.collapsed = panelSetup.collapsed;
@@ -96,7 +96,7 @@ Store::Store(const UISetup& setup) {
             WidgetSlot& slot = m_widgets.emplace_back();
             slot.name = name;
             slot.panel = panelId;
-            slot.cell = widgetSetup.cell();
+            slot.declaredCell = widgetSetup.cell();
             slot.span = widgetSetup.span();
             slot.colors = withOverride(panel.colors, widgetSetup.colors());
             slot.binding = widgetSetup.binding();
