@@ -76,7 +76,7 @@ These come from the plan and are checked in every review.
 
 - **Layers** (ARCHITECTURE.md §1): `core` does not include SFML. `ui` does not include `app`. Only `app` starts threads. The test `structure.layering` (`tests/check_layering.cmake`) checks these and the window-access rule on every test run.
 - **One owner per concern** (D1, ARCHITECTURE.md §4.2): before writing to a piece of state, check that your module owns it. Layout writes rectangles, input writes interaction state, render writes nothing in the model.
-- **Window access**: only `ui/ui.cpp` and `ui/render/renderer.cpp` touch `sf::RenderWindow`.
+- **Window access**: only the facade (`ui.hpp`, `ui/ui.cpp`) and the renderer (`ui/render/renderer.hpp`, `.cpp`) touch `sf::RenderWindow`.
 - **Widgets** act on the outside world only through the context they are handed. They do not position themselves, read theme tokens directly or issue draw calls.
 - **Threads** share state only through `Param<T>`, `Series`, the command queue and snapshots.
 
@@ -87,7 +87,7 @@ The UI should cost as little as possible and nothing while idle (R3, plan §5).
 - No heap allocation in steady-state per-frame code. Reuse buffers; reserve up front.
 - No work for things that did not change: go through the dirty flags, do not rebuild "to be safe".
 - No lookups by name in per-frame code. Names are resolved to ids once.
-- Measure before optimising. The profiler readout is the reference, not intuition.
+- Measure before optimising. The profiler readout is the reference, not intuition. `atpl_render_bench` (in `build/bin/`, from `tests/bench/`) measures the render pipeline on a scene of 100 widgets; build with `-DCMAKE_BUILD_TYPE=Release` and compare before and after a change. The numbers to beat are in PROJECT_PLAN.md §5.5.
 
 ## 8. Comments and documentation
 
@@ -100,7 +100,7 @@ The UI should cost as little as possible and nothing while idle (R3, plan §5).
 - Catch2, one test file per source file, in `tests/<layer>/`.
 - Everything that does not need a window is tested without one. That is all of `core` and, in `ui`, the model, layout, input, theme and draw-list generation.
 - Code shared between threads has a concurrent test, run under ThreadSanitizer (`-DATPL_SANITIZE=thread`).
-- Tests that need a display, because they open a window or draw off-screen and check pixels, go into their layer's `display` test executable (`tests/<layer>/display/`) and carry the CTest label `display`. Leave them out with `ctest -LE display`, or run them without a screen under `xvfb-run`.
+- Tests that need a display, because they open a window or draw off-screen and check pixels, go into their layer's `display` test executable (`tests/<layer>/display/`) and carry the CTest label `display`. Leave them out with `ctest -LE display`, or run them without a screen under `xvfb-run`. They never run at the same time, even with `ctest -j`: windows that open side by side disturb each other's focus and timing.
 - A bug fix comes with a test that fails without the fix.
 - Every public header must compile on its own; the build checks this for all headers under `include/atpl/`.
 - `tests/api/` holds usage examples of the public API that are compiled with every build. When the API changes, they change with it.

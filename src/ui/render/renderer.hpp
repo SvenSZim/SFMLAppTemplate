@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ui/frame_loop.hpp"
+#include "ui/render/frame_stats.hpp"
 #include "ui/render/panel_batch.hpp"
 #include "ui/render/text_renderer.hpp"
 
@@ -14,12 +15,7 @@
 
 namespace atpl::render {
 
-/// What drawing one frame took.
-struct FrameStats {
-    std::size_t drawCalls = 0;   ///< Calls that sent geometry to the graphics card.
-    std::size_t triangles = 0;   ///< Triangles of shapes in those calls. Text is not counted.
-    std::size_t panelsDrawn = 0; ///< Batches that were visible, the overlay included.
-};
+class Profiler;
 
 /// Draws batches in a fixed order.
 ///
@@ -38,6 +34,10 @@ public:
 
     void setTextRenderer(TextRenderer* textRenderer) { m_textRenderer = textRenderer; }
 
+    /// With a profiler, `present` reports what each frame took to it, and draws its readout on
+    /// top of everything while the readout is visible.
+    void setProfiler(Profiler* profiler) { m_profiler = profiler; }
+
     /// Draws `panels` in order and then `overlay`, if there is one.
     FrameStats
     draw(sf::RenderTarget& target, std::span<const PanelBatch* const> panels, const PanelBatch* overlay = nullptr);
@@ -48,6 +48,9 @@ public:
     /// the window is cleared to `background`, the batches are drawn and the result is shown.
     /// Otherwise nothing is done at all: no clearing, no drawing, no showing; the window keeps
     /// what it has, and the result is empty.
+    ///
+    /// A visible profiler readout is refreshed here and drawn last. A frame drawn only because
+    /// the readout's text changed is not counted in the profiler's numbers.
     std::optional<FrameStats> present(
         sf::RenderWindow& window,
         sf::Color background,
@@ -65,6 +68,8 @@ private:
     void drawLayer(sf::RenderTarget& target, const DrawList& layer, const sf::Transform& transform, FrameStats& stats);
 
     TextRenderer* m_textRenderer;
+    Profiler* m_profiler = nullptr;
+    std::size_t m_rebuildsSeen = 0;
     std::size_t m_framesDrawn = 0;
     std::size_t m_framesSkipped = 0;
 };

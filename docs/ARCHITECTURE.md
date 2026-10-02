@@ -62,7 +62,8 @@ SFMLAppTemplate/
 └─ tests/
    ├─ core/
    ├─ ui/
-   └─ app/
+   ├─ app/
+   └─ bench/                   the render benchmark (plan 5.5)
 ```
 
 A header is in `include/atpl/` only if applications need it. Internal headers live next to their `.cpp` in `src/`. This makes the public API visible at a glance and keeps internals free to change.
@@ -93,12 +94,12 @@ The exact utility list for the first version is Q5.
 
 | File | Content |
 |---|---|
-| `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `requestRedraw()` (any thread); events (WP 1.3). |
+| `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `setProfilerVisible()`; `requestRedraw()` (any thread); events (WP 1.3). |
 | `event.hpp` | `Event` and the twelve event types (D29). |
 | `value.hpp` | `Value`: a widget's value of any kind, as carried by `ValueChanged`. |
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
-| `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`. |
+| `setup.hpp` | `UISetup` (background view, grid, panels, profiler readout), `PanelSetup`. |
 | `placement.hpp` | `Anchor`, `GridCell`, `Placement` (D25). `GridCell` is used for panels in the window and for widgets in a panel (D27). |
 | `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
@@ -133,7 +134,7 @@ src/ui/
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
-│            profiler.hpp/.cpp
+│            profiler.hpp/.cpp  frame_stats.hpp
 └─ widgets/  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
@@ -297,7 +298,7 @@ widget.paint() ──► Painter ──► draw list ──► PanelBatch (one v
 - `renderer`: draws batches in the order of the list it is given, then the overlay; at most two calls for shapes per panel. Reports draw calls and triangles per frame. `present` shows a frame in the window only if one is needed (cache level 1): if the redraw flag asks for one, or a batch changed since the last frame. Otherwise it does nothing at all. View callbacks are added in WP 4.4.
 - `frame_loop` (at the root of `ui`, next to the facade): the `RedrawFlag`, which any thread may set, and `nextEvent`, which fetches the window's next event and sleeps for up to one display frame while no frame is asked for. A batch notes by itself when it was repainted, moved or scrolled, so changes inside the UI need no request; the flag is for what the UI cannot see, such as a new simulation state.
 - `text_renderer`: the interface the renderer hands a layer's text to; `text_cache` implements it.
-- `profiler`: build time, draw-call count, frame time (D6).
+- `profiler`: measures what the UI costs (D6). Three sections of a frame are timed: build (painting the panels that changed), submit (clearing and handing the batches to the graphics card) and show (putting the frame on screen). Whoever does the work reports it: the code that paints panels wraps that in `measure(Section::Build)`, the renderer reports the rest, together with draw calls, triangles, panels rebuilt and texts built. The readout is a small batch of its own with its own parts (`Profiler::Background`, `Label`, `Value`), so a theme styles it like anything else. It is off by default, refreshed at 5 Hz and painted only when its text changes, so an idle application stays idle with the readout on; a frame drawn only for the readout is not counted in its numbers. The application switches the readout on with `UI::setProfilerVisible` or `UISetup::profiler` (D38). `tests/bench/render_bench.cpp` uses the profiler to measure a scene of 100 widgets (plan 5.5).
 
 Draw order per frame: background view → panels in order (shapes, views, text) → overlay layer → profiler.
 

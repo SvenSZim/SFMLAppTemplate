@@ -18,6 +18,10 @@ public:
 
     /// Draws the layer's text runs and returns how many draw calls that took.
     virtual std::size_t draw(sf::RenderTarget& target, const sf::RenderStates& states, const DrawList& layer) = 0;
+
+    /// How many pieces of text have been built or rebuilt so far, for the profiler. A renderer
+    /// that keeps nothing between frames has nothing to count.
+    [[nodiscard]] virtual std::size_t buildCount() const { return 0; }
 };
 
 } // namespace atpl::render

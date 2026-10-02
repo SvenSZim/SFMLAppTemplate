@@ -109,6 +109,9 @@ struct UISetup {
 
     GridSetup grid;
     std::vector<PanelSetup> panels;
+
+    /// Whether the profiler readout is shown from the start. See `UI::setProfilerVisible`.
+    bool profiler = false;
 };
 
 } // namespace atpl

@@ -9,5 +9,5 @@ atpl_copy_resources(minimal)
 # on a machine without one, run them under xvfb-run or leave them out with `ctest -LE display`.
 if(ATPL_BUILD_TESTS)
   add_test(NAME example.minimal COMMAND minimal --smoke-test)
-  set_tests_properties(example.minimal PROPERTIES LABELS display TIMEOUT 60)
+  set_tests_properties(example.minimal PROPERTIES LABELS display RESOURCE_LOCK display TIMEOUT 60)
 endif()
