@@ -129,7 +129,7 @@ src/ui/
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
 ├─ input/    input_system.hpp/.cpp
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
-├─ layout/   layout_manager.hpp/.cpp  floating.cpp  grid.cpp  packing.hpp
+├─ layout/   panel_placement.hpp/.cpp  packing.hpp/.cpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
@@ -143,7 +143,7 @@ src/ui/
 
 The model is one `Store`, built once from the `UISetup`. Nothing is added or removed afterwards.
 
-- **Panel**: name (unique, Q8), title, placement, columns, its three colours, collapsed, visible and hovered state (P7), its rectangle, its widgets, one dirty flag.
+- **Panel**: name (unique, Q8), title, placement, columns, its three colours, collapsed, visible and hovered state (P7), its widgets, one dirty flag; and from layout its rectangle, the height of its content, and whether it is shown. `visible` is what the application wants; `shown` is whether the panel is actually on screen.
 - **Widget slot**: what the framework keeps for every widget, whatever its type.
 
   | Field | Written by |
@@ -234,7 +234,17 @@ Each panel states its own placement:
 - **`Anchor`**: the panel floats at an edge or corner of the window, on top of the background view and of the grid. Panels that share an anchor are stacked in the order they are listed.
 - **`GridCell`**: the panel fills one or more cells of the window's grid (`UISetup::grid`, equal cells).
 
-Both kinds can be mixed. Typical arrangements:
+Both kinds can be mixed; floating panels lie on top of the grid. The rules, in `layout/panel_placement`:
+- **Floating**: a panel is `margin` away from the window's edges. Panels that share an anchor form a stack with `margin` between them: downwards from a top anchor, upwards from a bottom anchor (the first listed is the lowest), centred as a whole for `Left` and `Right`. A panel is as wide as its setup says (times the GUI scale) or as the theme's `panelWidth`, and as high as its header plus its content, or its header alone when collapsed.
+- **Grid**: equal cells, with `margin` around the grid and between cells. A panel covers its cells and the margins between them. Edges are rounded to whole pixels so that neighbours line up. A collapsed grid panel is its header at the top of its cells. Grid panels may share cells; nothing checks for that.
+- A panel the application hides (`PanelHandle::setVisible(false)`) leaves no gap.
+- A panel whose size changed, or that appears, is marked dirty; one that only moved is not (the batch is moved, not rebuilt).
+- `requirePlaceable` refuses, with `SetupError`, a grid without columns or rows, a cell or span outside the grid, and a negative width.
+- **Views**: the background view is the whole window; a view widget's view is its widget's rectangle in the window, or empty while the widget is not on screen.
+
+Placement runs when something changed that moves or resizes panels (window size, collapsed, visible, content height, theme), not every frame.
+
+Typical arrangements:
 - Simulation as background, controls floating over it: a background view plus anchored panels.
 - Simulation inside the layout: a grid, one panel with a `View` widget spanning most cells, control panels in the rest.
 - Main view plus minimap: either of the above with a second `View` widget in a small panel.
@@ -246,9 +256,9 @@ What happens when things do not fit. Rules for a start; to be revisited if they 
 | Case | Rule |
 |---|---|
 | A panel's content is higher than the panel can be | The content scrolls vertically inside the panel (mouse wheel, thin scrollbar). The header stays fixed. |
-| A stack of floating panels is higher than the window | Collapsed panels keep their header height. Expanded panels share the remaining height and scroll inside. If not even the headers fit, the last panels are hidden. |
-| A grid-cell panel in a small window | Its cell shrinks with the window; its content scrolls. |
-| A floating panel wider than the window | Its width is clamped to the window width. |
+| A stack of floating panels is higher than the window | Every panel keeps its header. The height that is left is shared among the contents of the expanded panels: none gets more than it needs, and what the small ones leave goes to the others in equal parts; they scroll inside. If not even the headers fit, the last panels of the stack are not shown. |
+| A grid-cell panel in a small window | Its cell shrinks with the window; its content scrolls. With no room at all left, it is not shown. |
+| A floating panel wider than the window | The margin at the sides shrinks first; then the panel's width is clamped to the window width. |
 | Text wider than its widget | Cut off with an ellipsis. |
 | A dropdown list that would leave the window | Opens upward, or is clamped to the window. |
 | Horizontal scrolling | None. |

@@ -3,6 +3,7 @@
 add_library(atpl_ui STATIC
   frame_loop.cpp
   layout/packing.cpp
+  layout/panel_placement.cpp
   model/name_index.cpp
   model/setup.cpp
   model/store.cpp

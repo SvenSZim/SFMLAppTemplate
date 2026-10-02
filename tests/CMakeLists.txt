@@ -59,6 +59,7 @@ atpl_add_tests(ui
   ui/test_name_index.cpp
   ui/test_packing.cpp
   ui/test_painter.cpp
+  ui/test_panel_placement.cpp
   ui/test_panel_batch.cpp
   ui/test_profiler.cpp
   ui/test_rect.cpp
