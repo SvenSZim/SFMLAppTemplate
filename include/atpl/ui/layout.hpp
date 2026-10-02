@@ -125,8 +125,7 @@ struct Sizes {
 /// A layout theme is a value: copy it, change it, hand it to the UI. Switching at runtime is
 /// `UI::setLayout`.
 ///
-/// Settings marked "(planned)" are stored and can be overridden per panel, but have no effect
-/// yet; see docs/LAYOUT.md for the packages that put them to work.
+/// `stackOverflow` is stored but has no effect yet: the card stack is WP 3.14.
 struct Layout {
     Metrics metrics;
     Scaling scaling;
@@ -137,19 +136,20 @@ struct Layout {
     /// in the window's grid".
     Placement placement = Anchor::TopLeft;
 
-    /// Whether panels can be folded down to their header, and towards which side (planned).
+    /// Whether panels can be folded down to their header, and towards which side the header
+    /// goes in a panel of the window's grid. (Floating panels collapse within their stack.)
     bool collapsible = true;
     Alignment collapseTowards = Alignment::TopLeft;
 
     // Panels in the window's grid.
-    Fit fit = Fit::Fill;                      ///< (planned)
-    Alignment alignment = Alignment::TopLeft; ///< Where a panel that does not fill its cells sits (planned).
+    Fit fit = Fit::Fill;
+    Alignment alignment = Alignment::TopLeft; ///< Where a panel that does not fill its cells sits.
 
     // Floating panels.
-    SizeRule width = SizeRule::Equal;                  ///< (planned)
-    SizeRule height = SizeRule::Own;                   ///< (planned)
-    PanelLimit limit;                                  ///< (planned)
-    StackOverflow stackOverflow = StackOverflow::Hide; ///< (planned)
+    SizeRule width = SizeRule::Equal;                  ///< Equal: as wide as the widest floating panel.
+    SizeRule height = SizeRule::Own;                   ///< Equal: as high as the highest.
+    PanelLimit limit;                                  ///< The most a floating panel may take of the window.
+    StackOverflow stackOverflow = StackOverflow::Hide; ///< (WP 3.14)
 
     // ----- Content of a panel -----
 
@@ -157,6 +157,12 @@ struct Layout {
     /// (`Own`), or a grid of equal cells sized by the largest (`Equal`). A panel whose size is
     /// given from outside always has a grid.
     SizeRule rows = SizeRule::Own;
+
+    /// The cells of panels whose content is a grid and whose size follows from it: each panel's
+    /// as large as its own widgets want (`Own`), or the same in all such panels, as large as
+    /// the largest (`Equal`), so that panels with the same number of cells are the same size.
+    /// Panels that fill cells of the window's grid get their size from the window instead.
+    SizeRule cells = SizeRule::Own;
 
     /// Where a widget sits in room that is larger than the widget may be.
     Alignment widgetAlignment = Alignment::Center;
@@ -178,6 +184,7 @@ struct PanelLayout {
     std::optional<SizeRule> height;
     std::optional<PanelLimit> limit;
     std::optional<SizeRule> rows;
+    std::optional<SizeRule> cells;
     std::optional<Alignment> widgetAlignment;
 };
 

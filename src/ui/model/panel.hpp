@@ -5,6 +5,8 @@
 #include "atpl/ui/rect.hpp"
 #include "atpl/ui/theme.hpp"
 
+#include <SFML/System/Vector2.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -58,6 +60,19 @@ struct Panel {
 
     /// The height the panel's widgets need, padding included. 0 for a panel without widgets.
     float contentHeight = 0.f;
+
+    /// The size the panel would like before it is placed: from its content, the layout theme's
+    /// rules and its limits. 0: none worked out; placement then uses the defaults.
+    float wantedWidth = 0.f;
+    float wantedHeight = 0.f;
+
+    /// The largest minimum width and height of a single widget of the panel. A panel whose
+    /// content area is smaller than either is not drawn.
+    sf::Vector2f widestAndHighest;
+
+    /// Set when the panel had a place but is too small for its widgets: it is left out, and the
+    /// others are placed without it.
+    bool tooSmall = false;
 
     // ----- Written by whoever changes how the panel looks; taken by the UI before drawing -----
 

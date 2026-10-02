@@ -13,6 +13,7 @@ PanelRules rulesFor(const Layout& layout, const model::Panel& panel) {
         .height = own.height.value_or(layout.height),
         .limit = own.limit.value_or(layout.limit),
         .rows = own.rows.value_or(layout.rows),
+        .cells = own.cells.value_or(layout.cells),
         .widgetAlignment = own.widgetAlignment.value_or(layout.widgetAlignment),
         .collapseTowards = own.collapseTowards.value_or(layout.collapseTowards),
     };

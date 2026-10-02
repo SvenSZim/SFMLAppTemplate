@@ -250,6 +250,7 @@ Each panel states its own placement:
 
 Both kinds can be mixed; floating panels lie on top of the grid. The rules, in `layout/panel_placement`:
 - **Floating**: a panel is `margin` away from the window's edges. Panels that share an anchor form a stack with `margin` between them: downwards from a top anchor, upwards from a bottom anchor (the first listed is the lowest), centred as a whole for `Left` and `Right`. A panel is as wide as its setup says (times the GUI scale) or as the theme's `panelWidth`, and as high as its header plus its content, or its header alone when collapsed.
+- **Panel sizes** (`layout/arrange`, LAYOUT.md §3): a panel in the window's grid either fills its cells (`Fit::Fill`) or is as large as its content and sits in its cells at the rules' alignment (`Fit::Content`). Any panel sized by its content is as wide as the widest of: what its widgets prefer, its title, and the layout's `panelWidth`; a width the panel names itself wins. Floating panels with `SizeRule::Equal` all get the widest width, or the highest height, among them. A floating panel never exceeds its limit, `min(fixed pixels, fraction of the window)` per axis; content that no longer fits scrolls or is dropped. A collapsed grid panel is its header, at the side of its former rectangle that `collapseTowards` names; floating panels collapse within their stack. With `Layout::cells` set to `Equal`, all panels sized by their content whose content is a grid share one cell size, the largest any of them wants.
 - **Grid**: equal cells, with `margin` around the grid and between cells. A panel covers its cells and the margins between them. Edges are rounded to whole pixels so that neighbours line up. A collapsed grid panel is its header at the top of its cells. Panels with a `GridCell` may share cells (D40); panels with a `GridSpan` are placed clear of all others, and one that finds no room is a `SetupError`.
 - A panel the application hides (`PanelHandle::setVisible(false)`) leaves no gap.
 - A panel whose size changed, or that appears, is marked dirty; one that only moved is not (the batch is moved, not rebuilt).
@@ -269,10 +270,12 @@ What happens when things do not fit. Rules for a start; to be revisited if they 
 
 | Case | Rule |
 |---|---|
-| A panel's content is higher than the panel can be | The content scrolls vertically inside the panel (mouse wheel, thin scrollbar). The header stays fixed. |
+| A panel's content is higher than the panel can be | A grid squeezes its rows down to the widgets' minimum; beyond that, and in a packed panel at once, the content scrolls vertically inside the panel (mouse wheel, thin scrollbar). The header stays fixed. |
+| A widget's room is narrower than the widget needs at least | The widget is not drawn; its place stays empty. |
+| A panel's content area is narrower than its widest widget needs, or lower than its highest | The panel is not drawn; the others are placed without it. It comes back when there is room. |
 | A stack of floating panels is higher than the window (the default; a card stack is planned as an option, D42) | Every panel keeps its header. The height that is left is shared among the contents of the expanded panels: none gets more than it needs, and what the small ones leave goes to the others in equal parts; they scroll inside. If not even the headers fit, the last panels of the stack are not shown. |
 | A grid-cell panel in a small window | Its cell shrinks with the window; its content scrolls. With no room at all left, it is not shown. |
-| A floating panel wider than the window | The margin at the sides shrinks first; then the panel's width is clamped to the window width. |
+| A floating panel wider than the window | Its limit (a fraction of the window) keeps it narrower; beyond that the margin at the sides shrinks first, then the panel's width is clamped to the window width. |
 | Text wider than its widget | Cut off with an ellipsis. |
 | A dropdown list that would leave the window | Opens upward, or is clamped to the window. |
 | Horizontal scrolling | None. |

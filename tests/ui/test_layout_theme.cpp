@@ -162,6 +162,7 @@ TEST_CASE("the ready-made layout themes differ in what they describe", "[ui][lay
     REQUIRE(cards.fit == Fit::Content);
     REQUIRE(cards.alignment == Alignment::Center);
     REQUIRE(cards.rows == SizeRule::Equal);
+    REQUIRE(cards.cells == SizeRule::Own); // equal cells across cards is an option, not the default
 
     const Layout compact = layouts::compact();
     REQUIRE(compact.metrics.rowHeight < overlay.metrics.rowHeight);

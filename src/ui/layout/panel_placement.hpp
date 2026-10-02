@@ -32,21 +32,27 @@ void preparePanels(model::Store& store, GridSetup grid);
 /// that its widgets can be laid out first: their height decides the panel's.
 [[nodiscard]] float panelWidth(const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes);
 
-/// The height a panel wants: its header, plus its content unless it is collapsed.
+/// The height a panel wants: its header if it is collapsed; otherwise what layout worked out
+/// (`Panel::wantedHeight`), or its header and its content.
 [[nodiscard]] float wantedHeight(const model::Panel& panel, const Sizes& sizes);
 
 /// Gives every panel its rectangle and says whether it is shown.
 ///
 /// Floating panels that share an anchor form a stack, in the order they are listed: downwards
 /// from a top anchor, upwards from a bottom anchor, centred for `Left` and `Right`.
-/// - A panel is as wide as it asks to be, or as the layout theme says. In a window too narrow for that,
-///   the margin at the sides shrinks first, then the panel.
+/// - A panel is as wide as layout worked out (`Panel::wantedWidth`), or else as it asks to be
+///   or as the layout theme says. In a window too narrow for that, the margin at the sides
+///   shrinks first, then the panel.
+/// - Panels that are too small for their widgets (`Panel::tooSmall`) are left out.
 /// - A stack that is too high for the window is fitted to it: collapsed panels keep the height
 ///   of their header, and expanded panels share the rest, those that need least first. If not
 ///   even the headers fit, the last panels of the stack are not shown.
 ///
-/// Grid panels fill the cells they span. Cells are equal, with the layout's margin around the
-/// grid and between cells. A collapsed grid panel is its header at the top of its cells.
+/// Grid panels fill the cells they span, or, with `Fit::Content`, take as much of them as they
+/// want (`Panel::wantedWidth` and `wantedHeight`) and sit in them at the rules' alignment. A
+/// collapsed grid panel is its header, placed in its rectangle towards `collapseTowards`. A
+/// grid panel lower than a header is not shown. Cells are equal, with the layout's margin
+/// around the grid and between cells.
 ///
 /// A panel the application made invisible is not shown and leaves no gap.
 ///
@@ -54,7 +60,9 @@ void preparePanels(model::Store& store, GridSetup grid);
 /// One that only moved is not.
 ///
 /// `sizes` are the layout's sizes for this window.
-void placePanels(model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes);
+void placePanels(
+    model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes, const Layout& layout = {}
+);
 
 /// Gives every view its rectangle in the window: the whole window for the background view, and
 /// for a view widget the place of its widget. A view whose widget is not on screen gets an
