@@ -251,8 +251,8 @@ Each phase ends with something that runs.
 
 - **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
 - **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
-- Tests: 152, of which one opens a window.
-- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, gradient, outline, gap, corner radius and shadow; lines and polylines; all as triangles) WP 2.2 (theme core: colours per panel, role defaults, part entries, states, the two built-in themes) and WP 2.3 (draw list, painter, style; a test widget is painted end to end).
-- Next, in any order: WP 2.4 (panel batches and draw order); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
+- Tests: 170, of which ten need a display: the window smoke test and nine that draw off-screen and check pixels.
+- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, gradient, outline, gap, corner radius and shadow; lines and polylines; all as triangles) WP 2.2 (theme core: colours per panel, role defaults, part entries, states, the two built-in themes) WP 2.3 (draw list, painter, style; a test widget is painted end to end) and WP 2.4 (panel batches with frame and content layer, the renderer with its fixed draw order, clipping and scrolling without rebuilding).
+- Next, in any order: WP 2.5 (text, with question Q7) and WP 2.6 (frame flag and idle loop); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

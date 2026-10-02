@@ -4,6 +4,8 @@ add_library(atpl_ui STATIC
   layout/packing.cpp
   render/draw_list.cpp
   render/painter.cpp
+  render/panel_batch.cpp
+  render/renderer.cpp
   render/shapes.cpp
   theme/color.cpp
   theme/metrics.cpp
