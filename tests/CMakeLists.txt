@@ -38,6 +38,7 @@ atpl_add_tests(ui
   ui/test_event.cpp
   ui/test_packing.cpp
   ui/test_rect.cpp
+  ui/test_shapes.cpp
   ui/test_theme.cpp
 )
 atpl_add_tests(app

@@ -248,7 +248,8 @@ Each phase ends with something that runs.
 
 - **Phase 0 is done**: structure, kept utilities, resources, the `minimal` example, CI.
 - **Phase 1 is done**: the whole public API is declared, documented and agreed (D23 to D33). It is compiled with every build through the usage examples in `tests/api/` and the reference application `examples/starter`. None of it is implemented yet, except small pieces that had to be: `Event`, `Part`, `State`, the number conversion, and the glue in a few templates.
-- Tests: 67, of which one opens a window.
-- Next, in any order: Phase 2 (render pipeline) starting with WP 2.1 (shapes) and WP 2.2 (theme core); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
+- Tests: 89, of which one opens a window.
+- Phase 2 (render pipeline) in progress. Done: WP 2.1 (shapes: boxes with fill, outline, corner radius and shadow, lines and polylines, all as triangles).
+- Next, in any order: WP 2.2 (theme core); WP 3.1 (model); the thread-safe core types in WP 3.7 and WP 4.1; the utility scope decision in WP 5.1.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).

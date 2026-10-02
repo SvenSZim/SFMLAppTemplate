@@ -2,6 +2,7 @@
 # Depends on atpl_core and SFML Graphics. This target must never link atpl_app.
 add_library(atpl_ui STATIC
   layout/packing.cpp
+  render/shapes.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 
