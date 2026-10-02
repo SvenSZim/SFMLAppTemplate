@@ -28,6 +28,21 @@ function(atpl_add_tests layer)
   )
 endfunction()
 
+# Tests of a layer that draw and look at the result. They need a display (a virtual one will
+# do) and carry the label "display": `ctest -LE display` leaves them out.
+function(atpl_add_display_tests layer)
+  set(target atpl_${layer}_display_tests)
+  add_executable(${target} ${ARGN})
+  target_link_libraries(${target} PRIVATE atpl::${layer} Catch2::Catch2WithMain)
+  target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/tests)
+  atpl_target_defaults(${target})
+  catch_discover_tests(${target}
+    TEST_PREFIX "${layer}.display."
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:${target}>
+    PROPERTIES LABELS display
+  )
+endfunction()
+
 atpl_add_tests(core
   core/test_easing.cpp
   core/test_interpolated.cpp
@@ -38,6 +53,7 @@ atpl_add_tests(ui
   ui/test_event.cpp
   ui/test_packing.cpp
   ui/test_painter.cpp
+  ui/test_panel_batch.cpp
   ui/test_rect.cpp
   ui/test_shapes.cpp
   ui/test_theme.cpp
@@ -45,6 +61,9 @@ atpl_add_tests(ui
 )
 atpl_add_tests(app
   app/test_resources.cpp
+)
+atpl_add_display_tests(ui
+  ui/display/test_renderer.cpp
 )
 # The resource tests load the real font, so they need the resources next to their executable.
 atpl_copy_resources(atpl_app_tests)

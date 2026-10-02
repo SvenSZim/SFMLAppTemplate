@@ -130,8 +130,9 @@ src/ui/
 ├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   layout_manager.hpp/.cpp  floating.cpp  grid.cpp  packing.hpp
 ├─ theme/    theme.cpp  presets.cpp
-├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp
-│            panel_batch.hpp/.cpp  text_cache.hpp/.cpp  profiler.hpp/.cpp
+├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
+│            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
+│            text_cache.hpp/.cpp  profiler.hpp/.cpp
 └─ widgets/  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
@@ -288,9 +289,10 @@ widget.paint() ──► Painter ──► draw list ──► PanelBatch (one v
 - `shapes`: tessellation of boxes (fill or gradient, outline with gap, corner radius, shadow), lines, polylines and areas under a curve. All shapes become triangles so that a panel is one draw call.
 - `draw_list`: what one panel draws: its triangles and its text runs. Reused from rebuild to rebuild without allocating.
 - `painter` (the public `Painter`): moves a widget's own coordinates to its place in the panel and hands shapes to `shapes` and text to the draw list. `text_measurer` is the interface it measures text through, so everything above it is testable without a font.
-- `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2).
+- `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2). It has two layers: the frame (background, header, scrollbar) and the content (the widgets). Moving the panel and scrolling the content only change how the batch is placed when drawn; nothing is rebuilt. Scrolled content is clipped to the content area (D28).
 - `text_cache`: text geometry per widget, rebuilt when the string changes (level 3).
-- `renderer`: the frame flag (level 1), the fixed draw order, and calling view callbacks.
+- `renderer`: draws batches in the order of the list it is given, then the overlay; at most two calls for shapes per panel. Reports draw calls and triangles per frame. The frame flag (level 1) and view callbacks are added to it in WP 2.6 and WP 4.4.
+- `text_renderer`: the interface the renderer hands a layer's text to; implemented in WP 2.5.
 - `profiler`: build time, draw-call count, frame time (D6).
 
 Draw order per frame: background view → panels in order (shapes, views, text) → overlay layer → profiler.
