@@ -71,10 +71,11 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 
 | File (`include/atpl/core/`) | Content | Origin |
 |---|---|---|
-| `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings (D10, P10) | new |
-| `series.hpp` | `Series`: thread-safe ring buffer of samples with fixed capacity; the data source for graphs (P10) | new |
-| `queue.hpp` | Thread-safe queue, used for app → simulation commands (D11) | new |
-| `snapshot.hpp` | Exchange of the latest complete state, simulation → main thread (P3) | new |
+| `revision.hpp` | `Revision`: the change counter every shared value carries, so readers can skip unchanged values | new |
+| `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings; any number of readers and writers (D10, P10) | new |
+| `series.hpp` | `Series`: thread-safe ring buffer of `float` samples with fixed capacity; the data source for graphs (P10) | new |
+| `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11) | new |
+| `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3) | new |
 | `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |
 | `random.hpp` | Random number generator, one instance per thread | new |
 | `timing.hpp` | Stopwatch, scoped timer, rate limiter, fixed-timestep accumulator | new |

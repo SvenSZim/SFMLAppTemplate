@@ -75,6 +75,7 @@ Status values: **Accepted** (decided), **Proposed** (suggested, waiting for a de
 | D22 | 2026-10-02 | Headers use `#pragma once`. | Accepted |
 | P13 | 2026-10-02 | Workflow as written in `CONTRIBUTING.md`: one branch per issue (`wp/<id>-<name>`), commit format `[area] summary`, one pull request per issue into `main`, squash merge, definition of done, decisions recorded in the same pull request. | Accepted |
 | P14 | 2026-10-02 | Remaining code conventions as written in `docs/CODE_STYLE.md`: formatting by `.clang-format` (4 spaces, 120 columns), naming table, include rules, error rules (setup fails loudly, per-frame code does not throw), per-frame performance rules, test rules, CMake rules (explicit source lists), internal code of a `ui` module in namespace `atpl::<module>`. | Accepted |
+| D23 | 2026-10-02 | Core API as declared in `include/atpl/core/` (WP 1.1). `Param<T>`: its revision grows only when the value changes; it cannot be copied or moved; `a = b` copies the value; no compound operators. `Series`: `float` samples only. `Queue<T>`: unbounded, with `drain` and `waitDrain`. `Snapshot<T>`: one writer thread, one reader thread, three reused buffers; the writer writes the whole state each time. Change counters are called `revision`. Value access is named `get()` / `set()` everywhere, including `Interpolated`. | Accepted |
 
 ### Open questions
 
@@ -235,6 +236,6 @@ Each phase ends with something that runs.
 - **Phase 0 is done.** The new structure is in place: targets `atpl_core`, `atpl_ui`, `atpl_app`; easing and animated values in `core`; rect and widget packing in `ui`; resources next to the executable in `app`; the `minimal` example; 43 tests.
 - CI on every pull request: format check, Linux with GCC (release, all tests including the window smoke test on a virtual display), Linux with Clang (debug, AddressSanitizer and UndefinedBehaviorSanitizer), Windows with MSVC (informational).
 - No old code is left in the tree.
-- Next: Phase 1, the app-facing API. WP 1.1 (core API headers) and, independently, WP 2.1 (shape tessellation) can be started.
+- Phase 1 in progress, the app-facing API. WP 1.1 (core API headers: `Param`, `Series`, `Queue`, `Snapshot`) is done and agreed (D23). WP 2.1 (shape tessellation) can be started independently.
 - Open questions: Q5 (utility scope, Phase 5) and Q7 (text drawing, Phase 2). No proposals are pending.
 - A ThreadSanitizer job is added to CI with the first code that is shared between threads (WP 3.7).
