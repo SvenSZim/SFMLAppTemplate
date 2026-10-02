@@ -27,8 +27,10 @@ using VertexList = std::vector<sf::Vertex>;
 
 /// A box: shadow, fill and outline, as the style says.
 ///
+/// - The fill is one colour or, if the style asks for it, a gradient across the box.
 /// - The radius is limited to half the box's smaller side, so `fullyRound` gives a pill or a circle.
 /// - The outline is drawn inside the box: the box never gets larger than `rect`.
+/// - With a gap, the outline stays at the edge and the fill is drawn further in.
 /// - The shadow is drawn first, so the box covers the part of it that lies underneath.
 /// - Nothing is added for a style that is not shown, or for a box without area.
 void appendBox(VertexList& out, const FloatRect& rect, const PartStyle& style);

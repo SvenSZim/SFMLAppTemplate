@@ -4,6 +4,7 @@
 #include "atpl/ui/theme.hpp"
 #include "atpl/ui/widgets.hpp"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -33,7 +34,7 @@ struct Panel {
     static constexpr Part Outline{ kind, "outline", Role::Line, Shown::No };
     static constexpr Part Header{ kind, "header", Role::Surface };
     static constexpr Part Title{ kind, "title", Role::Title };
-    static constexpr Part Scrollbar{ kind, "scrollbar", Role::Handle };
+    static constexpr Part Scrollbar{ kind, "scrollbar", Role::Line };
 };
 
 /// One panel: a titled card with widgets.
@@ -48,6 +49,19 @@ struct PanelSetup {
     /// Width of a floating panel in pixels before GUI scaling. 0: the theme's default.
     /// Ignored for panels in a grid cell.
     float width = 0.f;
+
+    /// The three colours the panel and its widgets are drawn in, as indices into the theme's
+    /// `Palette::mains` (main1: background, main2: outlines) and `Palette::accents`.
+    /// A single widget can deviate with `colored(...)`.
+    /// An index the theme does not have throws `SetupError` when the UI is built or the theme is
+    /// replaced.
+    ///
+    ///     {.name = "Performance", ...}                       // the theme's defaults
+    ///     {.name = "Playback", .accent = 1, ...}             // another accent
+    ///     {.name = "Overlay", .main1 = 2, .main2 = 0, ...}   // other main colours
+    std::size_t main1 = 0;
+    std::size_t main2 = 1;
+    std::size_t accent = 0;
 
     bool collapsible = true; ///< Whether the user can fold the panel down to its header.
     bool collapsed = false;  ///< Whether it starts folded.

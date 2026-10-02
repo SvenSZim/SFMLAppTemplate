@@ -40,6 +40,7 @@ atpl_add_tests(ui
   ui/test_rect.cpp
   ui/test_shapes.cpp
   ui/test_theme.cpp
+  ui/test_theme_resolve.cpp
 )
 atpl_add_tests(app
   app/test_resources.cpp

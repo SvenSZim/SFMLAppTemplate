@@ -190,6 +190,78 @@ TEST_CASE("boxes are appended to what is already in the list", "[ui][shapes]") {
     REQUIRE(vertices[6].color == blue);
 }
 
+// ----- Gradients -----
+
+TEST_CASE("a horizontal gradient runs from the start colour at the left to the colour at the right", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color(200, 100, 0, 255));
+    style.gradient = Gradient::Horizontal;
+    style.gradientStart = sf::Color(0, 0, 100, 55);
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(10.f, 0.f, 100.f, 20.f), style);
+
+    REQUIRE(vertices.size() == 6);
+    for (const sf::Vertex& vertex : vertices) {
+        if (vertex.position.x == 10.f) {
+            REQUIRE(vertex.color == sf::Color(0, 0, 100, 55));
+        } else {
+            REQUIRE(vertex.position.x == 110.f);
+            REQUIRE(vertex.color == sf::Color(200, 100, 0, 255));
+        }
+    }
+}
+
+TEST_CASE("a vertical gradient runs from top to bottom", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color::White);
+    style.gradient = Gradient::Vertical;
+    style.gradientStart = sf::Color::Black;
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 50.f, 40.f, 200.f), style);
+
+    for (const sf::Vertex& vertex : vertices) {
+        REQUIRE(vertex.color == (vertex.position.y == 50.f ? sf::Color::Black : sf::Color::White));
+    }
+}
+
+TEST_CASE("in a rounded box every point has the gradient's colour for its position", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color(200, 200, 200), 12.f);
+    style.gradient = Gradient::Horizontal;
+    style.gradientStart = sf::Color(0, 0, 0);
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 100.f, 40.f), style);
+
+    for (const sf::Vertex& vertex : vertices) {
+        const float expected = vertex.position.x / 100.f * 200.f;
+        REQUIRE(static_cast<float>(vertex.color.r) == Approx(expected).margin(0.51));
+    }
+    REQUIRE(hasVertexAt(vertices, { 50.f, 20.f })); // the centre of the fan
+}
+
+TEST_CASE("a gradient can fade in from nothing", "[ui][shapes]") {
+    // The end colour is transparent, the start is not: the box must still be drawn.
+    PartStyle style = filled(sf::Color(255, 255, 255, 0));
+    style.gradient = Gradient::Horizontal;
+    style.gradientStart = sf::Color(255, 255, 255, 255);
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 50.f, 10.f), style);
+
+    REQUIRE(vertices.size() == 6);
+}
+
+TEST_CASE("lines ignore a gradient and use the colour", "[ui][shapes]") {
+    PartStyle style = stroke(red, 2.f);
+    style.gradient = Gradient::Horizontal;
+    style.gradientStart = blue;
+
+    VertexList vertices;
+    appendLine(vertices, { 0.f, 0.f }, { 50.f, 0.f }, style);
+
+    REQUIRE(std::all_of(vertices.begin(), vertices.end(), [](const sf::Vertex& v) { return v.color == red; }));
+}
+
 // ----- Outlines -----
 
 TEST_CASE("an outline is drawn inside the box, over the fill", "[ui][shapes]") {
@@ -223,6 +295,60 @@ TEST_CASE("an outline follows rounded corners", "[ui][shapes]") {
     const float inner = 94.f * 54.f - (4.f - pi) * 12.f * 12.f;
     REQUIRE(area(vertices) == Approx(outer - inner).epsilon(0.01));
     REQUIRE(bounds(vertices) == rect);
+}
+
+TEST_CASE("a gap moves the fill inwards and leaves the outline at the edge", "[ui][shapes]") {
+    const FloatRect rect(0.f, 0.f, 100.f, 60.f);
+    PartStyle style = filled(red);
+    style.border = blue;
+    style.borderThickness = 2.f;
+    style.borderGap = 3.f;
+
+    VertexList vertices;
+    appendBox(vertices, rect, style);
+
+    REQUIRE(bounds(vertices) == rect);                                    // the box is no larger
+    REQUIRE(area(vertices, &blue) == Approx(100.f * 60.f - 96.f * 56.f)); // outline: 2 wide, at the edge
+    REQUIRE(area(vertices, &red) == Approx(90.f * 50.f));                 // fill: 2 + 3 further in on every side
+    REQUIRE(style.contentInset() == 5.f);
+}
+
+TEST_CASE("a gap follows rounded corners", "[ui][shapes]") {
+    PartStyle style = filled(red, 20.f);
+    style.border = blue;
+    style.borderThickness = 2.f;
+    style.borderGap = 3.f;
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 100.f, 60.f), style);
+
+    // The fill is a rounded box of its own, with the radius reduced by the inset.
+    const float fill = 90.f * 50.f - (4.f - pi) * 15.f * 15.f;
+    REQUIRE(area(vertices, &red) == Approx(fill).epsilon(0.005));
+}
+
+TEST_CASE("on a thin box the gap gives way before the fill disappears", "[ui][shapes]") {
+    PartStyle style = filled(red);
+    style.border = blue;
+    style.borderThickness = 1.f;
+    style.borderGap = 4.f;
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 100.f, 6.f), style); // room for a gap of 1 at most
+
+    REQUIRE(area(vertices, &red) > 0.f);
+    REQUIRE(area(vertices, &red) == Approx(96.f * 2.f)); // 1 outline + 1 gap on every side
+}
+
+TEST_CASE("a gap means nothing without an outline", "[ui][shapes]") {
+    PartStyle style = filled(red);
+    style.borderGap = 5.f;
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 40.f, 20.f), style);
+
+    REQUIRE(area(vertices, &red) == Approx(40.f * 20.f));
+    REQUIRE(style.contentInset() == 0.f);
 }
 
 TEST_CASE("an outline thicker than the box fills it", "[ui][shapes]") {

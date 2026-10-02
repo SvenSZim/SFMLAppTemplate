@@ -47,7 +47,7 @@ struct ButtonOptions {
 /// A push button. Raises an event when pressed.
 struct Button {
     static constexpr Kind kind{ "button" };
-    static constexpr Part Face{ kind, "face", Role::Handle };
+    static constexpr Part Face{ kind, "face", Role::Track };
     static constexpr Part Label{ kind, "label", Role::Text };
 
     std::string name;
@@ -326,6 +326,9 @@ public:
 
     /// The widget's position in its panel's grid, if it was given one with `at`.
     [[nodiscard]] std::optional<GridCell> cell() const;
+
+    /// The colours the widget was given with `colored`; empty fields mean its panel's.
+    [[nodiscard]] ColorOverride colors() const;
 };
 
 /// Gives a widget a position in its panel's grid:
@@ -335,5 +338,12 @@ public:
 ///
 /// See `PanelSetup::widgets` for the rules.
 [[nodiscard]] WidgetSetup at(GridCell cell, WidgetSetup widget);
+
+/// Gives a single widget colours that differ from its panel's:
+///
+///     colored({.accent = 3}, Button("Delete"))
+///
+/// Only the colours that are named differ. Can be combined with `at`.
+[[nodiscard]] WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
 
 } // namespace atpl

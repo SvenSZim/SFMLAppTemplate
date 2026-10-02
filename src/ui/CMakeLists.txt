@@ -3,6 +3,8 @@
 add_library(atpl_ui STATIC
   layout/packing.cpp
   render/shapes.cpp
+  theme/color.cpp
+  theme/theme.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 
