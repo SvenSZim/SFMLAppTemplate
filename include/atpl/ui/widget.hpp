@@ -2,6 +2,7 @@
 
 #include "atpl/ui/binding.hpp"
 #include "atpl/ui/event.hpp"
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/rect.hpp"
 #include "atpl/ui/theme.hpp"
 #include "atpl/ui/value.hpp"
@@ -44,21 +45,21 @@ struct SizeRequest {
 /// What a widget can ask while being measured.
 class MeasureContext {
 public:
-    /// Made by the UI for each widget it measures. `theme`, `scaledMetrics` and `measurer` must
-    /// outlive the context; without a measurer, text measures as nothing.
+    /// Made by the UI for each widget it measures. `theme`, `sizes` and `measurer` must outlive
+    /// the context; without a measurer, text measures as nothing.
     MeasureContext(
         float width,
         const Theme& theme,
         PanelColors colors,
-        const Metrics& scaledMetrics,
+        const Sizes& sizes,
         const render::TextMeasurer* measurer = nullptr
     );
 
     /// The width the widget will get, in pixels. Widths are decided by layout, never by widgets.
     [[nodiscard]] float width() const;
 
-    /// The theme's sizes, with the GUI scale applied.
-    [[nodiscard]] const Metrics& metrics() const;
+    /// The layout's sizes for the window as it is now, in pixels.
+    [[nodiscard]] const Sizes& sizes() const;
 
     /// The size one line of text would have when drawn as `part`: in the size and font of the
     /// part's text type.
@@ -71,7 +72,7 @@ private:
     float m_width;
     const Theme* m_theme;
     PanelColors m_colors;
-    const Metrics* m_metrics;
+    const Sizes* m_sizes;
     const render::TextMeasurer* m_measurer;
 };
 
@@ -88,7 +89,7 @@ public:
     /// Hovered, pressed, focused, disabled: kept by the UI, not by the widget.
     [[nodiscard]] State state() const;
 
-    [[nodiscard]] const Metrics& metrics() const;
+    [[nodiscard]] const Sizes& sizes() const;
 
     /// Says that the widget looks different now. Its panel is redrawn. A change of `state()` is
     /// noticed without this.
@@ -115,7 +116,7 @@ public:
 class UpdateContext {
 public:
     [[nodiscard]] State state() const;
-    [[nodiscard]] const Metrics& metrics() const;
+    [[nodiscard]] const Sizes& sizes() const;
 
     /// Says that the widget looks different now. Call it for every step of an animation; while
     /// nothing calls it, nothing is redrawn.
@@ -128,8 +129,8 @@ enum class Align { Left, Center, Right };
 /// The resolved look of a widget's parts, handed to `Widget::paint`.
 class Style {
 public:
-    /// Made by the UI for each widget it paints. `scaledMetrics` must outlive the style.
-    Style(const Theme& theme, PanelColors colors, State state, const Metrics& scaledMetrics);
+    /// Made by the UI for each widget it paints. `sizes` must outlive the style.
+    Style(const Theme& theme, PanelColors colors, State state, const Sizes& sizes);
 
     /// The style of one of the widget's parts in the widget's current state.
     [[nodiscard]] PartStyle part(const Part& part) const;
@@ -141,14 +142,14 @@ public:
     /// The widget's current state.
     [[nodiscard]] State state() const;
 
-    /// The theme's sizes, with the GUI scale applied.
-    [[nodiscard]] const Metrics& metrics() const;
+    /// The layout's sizes for the window as it is now, in pixels.
+    [[nodiscard]] const Sizes& sizes() const;
 
 private:
     const Theme* m_theme;
     PanelColors m_colors;
     State m_state;
-    const Metrics* m_metrics;
+    const Sizes* m_sizes;
 };
 
 /// What a widget draws with. Coordinates are the widget's own: (0, 0) is its top-left corner.

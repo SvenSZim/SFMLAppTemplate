@@ -1,6 +1,7 @@
 #pragma once
 
 #include "atpl/ui/id.hpp"
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/theme.hpp"
 
 #include "ui/model/store.hpp"
@@ -57,19 +58,19 @@ struct WidgetLayout {
 /// In a grid, a widget that takes several rows or stretches fills its cells. Any other keeps the
 /// height it asks for, if that is less than its row's, and is centred in the row.
 ///
-/// `metrics` are the theme's sizes with the GUI scale applied.
+/// `sizes` are the layout's sizes for the window as it is.
 WidgetLayout layoutWidgets(
     model::Store& store,
     PanelId panel,
     float panelWidth,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer = nullptr,
     std::optional<float> availableHeight = std::nullopt
 );
 
 /// How much of a panel's content does not fit into the height the panel has for it, or 0. This
 /// is how far the content can be scrolled.
-[[nodiscard]] float contentOverflow(const model::Panel& panel, const Metrics& metrics);
+[[nodiscard]] float contentOverflow(const model::Panel& panel, const Sizes& sizes);
 
 } // namespace atpl::layout

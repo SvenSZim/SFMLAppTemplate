@@ -71,12 +71,13 @@ Store::Store(const UISetup& setup) {
         Panel& panel = m_panels.emplace_back();
         panel.name = panelSetup.name;
         panel.title = panelSetup.title.empty() ? panelSetup.name : panelSetup.title;
-        panel.placement = panelSetup.placement;
+        panel.declaredPlacement = panelSetup.placement;
+        panel.declaredCollapsible = panelSetup.collapsible;
+        panel.layout = panelSetup.layout;
         panel.columns = panelSetup.columns;
         panel.rows = panelSetup.rows;
         panel.width = panelSetup.width;
         panel.colors = { .main1 = panelSetup.main1, .main2 = panelSetup.main2, .accent = panelSetup.accent };
-        panel.collapsible = panelSetup.collapsible;
         panel.collapsed = panelSetup.collapsed;
         panel.firstWidget = idOf(m_widgets.size());
         panel.widgetCount = idOf(panelSetup.widgets.size());
@@ -114,7 +115,15 @@ Store::Store(const UISetup& setup) {
         }
     }
 
+    applyLayout(setup.layout);
     requireColors(setup.theme);
+}
+
+void Store::applyLayout(const Layout& layout) {
+    for (Panel& panel : m_panels) {
+        panel.placement = panel.declaredPlacement.value_or(layout.placement);
+        panel.collapsible = panel.declaredCollapsible.value_or(layout.collapsible);
+    }
 }
 
 void Store::requireColors(const Theme& theme) const {

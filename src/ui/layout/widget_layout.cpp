@@ -28,17 +28,17 @@ struct Measured {
     const model::WidgetSlot& slot,
     float width,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer
 ) {
-    const SizeRequest request = slot.widget->measure(MeasureContext(width, theme, slot.colors, metrics, measurer));
+    const SizeRequest request = slot.widget->measure(MeasureContext(width, theme, slot.colors, sizes, measurer));
     return { std::ceil(std::max(request.height, 0.f)), request.stretch };
 }
 
 /// The width of one of `columns` equal columns in a panel of this width.
-[[nodiscard]] float columnWidth(float panelWidth, int columns, const Metrics& metrics) {
+[[nodiscard]] float columnWidth(float panelWidth, int columns, const Sizes& sizes) {
     const auto count = static_cast<float>(columns);
-    return std::max((panelWidth - metrics.padding * 2.f - metrics.gap * (count - 1.f)) / count, 0.f);
+    return std::max((panelWidth - sizes.padding.x * 2.f - sizes.gap.x * (count - 1.f)) / count, 0.f);
 }
 
 // ----- Packed -----
@@ -48,27 +48,27 @@ WidgetLayout packed(
     float panelWidth,
     int columns,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer,
     std::optional<float> availableHeight
 ) {
-    const float width = columnWidth(panelWidth, columns, metrics);
+    const float width = columnWidth(panelWidth, columns, sizes);
 
     WidgetLayout result;
     std::vector<PackItem> items(slots.size());
     std::vector<bool> stretches(slots.size());
-    float total = metrics.padding * 2.f;
+    float total = sizes.padding.y * 2.f;
     for (std::size_t i = 0; i < slots.size(); ++i) {
-        const Measured measured = measure(slots[i], width, theme, metrics, measurer);
+        const Measured measured = measure(slots[i], width, theme, sizes, measurer);
         items[i] = { static_cast<PackId>(i), measured.height };
         stretches[i] = measured.stretch;
         result.usesSpareHeight = result.usesSpareHeight || measured.stretch;
-        total += measured.height + metrics.gap;
+        total += measured.height + sizes.gap.y;
     }
 
     // In one column everything fits into `total`, so no column ever has to run over: a panel
     // that is too high for the window scrolls instead (D28).
-    const PackingResult packing = packWidgets(items, panelWidth, columns, total, metrics.padding, metrics.gap);
+    const PackingResult packing = packWidgets(items, panelWidth, columns, total, sizes.padding, sizes.gap);
     result.contentHeight = packing.contentHeight;
     for (const PackedWidget& placed : packing.placements) {
         slots[placed.id].rect = placed.rect;
@@ -89,7 +89,7 @@ WidgetLayout packed(
         const auto stretching = static_cast<float>(
             std::count(stretches.begin() + static_cast<long>(first), stretches.begin() + static_cast<long>(end), true)
         );
-        const float extra = *availableHeight - metrics.padding - slots[end - 1].rect.bottom();
+        const float extra = *availableHeight - sizes.padding.y - slots[end - 1].rect.bottom();
         if (stretching > 0.f && extra > 0.f) {
             const float share = std::floor(extra / stretching);
             float shift = 0.f;
@@ -115,7 +115,7 @@ WidgetLayout grid(
     int columns,
     int rows,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer,
     std::optional<float> availableHeight
 ) {
@@ -124,36 +124,36 @@ WidgetLayout grid(
     if (rows < 1) {
         return result;
     }
-    const float width = columnWidth(panelWidth, columns, metrics);
+    const float width = columnWidth(panelWidth, columns, sizes);
     const auto rowCount = static_cast<float>(rows);
-    const float gaps = metrics.gap * (rowCount - 1.f);
+    const float gaps = sizes.gap.y * (rowCount - 1.f);
 
     // Rows are one standard row high. A panel with height to spare shares it among them.
-    float rowHeight = metrics.rowHeight;
-    result.contentHeight = metrics.padding * 2.f + rowCount * rowHeight + gaps;
+    float rowHeight = sizes.rowHeight;
+    result.contentHeight = sizes.padding.y * 2.f + rowCount * rowHeight + gaps;
     if (availableHeight.has_value() && *availableHeight > result.contentHeight) {
-        rowHeight = (*availableHeight - metrics.padding * 2.f - gaps) / rowCount;
+        rowHeight = (*availableHeight - sizes.padding.y * 2.f - gaps) / rowCount;
         result.contentHeight = *availableHeight;
     }
     // Whole pixels at every edge, so that neighbours line up.
     const auto topOf = [&](int row) {
-        return std::round(metrics.padding + static_cast<float>(row) * (rowHeight + metrics.gap));
+        return std::round(sizes.padding.y + static_cast<float>(row) * (rowHeight + sizes.gap.y));
     };
     const auto bottomOf = [&](int row) {
-        return std::round(metrics.padding + static_cast<float>(row) * (rowHeight + metrics.gap) + rowHeight);
+        return std::round(sizes.padding.y + static_cast<float>(row) * (rowHeight + sizes.gap.y) + rowHeight);
     };
 
     for (model::WidgetSlot& slot : slots) {
         const GridCell& cell = *slot.cell; // found when the UI was built
-        const float left = metrics.padding + static_cast<float>(cell.column) * (width + metrics.gap);
+        const float left = sizes.padding.x + static_cast<float>(cell.column) * (width + sizes.gap.x);
         const float cellWidth =
-            width * static_cast<float>(cell.columnSpan) + metrics.gap * static_cast<float>(cell.columnSpan - 1);
+            width * static_cast<float>(cell.columnSpan) + sizes.gap.x * static_cast<float>(cell.columnSpan - 1);
         const float top = topOf(cell.row);
         const float cellHeight = bottomOf(cell.row + cell.rowSpan - 1) - top;
 
         // A widget that takes several rows, or stretches, fills its cells: that is what was
         // asked for. Any other is at most as high as it wants to be, centred in its row.
-        const Measured wanted = measure(slot, cellWidth, theme, metrics, measurer);
+        const Measured wanted = measure(slot, cellWidth, theme, sizes, measurer);
         if (cell.rowSpan > 1 || wanted.stretch || wanted.height >= cellHeight) {
             slot.rect = FloatRect(left, top, cellWidth, cellHeight);
         } else {
@@ -234,7 +234,7 @@ WidgetLayout layoutWidgets(
     PanelId panelId,
     float panelWidth,
     const Theme& theme,
-    const Metrics& metrics,
+    const Sizes& sizes,
     const render::TextMeasurer* measurer,
     std::optional<float> availableHeight
 ) {
@@ -244,18 +244,18 @@ WidgetLayout layoutWidgets(
     WidgetLayout result;
     if (!slots.empty()) {
         result = panel.grid
-                     ? grid(slots, panelWidth, panel.columns, panel.rows, theme, metrics, measurer, availableHeight)
-                     : packed(slots, panelWidth, panel.columns, theme, metrics, measurer, availableHeight);
+                     ? grid(slots, panelWidth, panel.columns, panel.rows, theme, sizes, measurer, availableHeight)
+                     : packed(slots, panelWidth, panel.columns, theme, sizes, measurer, availableHeight);
     }
     panel.contentHeight = result.contentHeight;
     return result;
 }
 
-float contentOverflow(const model::Panel& panel, const Metrics& metrics) {
+float contentOverflow(const model::Panel& panel, const Sizes& sizes) {
     if (!panel.shown || panel.collapsed) {
         return 0.f;
     }
-    return std::max(panel.contentHeight - (panel.rect.height() - metrics.headerHeight), 0.f);
+    return std::max(panel.contentHeight - (panel.rect.height() - sizes.headerHeight), 0.f);
 }
 
 } // namespace atpl::layout

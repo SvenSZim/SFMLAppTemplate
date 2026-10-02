@@ -66,6 +66,13 @@ public:
 
     [[nodiscard]] const NameIndex& names() const { return m_names; }
 
+    // ----- Layout theme -----
+
+    /// Fills in what the panels left to the layout theme: their placement and whether they
+    /// collapse. Done when the store is built, and again when the layout theme is replaced;
+    /// grid cells have to be found anew afterwards (`layout::prepare`).
+    void applyLayout(const Layout& layout);
+
     // ----- Colours -----
 
     /// Throws `SetupError` if a panel or a widget uses a main or accent colour the theme does not

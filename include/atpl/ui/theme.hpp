@@ -20,7 +20,7 @@ namespace atpl {
 // where they are; the theme decides how each part looks and whether it is shown. A part's style is
 // worked out in three layers, each overriding the one before:
 //
-//   1. Tokens         global values of the theme: palette, shape, metrics, typography
+//   1. Tokens         global values of the theme: palette, shape, typography
 //                     (a panel picks two main colours and an accent from the palette)
 //   2. Role defaults  every part has a role; the theme derives a style from role and tokens
 //   3. Part entries   settings for one specific part: theme[Slider::Ticks].shown = true;
@@ -280,20 +280,6 @@ struct Typography {
     TextType muted{ .size = 12.f, .font = {} };   ///< Role::MutedText
 };
 
-/// The theme's sizes. Pixels before GUI scaling. Layout and `Widget::measure` read these and the
-/// text sizes in `Typography`; nothing else defines a size.
-struct Metrics {
-    float scale = 1.f; ///< GUI scale: every size, including fonts, is multiplied by it.
-
-    float margin = 16.f;      ///< Between the window edge and floating panels, and between stacked panels.
-    float padding = 12.f;     ///< Between a panel's edge and its content.
-    float gap = 8.f;          ///< Between widgets.
-    float rowHeight = 28.f;   ///< Height of a one-line widget.
-    float panelWidth = 280.f; ///< Width of a floating panel that does not set its own.
-    float headerHeight = 36.f;
-    float scrollbarWidth = 6.f;
-};
-
 // ----- Theme -----
 
 /// A complete look: tokens, plus entries for individual parts.
@@ -304,7 +290,6 @@ class Theme {
 public:
     Palette palette;
     Shape shape;
-    Metrics metrics;
     Typography typography;
 
     /// The default font: used by every text type that does not name its own. Must be set before
@@ -322,7 +307,12 @@ public:
 
     /// The style of a part in a state, through all three layers, in the colours of a panel.
     /// Colours the theme does not have fall back to its first; `supports` tells beforehand.
-    [[nodiscard]] PartStyle resolve(const Part& part, State state = State::Normal, PanelColors colors = {}) const;
+    ///
+    /// `scale` is the factor for everything measured in pixels: text sizes, outlines, corner
+    /// radii, shadows. The UI passes the layout's (`Sizes::text`). Text sizes come out in whole
+    /// pixels.
+    [[nodiscard]] PartStyle
+    resolve(const Part& part, State state = State::Normal, PanelColors colors = {}, float scale = 1.f) const;
 
     /// Whether the theme has these main and accent colours. The UI checks this for every panel
     /// when it is built and when the theme is replaced, and throws `SetupError` if not.

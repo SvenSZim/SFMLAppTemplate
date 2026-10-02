@@ -2,6 +2,8 @@
 
 #include "atpl/ui/rect.hpp"
 
+#include <SFML/System/Vector2.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <span>
@@ -39,7 +41,8 @@ struct PackingResult {
     return std::clamp(refDim * dynamic, min, max);
 }
 
-/// Places items top to bottom into `columnCount` columns of equal width.
+/// Places items top to bottom into `columnCount` columns of equal width. `padding` is the space
+/// around everything and `spacing` the space between items, each horizontally and vertically.
 ///
 /// Columns are filled in order. The column height is raised step by step, starting from an even
 /// split, until everything fits, so the result is as low and as balanced as the item order allows.
@@ -49,8 +52,8 @@ struct PackingResult {
     float panelWidth,
     int columnCount,
     float maxPanelHeight,
-    float padding = 4.f,
-    float spacing = 4.f
+    sf::Vector2f padding = { 4.f, 4.f },
+    sf::Vector2f spacing = { 4.f, 4.f }
 );
 
 } // namespace atpl::layout

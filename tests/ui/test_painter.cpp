@@ -1,9 +1,9 @@
+#include "atpl/ui/setup.hpp"
 #include "atpl/ui/widget.hpp"
 #include "atpl/ui/widgets.hpp"
 
 #include "ui/render/draw_list.hpp"
 #include "ui/render/text_measurer.hpp"
-#include "ui/theme/metrics.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -86,17 +86,14 @@ public:
 
 struct Fixture {
     Theme theme = themes::colorful();
-    Metrics metrics;
+    Sizes sizes = Layout().sizesAt({ 1280.f, 720.f }); // the reference size: nothing is scaled
     DrawList list;
     FixedWidthText measurer;
 
-    Fixture() {
-        theme.font = std::make_shared<sf::Font>();
-        metrics = theme::scaled(theme.metrics);
-    }
+    Fixture() { theme.font = std::make_shared<sf::Font>(); }
 
     void paint(const Widget& widget, sf::Vector2f origin, sf::Vector2f size, State state = State::Normal) {
-        const Style style(theme, PanelColors{}, state, metrics);
+        const Style style(theme, PanelColors{}, state, sizes);
         Painter painter(list, origin, size, &measurer);
         widget.paint(painter, style);
     }
@@ -177,7 +174,7 @@ TEST_CASE("the same paint function gives the look of the state it is painted in"
 
 TEST_CASE("a style adds state for a single part", "[ui][painter]") {
     Fixture f;
-    const Style style(f.theme, PanelColors{}, State::Hovered, f.metrics);
+    const Style style(f.theme, PanelColors{}, State::Hovered, f.sizes);
 
     REQUIRE(style.state() == State::Hovered);
     REQUIRE(style.part(Switch::Track).color != f.theme.palette.accents[0].accent);
@@ -190,25 +187,25 @@ TEST_CASE("a style adds state for a single part", "[ui][painter]") {
 
 TEST_CASE("a style uses the colours of its panel", "[ui][painter]") {
     Fixture f;
-    const Style green(f.theme, PanelColors{ .main1 = 0, .main2 = 1, .accent = 1 }, State::Normal, f.metrics);
+    const Style green(f.theme, PanelColors{ .main1 = 0, .main2 = 1, .accent = 1 }, State::Normal, f.sizes);
 
     REQUIRE(green.part(Slider::Fill).color == f.theme.palette.accents[1].accent);
 }
 
-TEST_CASE("a style hands out the sizes with the GUI scale applied", "[ui][painter]") {
+TEST_CASE("a style hands out the layout's sizes and scales its parts with them", "[ui][painter]") {
     Theme theme;
-    theme.metrics.scale = 2.f;
-    const Metrics scaled = theme::scaled(theme.metrics);
-    const Style style(theme, PanelColors{}, State::Normal, scaled);
+    Layout layout;
+    layout.metrics.scale = 2.f;
+    const Sizes sizes = layout.sizesAt({ 1280.f, 720.f });
+    const Style style(theme, PanelColors{}, State::Normal, sizes);
 
-    REQUIRE(style.metrics().rowHeight == theme.metrics.rowHeight * 2.f);
-    REQUIRE(style.metrics().padding == theme.metrics.padding * 2.f);
-    REQUIRE(style.metrics().gap == theme.metrics.gap * 2.f);
-    REQUIRE(style.metrics().panelWidth == theme.metrics.panelWidth * 2.f);
-    REQUIRE(style.metrics().scale == 1.f); // already applied
+    REQUIRE(style.sizes().rowHeight == layout.metrics.rowHeight * 2.f);
+    REQUIRE(style.sizes().padding == sf::Vector2f(layout.metrics.padding, layout.metrics.padding) * 2.f);
+    REQUIRE(style.sizes().panelWidth == layout.metrics.panelWidth * 2.f);
 
-    // Scaling what is already scaled changes nothing.
-    REQUIRE(theme::scaled(scaled).rowHeight == scaled.rowHeight);
+    // Text sizes, outlines and radii follow the sizes' text factor.
+    REQUIRE(style.part(Panel::Title).textSize == theme.resolve(Panel::Title).textSize * 2.f);
+    REQUIRE(style.part(Panel::Background).radius == theme.resolve(Panel::Background).radius * 2.f);
 }
 
 TEST_CASE("the painter draws lines, curves and areas at the widget's place", "[ui][painter]") {

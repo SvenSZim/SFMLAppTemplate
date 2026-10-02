@@ -353,15 +353,14 @@ TEST_CASE("a part entry can give any part a gradient, and a plain colour removes
 
 // ----- GUI scale -----
 
-TEST_CASE("the GUI scale multiplies every size and no colour", "[ui][theme]") {
+TEST_CASE("the scale multiplies every size and no colour", "[ui][theme]") {
     Theme theme = themes::colorful();
     theme.font = std::make_shared<sf::Font>();
     const PartStyle surface = theme.resolve(Panel::Background);
     const PartStyle title = theme.resolve(Panel::Title);
     const PartStyle line = theme.resolve(Graph::Axis);
 
-    theme.metrics.scale = 2.f;
-    const PartStyle bigSurface = theme.resolve(Panel::Background);
+    const PartStyle bigSurface = theme.resolve(Panel::Background, State::Normal, {}, 2.f);
 
     REQUIRE(bigSurface.radius == surface.radius * 2.f);
     REQUIRE(bigSurface.borderThickness == surface.borderThickness * 2.f);
@@ -369,12 +368,12 @@ TEST_CASE("the GUI scale multiplies every size and no colour", "[ui][theme]") {
     REQUIRE(bigSurface.shadow.size == surface.shadow.size * 2.f);
     REQUIRE(bigSurface.shadow.offset == surface.shadow.offset * 2.f);
     REQUIRE(bigSurface.color == surface.color);
-    REQUIRE(theme.resolve(Panel::Title).textSize == title.textSize * 2.f);
-    REQUIRE(theme.resolve(Graph::Axis).thickness == line.thickness * 2.f);
+    REQUIRE(theme.resolve(Panel::Title, State::Normal, {}, 2.f).textSize == title.textSize * 2.f);
+    REQUIRE(theme.resolve(Graph::Axis, State::Normal, {}, 2.f).thickness == line.thickness * 2.f);
 
     // Sizes set by a part entry are scaled like the tokens.
     theme[Button::Face].radius = 3.f;
-    REQUIRE(theme.resolve(Button::Face).radius == 6.f);
+    REQUIRE(theme.resolve(Button::Face, State::Normal, {}, 2.f).radius == 6.f);
 }
 
 // ----- States -----

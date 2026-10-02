@@ -18,11 +18,11 @@ using Catch::Matchers::ContainsSubstring;
 namespace {
 
 // Round numbers, so the expected rectangles can be worked out by hand.
-Metrics metrics() {
-    Metrics result;
+Sizes sizes() {
+    Sizes result;
     result.margin = 10.f;
-    result.padding = 10.f;
-    result.gap = 5.f;
+    result.padding = { 10.f, 10.f };
+    result.gap = { 5.f, 5.f };
     result.headerHeight = 30.f;
     result.rowHeight = 20.f;
     result.panelWidth = 200.f;
@@ -86,7 +86,7 @@ const PanelId panel{ 0 };
 const Theme theme;
 
 layout::WidgetLayout lay(Store& store, float width = 200.f, std::optional<float> available = std::nullopt) {
-    return layout::layoutWidgets(store, panel, width, theme, metrics(), nullptr, available);
+    return layout::layoutWidgets(store, panel, width, theme, sizes(), nullptr, available);
 }
 
 FloatRect rectOf(const Store& store, std::uint32_t widget) {
@@ -348,22 +348,42 @@ TEST_CASE("widget layouts that can never work are refused", "[ui][layout][widget
 TEST_CASE(
     "a widget being measured can ask for its width, the theme's sizes and the size of text", "[ui][layout][widgets]"
 ) {
-    const Metrics sizes = metrics();
+    const Sizes available = sizes();
     const FixedWidthText measurer;
     const Part label{ Kind{ "test" }, "label", Role::Text };
     const float textSize = theme.resolve(label).textSize;
 
-    const MeasureContext context(180.f, theme, {}, sizes, &measurer);
+    const MeasureContext context(180.f, theme, {}, available, &measurer);
     REQUIRE(context.width() == 180.f);
-    REQUIRE(context.metrics().padding == 10.f);
+    REQUIRE(context.sizes().padding == sf::Vector2f(10.f, 10.f));
     REQUIRE(context.textSize("abcd", label) == sf::Vector2f(2.f * textSize, textSize)); // in the part's text size
     REQUIRE(context.wrappedTextHeight("some text", label, 50.f) == 2.f * textSize);
     REQUIRE(context.wrappedTextHeight("some text", label, 150.f) == textSize);
 
     // Without anything to measure text with, text has no size.
-    const MeasureContext blind(180.f, theme, {}, sizes);
+    const MeasureContext blind(180.f, theme, {}, available);
     REQUIRE(blind.textSize("abcd", label) == sf::Vector2f());
     REQUIRE(blind.wrappedTextHeight("some text", label, 50.f) == 0.f);
+}
+
+TEST_CASE("padding and gaps can differ horizontally and vertically", "[ui][layout][widgets]") {
+    // What scaling with the window does: wide spacing across, narrow spacing down.
+    Sizes wide = sizes();
+    wide.padding = { 20.f, 10.f };
+    wide.gap = { 10.f, 5.f };
+
+    Store packed = panelOf({ Item{ "a" }, Item{ "b" }, Item{ "c" }, Item{ "d" } }, 2);
+    layout::layoutWidgets(packed, panel, 200.f, theme, wide);
+    // Two columns of (200 - 40 - 10) / 2 = 75, 10 apart; rows 5 apart.
+    REQUIRE(rectOf(packed, 0) == FloatRect(20.f, 10.f, 75.f, 20.f));
+    REQUIRE(rectOf(packed, 1) == FloatRect(20.f, 35.f, 75.f, 20.f));
+    REQUIRE(rectOf(packed, 2) == FloatRect(105.f, 10.f, 75.f, 20.f));
+
+    Store grid = panelOf({ Item{ "a" }, Item{ "b" }, Item{ "c" } }, 2, 2);
+    const auto result = layout::layoutWidgets(grid, panel, 200.f, theme, wide);
+    REQUIRE(rectOf(grid, 1) == FloatRect(105.f, 10.f, 75.f, 20.f));
+    REQUIRE(rectOf(grid, 2) == FloatRect(20.f, 35.f, 75.f, 20.f));
+    REQUIRE(result.contentHeight == 65.f);
 }
 
 // ----- Everything together -----
@@ -376,13 +396,13 @@ TEST_CASE("a floating panel is as high as its header and its widgets", "[ui][lay
     };
     Store store{ setup };
     layout::prepare(store, {});
-    layout::arrange(store, { 800.f, 600.f }, {}, theme, metrics());
+    layout::arrange(store, { 800.f, 600.f }, {}, theme, sizes());
 
     // Content: 10 + 20 + 5 + 30 + 10 = 75, below a header of 30.
     REQUIRE(store.panel(PanelId{ 0 }).rect == FloatRect(10.f, 10.f, 200.f, 105.f));
     REQUIRE(store.panel(PanelId{ 1 }).rect == FloatRect(10.f, 125.f, 200.f, 70.f));
     REQUIRE(rectOf(store, 1) == FloatRect(10.f, 35.f, 180.f, 30.f));
-    REQUIRE(layout::contentOverflow(store.panel(PanelId{ 0 }), metrics()) == 0.f);
+    REQUIRE(layout::contentOverflow(store.panel(PanelId{ 0 }), sizes()) == 0.f);
 }
 
 TEST_CASE("a view in a grid panel takes the height the other widgets leave", "[ui][layout]") {
@@ -392,7 +412,7 @@ TEST_CASE("a view in a grid panel takes the height the other widgets leave", "[u
     };
     Store store{ setup };
     layout::prepare(store, {});
-    layout::arrange(store, { 800.f, 600.f }, {}, theme, metrics());
+    layout::arrange(store, { 800.f, 600.f }, {}, theme, sizes());
 
     // The panel fills the window inside the margins: 780 x 580, of which 550 are content.
     REQUIRE(store.panel(panel).rect == FloatRect(10.f, 10.f, 780.f, 580.f));
@@ -403,7 +423,7 @@ TEST_CASE("a view in a grid panel takes the height the other widgets leave", "[u
     REQUIRE(store.view(ViewId{ 0 }).rect == FloatRect(20.f, 75.f, 760.f, 505.f));
 
     // A larger window gives the view more room, and nothing else.
-    layout::arrange(store, { 1000.f, 700.f }, {}, theme, metrics());
+    layout::arrange(store, { 1000.f, 700.f }, {}, theme, sizes());
     REQUIRE(rectOf(store, 0) == FloatRect(10.f, 10.f, 960.f, 20.f));
     REQUIRE(rectOf(store, 1) == FloatRect(10.f, 35.f, 960.f, 605.f));
 }
@@ -418,13 +438,13 @@ TEST_CASE("a panel that cannot be as high as its content says how far it has to 
 
     // Content: 10 + 300 + 5 + 300 + 10 = 625. In a window of 400 the panel is 380 high: 350 for
     // content.
-    layout::arrange(store, { 800.f, 400.f }, {}, theme, metrics());
+    layout::arrange(store, { 800.f, 400.f }, {}, theme, sizes());
     REQUIRE(store.panel(panel).rect.height() == 380.f);
     REQUIRE(store.panel(panel).contentHeight == 625.f);
-    REQUIRE(layout::contentOverflow(store.panel(panel), metrics()) == 275.f);
+    REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 275.f);
 
-    layout::arrange(store, { 800.f, 1000.f }, {}, theme, metrics());
-    REQUIRE(layout::contentOverflow(store.panel(panel), metrics()) == 0.f);
+    layout::arrange(store, { 800.f, 1000.f }, {}, theme, sizes());
+    REQUIRE(layout::contentOverflow(store.panel(panel), sizes()) == 0.f);
 }
 
 TEST_CASE("the widgets of a panel that is collapsed or not shown are not visible", "[ui][layout]") {
@@ -433,7 +453,7 @@ TEST_CASE("the widgets of a panel that is collapsed or not shown are not visible
     Store store{ setup };
     layout::prepare(store, {});
     const auto visible = [&] {
-        layout::arrange(store, { 800.f, 600.f }, {}, theme, metrics());
+        layout::arrange(store, { 800.f, 600.f }, {}, theme, sizes());
         return store.widget(WidgetId{ 0 }).visible;
     };
     REQUIRE(visible());

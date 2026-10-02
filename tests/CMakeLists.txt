@@ -56,6 +56,7 @@ atpl_add_tests(ui
   ui/test_event.cpp
   ui/test_frame.cpp
   ui/test_grid_packing.cpp
+  ui/test_layout_theme.cpp
   ui/test_model.cpp
   ui/test_name_index.cpp
   ui/test_packing.cpp

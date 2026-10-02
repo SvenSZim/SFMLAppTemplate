@@ -1,10 +1,12 @@
 #pragma once
 
+#include "atpl/ui/layout.hpp"
 #include "atpl/ui/placement.hpp"
 #include "atpl/ui/rect.hpp"
 #include "atpl/ui/theme.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace atpl::model {
@@ -18,6 +20,11 @@ struct Panel {
     /// An anchor or grid cells. A panel that left its place in the grid open (`GridSpan`) has
     /// its cells here once layout has found them, when the UI is built.
     Placement placement = Anchor::TopLeft;
+
+    /// What the setup said, before the layout theme filled in what it left open.
+    std::optional<Placement> declaredPlacement;
+    std::optional<bool> declaredCollapsible;
+    PanelLayout layout; ///< What the panel does differently from the layout theme.
     int columns = 1;
 
     /// Whether the widgets are placed in a grid of equal cells instead of being packed, and how
@@ -25,7 +32,7 @@ struct Panel {
     bool grid = false;
     int rows = 0;
 
-    float width = 0.f; ///< As in the setup: before GUI scaling, 0 for the theme's default.
+    float width = 0.f; ///< As in the setup: before scaling, 0 for the layout theme's default.
     PanelColors colors;
     bool collapsible = true;
 

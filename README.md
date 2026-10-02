@@ -41,7 +41,7 @@ ctest --test-dir build
 
 Some tests open a window for a moment or draw off-screen. On a machine without a display, leave them out with `ctest --test-dir build -LE display`.
 
-Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with a few empty panels, which are placed anew when the window is resized. `minimal --profiler` shows what the UI costs.
+Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with a few empty panels, which are placed anew when the window is resized. `minimal --layout dashboard` chooses another layout theme (`overlay`, `dashboard`, `cards`, `compact`), and `minimal --profiler` shows what the UI costs.
 
 `build/bin/atpl_render_bench` measures what the UI's rendering costs on a scene of 100 widgets; the results for the reference machine are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md#55-targets-and-what-was-measured).
 
