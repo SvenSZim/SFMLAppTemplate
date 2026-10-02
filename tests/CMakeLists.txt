@@ -66,6 +66,7 @@ endforeach()
 
 add_library(atpl_api_check OBJECT
   ${atpl_header_check_sources}
+  api/app_usage.cpp
   api/core_usage.cpp
   api/event_usage.cpp
   api/ui_usage.cpp
