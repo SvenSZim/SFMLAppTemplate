@@ -48,6 +48,7 @@ SFMLAppTemplate/
 │  ├─ ui/
 │  │  ├─ model/
 │  │  ├─ input/
+│  │  ├─ binding/
 │  │  ├─ layout/
 │  │  ├─ render/
 │  │  ├─ theme/
@@ -98,11 +99,11 @@ The exact utility list for the first version is Q5.
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
 | `setup.hpp` | `UISetup` (background view, grid, panels), `PanelSetup`. |
 | `placement.hpp` | `Anchor`, `GridCell`, `Placement` (D25). `GridCell` is used for panels in the window and for widgets in a panel (D27). |
-| `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `View` (D24). `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
+| `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
-| `theme.hpp` | `Theme` (tokens, part entries), `Metrics`, built-in themes, `Style`, `Kind`, `Part`, `Role` (P5, P11). |
-| `widget.hpp` | `Widget` interface, `Painter`, input and measure contexts, for app-defined widgets (P1). |
+| `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Metrics`, `Typography`; `Theme` and the built-in themes (P5, P11, D30). |
+| `widget.hpp` | `Widget`, the interface widget types implement; `MeasureContext`, `InputContext`, `UpdateContext`, `Style`, `Painter` (P1, D30). |
 | `rect.hpp` | Rectangle type. From `ui/utils/rect`, trimmed. |
 
 ### 4.2 Internal modules (`src/ui/`)
@@ -110,8 +111,9 @@ The exact utility list for the first version is Q5.
 | Module | Owns | Reads | Must not |
 |---|---|---|---|
 | `model/` | Panels, widget slots, views, name index, lifetime | — | Lay out, draw, handle input |
-| `input/` | Hit-testing, hover, press, drag capture, keyboard focus, what the UI consumes, emitting events | model, layout rects | Set geometry |
+| `input/` | Hit-testing, hover, press, drag capture, keyboard focus, what the UI consumes, emitting events (after asking `binding/` to write a changed value) | model, layout rects | Set geometry |
 | `layout/` | Every rectangle and size: panel placement, widget packing inside panels, view regions, visibility | model, widget `measure`, `Metrics` | Touch interaction state or colours |
+| `binding/` | Making a `Param<T>`, a `Series` or two functions look like a binding; syncing: each frame it compares each bound widget's revision and, only on a change, hands the widget the new value and marks its panel dirty; it writes the user's changes into the binding | model | Touch layout, drawing or interaction state; raise events |
 | `theme/` | Tokens, `Metrics`, role defaults, part entries, built-in themes, resolving a `Style` for a part and state | — | Decide any rectangle or position |
 | `render/` | Draw list, tessellation, per-panel batches, text cache, draw order, frame flag, profiler | model, layout rects, theme | Modify the model |
 | `widgets/` | One file per widget type: its behaviour only | its own state, contexts handed to it | Position itself, issue draw calls, read theme tokens directly |
@@ -124,6 +126,7 @@ src/ui/
 ├─ ui.cpp
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp
 ├─ input/    input_system.hpp/.cpp
+├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
 ├─ layout/   layout_manager.hpp/.cpp  floating.cpp  grid.cpp  packing.hpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp
@@ -142,27 +145,42 @@ src/ui/
   | name, panel | model (at setup) |
   | rectangle (panel-local), visible | layout |
   | hovered, pressed, focused | input |
-  | binding to a `Param<T>` | app, through `WidgetHandle::bind` |
+  | binding, and the revision last seen | app, through `WidgetHandle::bind`; kept in step by `binding/` |
   | the widget object itself | model (at setup) |
 
 - **Widget object**: an implementation of the `Widget` interface. It holds only type-specific state (slider value, animation progress, dropdown open).
 - **Ids** are dense indices, so every lookup by id is a direct array access. Names are resolved to ids once, when a handle is requested.
 - **Names**: panel names are unique; widget names are unique per panel. `"Speed"` works if it is unique in the whole UI, otherwise `"Controls/Speed"`. Duplicates and unknown names fail loudly (Q8).
 
-### 4.4 The widget interface (P1)
+### 4.4 The widget interface (P1, D30)
 
 ```cpp
 class Widget {
 public:
     virtual ~Widget() = default;
-    virtual Size measure(const MeasureContext&) const = 0;        // layout asks for the wanted size
-    virtual bool handleInput(const InputEvent&, InputContext&);   // true = consumed
-    virtual void update(float dt, UpdateContext&);                // animations, bound values
-    virtual void paint(Painter&, const Style&) const = 0;         // emit primitives
+
+    virtual SizeRequest measure(const MeasureContext&) const = 0;  // height wanted at the offered width
+    virtual bool handleInput(const Event&, InputContext&);         // true = used
+    virtual void update(float dt, UpdateContext&);                 // animations
+    virtual void paint(Painter&, const Style&) const = 0;          // emit shapes
+
+    virtual bool accepts(ValueKind) const;                         // what it can be bound to
+    virtual bool editsValue() const;
+    virtual std::optional<Value> value() const;
+    virtual void setValue(const Value&);                           // from the binding or the app
+    virtual void setSeries(const SeriesBinding*);                  // graphs only
 };
 ```
 
-A widget acts on the outside world only through the context it is handed: `markDirty()`, `emit(Event)`, `captureInput()`, and reading or writing its bound `Param<T>`. Adding a widget type means adding one file in `widgets/` and one descriptor in `widgets.hpp`. An application adds its own by implementing the interface.
+Rules:
+- **Size.** A widget answers with a height for the width it is offered, and may ask to stretch over the height left in its panel (views). It never decides a width.
+- **Input.** `handleInput` gets the same `Event` types the application gets; the context converts pointer positions into the widget's own coordinates. Hovered, pressed, focused and disabled are kept by the UI and read through the context.
+- **Values.** A widget never sees what it is bound to. It keeps its own copy of its value; `binding/` hands it new values through `setValue`, and the widget reports the user's changes through `InputContext::changeValue(value, final)` or `press()`. An app-defined widget therefore contains no binding code. Graphs are the exception: they are handed their series source and read from it.
+- **Outside world.** A widget acts only through the context it is handed: `markDirty()`, `capturePointer()`, `requestFocus()`, `changeValue()`, `press()`.
+
+Adding a widget type means one file in `widgets/` and one descriptor in `widgets.hpp`. An application adds its own by implementing the interface and writing a descriptor; `tests/api/widget_usage.cpp` shows a complete one.
+
+Known gap: a dropdown's open list has to draw above other panels and take input outside the widget's rectangle. The interface gets a call for that with the dropdown itself (WP 3.11).
 
 ### 4.5 Bindings (P2, D10, P10)
 
@@ -178,6 +196,7 @@ A widget type states the **kind of value** it works with, not a C++ type. It bin
 | Text input | text | `Param<std::string>` |
 | Dropdown | index into its options | `Param<int>` or `Param<AnyEnum>` |
 | Graph | series, read-only | `Series` |
+| Paragraph | text (its body), read-only | `Param<std::string>` |
 | View | none (draw callback) | — |
 
 Rules:
@@ -273,34 +292,53 @@ widget.paint() ──► Painter ──► draw list ──► PanelBatch (one v
 
 Draw order per frame: background view → panels in order (shapes, views, text) → overlay layer → profiler.
 
-### 4.10 Painting and theme (P5, P11)
+### 4.10 Painting and theme (P5, P11, D30)
 
-`paint` returns nothing. It calls the `Painter`, which appends primitives to the panel's draw list:
+`paint` returns nothing. It calls the `Painter`, which appends shapes to the panel's draw list, in the widget's own coordinates:
 
 ```cpp
-painter.box(trackRect, style.part(Track));
-painter.box(knobRect,  style.part(Knob));
-painter.text(labelRect, name, style.part(Label));
-if (auto ticks = style.part(Ticks))            // optional part
-    for (auto& r : tickRects) painter.box(r, *ticks);
+painter.box(trackRect, style.part(Slider::Track));
+painter.box(fillRect,  style.part(Slider::Fill));
+painter.box(knobRect,  style.part(Slider::Knob));
+painter.text(labelRect, label, style.part(Slider::Label));
+for (const FloatRect& tick : tickRects)
+    painter.box(tick, style.part(Slider::Ticks));     // optional part: skipped unless the theme shows it
 ```
 
 Who decides what:
-- **The widget** declares its kind and its parts, and where each part is. For every part it states a **role** (surface, track, accent, handle, text, line) and whether it is shown by default.
+- **The widget** declares its parts and where each one is. For every part it states a **role** and whether it is shown by default.
 - **The theme** decides how each part looks and whether it is shown.
-- **The painter** turns rectangle plus style into triangles. A box style holds fill, border colour and thickness, corner radius (0 = sharp, "full" = pill or circle) and shadow.
+- **The painter** turns rectangle plus style into triangles, and skips parts that are not shown. Its calls are `box`, `line`, `polyline`, `text` and `wrappedText`.
 - **The descriptor** decides what the widget is: range, step count, option labels. Tick positions come from the step count; whether ticks are drawn comes from the theme.
 
-Kinds and parts are open identifiers declared by the widget, not enums owned by the template:
+Roles:
+
+| Role | For |
+|---|---|
+| `Surface` | backgrounds that hold other things |
+| `Track` | recessed areas |
+| `Accent` | the highlighted part, in the main colour |
+| `Handle` | things to grab or click |
+| `Line` | thin strokes |
+| `Title` | panel titles |
+| `Heading` | headings inside a panel |
+| `Text` | values, button labels, paragraphs |
+| `MutedText` | widget labels, placeholders, footers |
+
+The last four are the text types. A widget never chooses a font or a text size; it gives each piece of text a part, and the part's role says which type of text it is.
+
+Kinds and parts are open identifiers, declared on the widget's descriptor (D24), not enums owned by the template:
 
 ```cpp
-struct Slider {                       // the public descriptor type (D24)
-    static constexpr Kind kind{"slider"};
-    static constexpr Part Track{kind, "track", Role::Track};
-    static constexpr Part Fill {kind, "fill",  Role::Accent};
-    static constexpr Part Knob {kind, "knob",  Role::Handle};
-    static constexpr Part Ticks{kind, "ticks", Role::Line, Shown::No};
-    static constexpr Part Label{kind, "label", Role::Text};
+struct Slider {
+    static constexpr Kind kind{ "slider" };
+    static constexpr Part Track{ kind, "track", Role::Track };
+    static constexpr Part Fill{ kind, "fill", Role::Accent };
+    static constexpr Part Knob{ kind, "knob", Role::Handle };
+    static constexpr Part Ticks{ kind, "ticks", Role::Line, Shown::No };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part ValueText{ kind, "value", Role::Text };
+    ...
 };
 ```
 
@@ -308,17 +346,21 @@ The theme resolves a part's style in three layers; a later layer overrides an ea
 
 | Layer | What | Example |
 |---|---|---|
-| 1. Tokens | Global values | primary colour, standard radius, standard thickness |
+| 1. Tokens | Global values, in four groups: `palette` (colours), `shape` (radii, thicknesses, shadow), `metrics` (sizes, GUI scale), `typography` (size and font per text type) | `theme.palette.accent = ...;` `theme.typography.title = {.size = 18, .font = bold};` |
 | 2. Role defaults | Style derived from the part's role and the tokens; visibility from the part's own default | every track part is neutral with a small radius; ticks hidden |
-| 3. Part entries | A specific setting for one part | `theme[Slider::Ticks].shown = true;` `theme[Panel::Outline].thickness = 5;` |
+| 3. Part entries | Settings for one part; only the fields that are set have an effect | `theme[Slider::Ticks].shown = true;` `theme[Button::Face].radius = 0;` `theme[Button::Label].font = bold;` |
+
+States: the UI tracks hovered, pressed, focused and disabled per widget; a widget can add `Active` for a part that is "on". The theme derives the look of each state from the part's base colour.
 
 Consequences:
-- The simple token theme uses layers 1 and 2 only. It needs no per-widget entries.
+- A theme that sets only tokens is complete. It needs no per-widget entries.
 - App-defined widgets declare their own kind and parts and look right under every theme, including themes that have never heard of them.
 - More detailed styling later (per panel, per widget instance) is another override layer on top; widgets do not change.
 - A different structure (a part the widget does not declare) needs widget code, not a theme change.
 
-`Metrics` (padding, gaps, row heights, font sizes) are tokens too, but only `layout/` and `measure()` read them (4.6).
+Sizes come from `metrics` and from the text sizes in `typography`. Only `layout/` and `measure()` read them (4.6).
+
+The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme`.
 
 ## 5. `app` — running an application
 
@@ -337,7 +379,7 @@ Main thread:
 |---|---|---|
 | 1 | `input` | Window events are read. Widgets react, bound parameters are written, panels are marked dirty, events are emitted. |
 | 2 | application | Reads the events. Handles them or pushes commands to the simulation. |
-| 3 | `widgets`, `layout` | Animations advance. Bound parameters are read for display. Layout runs if something changed size. |
+| 3 | `binding`, `widgets`, `layout` | Bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
 | 4 | `render` | If nothing needs a redraw, the frame is skipped and the loop waits for input (with a timeout of one display frame). Otherwise dirty panels are rebuilt and everything is drawn. |
 
 Simulation thread, per tick: take pending commands → advance the simulation → publish a snapshot → request a redraw.

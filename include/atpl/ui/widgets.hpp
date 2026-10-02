@@ -4,6 +4,7 @@
 #include "atpl/core/series.hpp"
 #include "atpl/ui/binding.hpp"
 #include "atpl/ui/placement.hpp"
+#include "atpl/ui/theme.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -19,7 +20,7 @@ class Widget; // the interface every widget type implements, see widget.hpp
 
 // The widget pool.
 //
-// Each widget has one public type, its descriptor: `Button`, `Slider`, ... A descriptor says what
+// Each widget has one public type, its descriptor: `Button`, `Slider`, `Paragraph`, ... A descriptor says what
 // the widget is (name, range, options), and can take what it is bound to straight away:
 //
 //     .widgets = {
@@ -28,6 +29,10 @@ class Widget; // the interface every widget type implements, see widget.hpp
 //         Switch("Gravity"),                     // bound later: ui.widget("Gravity").bind(...)
 //         Graph("Tick time", stats.tickTimes),
 //     }
+//
+// Each descriptor also names its widget's parts (`Slider::Track`, `Slider::Ticks`, ...), which is
+// how a theme refers to them: `theme[Slider::Ticks].shown = true;`. Parts marked `Shown::No` are
+// optional extras that a theme can switch on.
 //
 // Every widget has a name, unique within its panel. The name is how the application refers to the
 // widget and, unless `label` is set, also the text shown next to it.
@@ -41,6 +46,10 @@ struct ButtonOptions {
 
 /// A push button. Raises an event when pressed.
 struct Button {
+    static constexpr Kind kind{ "button" };
+    static constexpr Part Face{ kind, "face", Role::Handle };
+    static constexpr Part Label{ kind, "label", Role::Text };
+
     std::string name;
     ButtonOptions options;
     std::optional<AnyBinding> binding;
@@ -60,6 +69,11 @@ struct SwitchOptions {
 
 /// An on/off switch. Kind: Bool.
 struct Switch {
+    static constexpr Kind kind{ "switch" };
+    static constexpr Part Track{ kind, "track", Role::Track };
+    static constexpr Part Knob{ kind, "knob", Role::Handle };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+
     std::string name;
     SwitchOptions options;
     std::optional<AnyBinding> binding;
@@ -82,6 +96,14 @@ struct SliderOptions {
 
 /// A slider over a range of numbers. Kind: Number.
 struct Slider {
+    static constexpr Kind kind{ "slider" };
+    static constexpr Part Track{ kind, "track", Role::Track };
+    static constexpr Part Fill{ kind, "fill", Role::Accent };
+    static constexpr Part Knob{ kind, "knob", Role::Handle };
+    static constexpr Part Ticks{ kind, "ticks", Role::Line, Shown::No };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part ValueText{ kind, "value", Role::Text };
+
     std::string name;
     SliderOptions options;
     std::optional<AnyBinding> binding;
@@ -102,6 +124,11 @@ struct ProgressBarOptions {
 
 /// A bar that shows how far a number is between `min` and `max`. Read-only. Kind: Number.
 struct ProgressBar {
+    static constexpr Kind kind{ "progress_bar" };
+    static constexpr Part Track{ kind, "track", Role::Track };
+    static constexpr Part Fill{ kind, "fill", Role::Accent };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+
     std::string name;
     ProgressBarOptions options;
     std::optional<AnyBinding> binding;
@@ -123,6 +150,10 @@ struct TextDisplayOptions {
 /// A label with a value next to it. Read-only. Kind: Text; numbers, switches and enums are
 /// accepted too and shown as text.
 struct TextDisplay {
+    static constexpr Kind kind{ "text_display" };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part ValueText{ kind, "value", Role::Text };
+
     std::string name;
     TextDisplayOptions options;
     std::optional<AnyBinding> binding;
@@ -144,6 +175,13 @@ struct TextInputOptions {
 
 /// A single line of editable text. Kind: Text.
 struct TextInput {
+    static constexpr Kind kind{ "text_input" };
+    static constexpr Part Field{ kind, "field", Role::Track };
+    static constexpr Part Content{ kind, "content", Role::Text };
+    static constexpr Part Placeholder{ kind, "placeholder", Role::MutedText };
+    static constexpr Part Cursor{ kind, "cursor", Role::Accent };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+
     std::string name;
     TextInputOptions options;
     std::optional<AnyBinding> binding;
@@ -164,6 +202,15 @@ struct DropdownOptions {
 ///
 /// Bound to an enum, the enumerators must be numbered like the entries: the first entry is 0.
 struct Dropdown {
+    static constexpr Kind kind{ "dropdown" };
+    static constexpr Part Field{ kind, "field", Role::Track };
+    static constexpr Part Selected{ kind, "selected", Role::Text };
+    static constexpr Part Arrow{ kind, "arrow", Role::Line };
+    static constexpr Part List{ kind, "list", Role::Surface };
+    static constexpr Part Entry{ kind, "entry", Role::Text };
+    static constexpr Part Highlight{ kind, "highlight", Role::Accent };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+
     std::string name;
     std::vector<std::string> entries;
     DropdownOptions options;
@@ -188,6 +235,13 @@ struct GraphOptions {
 
 /// A line graph of a run of samples. Read-only. Kind: Series.
 struct Graph {
+    static constexpr Kind kind{ "graph" };
+    static constexpr Part Background{ kind, "background", Role::Track };
+    static constexpr Part Curve{ kind, "curve", Role::Accent };
+    static constexpr Part Axis{ kind, "axis", Role::Line, Shown::No };
+    static constexpr Part Grid{ kind, "grid", Role::Line, Shown::No };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+
     std::string name;
     GraphOptions options;
     std::optional<AnyBinding> binding;
@@ -195,6 +249,39 @@ struct Graph {
     Graph(std::string name, GraphOptions options = {});
     Graph(std::string name, Series& samples, GraphOptions options = {});
     Graph(std::string name, SeriesBinding& samples, GraphOptions options = {});
+
+    [[nodiscard]] std::unique_ptr<Widget> create() const;
+};
+
+struct ParagraphOptions {
+    std::string heading; ///< Shown as a heading. Empty: no heading.
+    std::string text;    ///< Shown as body text, wrapped to the panel's width. Empty: no body.
+    std::string footer;  ///< Shown below in muted text, wrapped. Empty: no footer.
+};
+
+/// Text in a panel: a heading, a body and a footer, each optional. With only a heading it is a
+/// section heading; with only a body, a paragraph; with only a footer, a hint.
+///
+///     Paragraph("Rendering", {.heading = "Rendering"})
+///     Paragraph("Help", {.text = "Drag to move the view. Scroll to zoom."})
+///     Paragraph("About", {.heading = "Ants", .text = "...", .footer = "v1.5"})
+///
+/// Each of the three is a part of its own text type, so a theme styles them separately.
+/// The body can be bound; it then shows the bound text instead of `text`. Read-only. Kind: Text.
+/// Unlike other widgets, the name is not shown anywhere.
+struct Paragraph {
+    static constexpr Kind kind{ "paragraph" };
+    static constexpr Part Heading{ kind, "heading", Role::Heading };
+    static constexpr Part Body{ kind, "body", Role::Text };
+    static constexpr Part Footer{ kind, "footer", Role::MutedText };
+
+    std::string name;
+    ParagraphOptions options;
+    std::optional<AnyBinding> binding;
+
+    Paragraph(std::string name, ParagraphOptions options = {});
+    Paragraph(std::string name, Param<std::string>& text, ParagraphOptions options = {});
+    Paragraph(std::string name, TextBinding& text, ParagraphOptions options = {});
 
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
@@ -209,6 +296,9 @@ struct ViewOptions {
 /// A region the application draws into itself: the main view of a simulation, a minimap, ...
 /// Its name is what `UI::view(name)` finds. Takes no binding; it has a draw function instead.
 struct View {
+    static constexpr Kind kind{ "view" };
+    static constexpr Part Frame{ kind, "frame", Role::Line, Shown::No };
+
     std::string name;
     ViewOptions options;
 

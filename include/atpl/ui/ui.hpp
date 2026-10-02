@@ -44,6 +44,14 @@ public:
 
     [[nodiscard]] PanelHandle panel(std::string_view name);
 
+    // Looks.
+
+    /// The theme in use.
+    [[nodiscard]] const Theme& theme() const;
+
+    /// Replaces the theme. Everything is laid out and drawn anew with the next frame.
+    void setTheme(Theme theme);
+
     // One frame, in this order.
 
     /// Reads the window's pending input. Widgets react, bound values are written, and events
