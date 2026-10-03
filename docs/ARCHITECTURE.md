@@ -542,8 +542,10 @@ Rules:
 ### 5.2 The application loop
 
 - Closing the window ends the application by default (`AppSetup::quitOnClose`). Turned off, the request only arrives as a `WindowClosed` event.
-- `App` loads the bundled font if the theme has none.
-- The loop only spins while there is something to do (section 6), so `onUpdate` is not a clock.
+- `App` loads the bundled font if the theme has none, before the window opens, so a missing resource is reported first.
+- The window follows `WindowSetup`: title, size, the smallest size (`minimumSize`), whether it can be resized, anti-aliasing and vsync (on by default). Full screen uses the desktop's resolution, not `size`. Resizing is the UI's: it places everything anew (WP 3.2).
+- One pass (WP 4.2): `UI::handleInput()`, then every event to the `onEvent` handler in order (and `WindowClosed` ends the run if `quitOnClose`), then `onUpdate(dt)` with the real time since the last pass, then `UI::update()` and `UI::draw()`. `quit()` may come from any thread; it asks for a frame so that the loop does not wait for input once more, and `run()` returns its code after the current pass.
+- While nothing happens the loop waits for input, but never longer than one display frame (section 6), so that what another thread asks to show appears at once. An idle application therefore runs `onUpdate` about once per display frame; it is still not a clock: use its `dt`.
 
 ## 6. One frame
 

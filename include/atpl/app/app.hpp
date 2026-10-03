@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 
 namespace atpl {
@@ -22,6 +23,8 @@ struct WindowSetup {
     sf::Vector2u minimumSize = { 0u, 0u };
 
     bool resizable = true;
+
+    /// Fills the screen at the desktop's resolution; `size` is not used then.
     bool fullscreen = false;
 
     /// Samples per pixel for smooth edges. 0: off.
@@ -86,8 +89,9 @@ public:
     /// updated, with the real time since the last call in seconds. For main-thread work that is
     /// not a reaction to an event. Replaces an earlier function.
     ///
-    /// The loop only spins while there is something to do; an idle application calls this a few
-    /// times per second at most. Do not use it as a clock.
+    /// While nothing happens the loop waits for input, but never longer than one display frame,
+    /// so that what other threads ask to show appears without delay: an idle application calls
+    /// this about once per display frame. Do not use it as a clock; use `dt`.
     void onUpdate(std::function<void(float dt)> handler);
 
     /// Runs the application without a simulation until `quit()` or until the window is closed.
@@ -101,6 +105,10 @@ public:
 
     /// Ends `run()` after the current pass. May be called from any thread.
     void quit(int exitCode = 0);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace atpl
