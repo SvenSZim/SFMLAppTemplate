@@ -53,11 +53,12 @@ void placeOverlays(
     }
     model::WidgetSlot& slot = store.widget(*open);
     const model::Panel& panel = store.panel(slot.panel);
-    const FloatRect anchor(
-        panel.rect.position() + sf::Vector2f(0.f, sizes.headerHeight) + slot.rect.position(), slot.rect.size()
-    );
     const MeasureContext context(slot.rect.width(), theme, slot.colors, sizes, measurer);
-    slot.overlayRect = placeOverlay(anchor, window, sizes.margin, sizes.gap.y * 0.5f, [&](float maxHeight) {
+    const FloatRect anchor = slot.widget->overlayAnchor(context, slot.rect.size());
+    const sf::Vector2f origin = panel.rect.position() + sf::Vector2f(0.f, sizes.headerHeight) + slot.rect.position();
+    slot.overlayAnchor = FloatRect(origin + anchor.position(), anchor.size());
+    // Attached: right at the anchor, no gap between them.
+    slot.overlayRect = placeOverlay(slot.overlayAnchor, window, sizes.margin, 0.f, [&](float maxHeight) {
         return slot.widget->overlaySize(context, maxHeight);
     });
 }

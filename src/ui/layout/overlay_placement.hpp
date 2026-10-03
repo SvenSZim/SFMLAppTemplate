@@ -35,7 +35,8 @@ namespace atpl::layout {
     const std::function<sf::Vector2f(float)>& sizeFor
 );
 
-/// Places the open overlay, if there is one, and forgets the places of all others.
+/// Places the open overlay, if there is one, at its widget's anchor and without a gap, and
+/// forgets the places of all others.
 void placeOverlays(
     model::Store& store,
     std::optional<WidgetId> open,

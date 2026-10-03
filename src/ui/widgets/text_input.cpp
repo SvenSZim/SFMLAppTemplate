@@ -12,6 +12,7 @@
 #include <cmath>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace atpl {
@@ -41,8 +42,10 @@ public:
 
         if (const auto* press = event.getIf<PointerPressed>()) {
             if (press->button == sf::Mouse::Button::Left) {
+                // Where the pointer is in the text as it is shown now.
+                const Shown shown = visible(area.width(), has(context.state(), State::Focused), width);
+                m_cursor = cursorAt(context.local(press->pointer).x - area.left() - shown.textLeft, shown, width);
                 context.requestFocus();
-                m_cursor = cursorAt(context.local(press->pointer).x - area.left(), width);
                 context.markDirty();
             }
             return true;
@@ -55,13 +58,14 @@ public:
         }
         if (const auto* key = event.getIf<KeyPressed>()) {
             handleKey(*key, context);
-            keepCursorVisible(area.width(), width);
+            static_cast<void>(visible(area.width(), true, width)); // scrolls with the cursor
             return true;
         }
         return event.is<PointerReleased>() || event.is<PointerMoved>();
     }
 
     void focusLost(InputContext& context) override {
+        m_first = 0; // shown from its start again
         if (std::exchange(m_unreported, false)) {
             context.changeValue(Value(widgets::encodeUtf8(m_text)), true); // the editing is over
         }
@@ -85,21 +89,31 @@ public:
         const auto width = [&](std::u32string_view text) {
             return painter.textSize(widgets::encodeUtf8(text), content).x;
         };
-        keepCursorVisible(area.width(), width);
+        const bool editing = has(style.state(), State::Focused);
+        const Shown shown = visible(area.width(), editing, width);
 
-        // What fits from the first visible character on.
-        std::size_t end = m_first;
-        while (end < m_text.size() &&
-               width(std::u32string_view(m_text).substr(m_first, end + 1 - m_first)) <= area.width()) {
-            ++end;
+        // What fits, with dots at the side where text is hidden.
+        const std::u32string_view all(m_text);
+        const float textWidth = width(all.substr(shown.first, shown.end - shown.first));
+        const float left = area.left() + shown.textLeft;
+        if (shown.dotsLeft) {
+            painter.text(FloatRect(area.left(), area.top(), shown.textLeft + 1.f, area.height()), dots, content);
         }
-        const std::u32string_view shown = std::u32string_view(m_text).substr(m_first, end - m_first);
         painter.text(
-            FloatRect(area.left(), area.top(), area.width() + 1.f, area.height()), widgets::encodeUtf8(shown), content
+            FloatRect(left, area.top(), textWidth + 1.f, area.height()),
+            widgets::encodeUtf8(all.substr(shown.first, shown.end - shown.first)),
+            content
         );
+        if (shown.dotsRight) {
+            painter.text(
+                FloatRect(left + textWidth, area.top(), area.right() - left - textWidth + 1.f, area.height()),
+                dots,
+                content
+            );
+        }
 
-        if (has(style.state(), State::Focused)) {
-            const float x = area.left() + width(std::u32string_view(m_text).substr(m_first, m_cursor - m_first));
+        if (editing) {
+            const float x = left + width(all.substr(shown.first, m_cursor - shown.first));
             const float height = std::min(painter.textSize("Ag", content).y * 1.2f, area.height());
             const float thickness = std::max(std::round(style.sizes().text * 1.5f), 1.f);
             PartStyle cursor = style.part(TextInput::Cursor);
@@ -124,6 +138,61 @@ public:
 private:
     using Width = std::function<float(std::u32string_view)>;
 
+    /// What marks hidden text at either side.
+    static constexpr std::string_view dots = "...";
+
+    /// The part of the text that is shown, with dots where text is hidden.
+    struct Shown {
+        std::size_t first = 0; ///< The first character shown.
+        std::size_t end = 0;   ///< One past the last.
+        float textLeft = 0.f;  ///< Where it starts in the text area: after the dots at the left.
+        bool dotsLeft = false;
+        bool dotsRight = false;
+    };
+
+    /// What of the text is shown in `room`. While editing, it scrolls so that the cursor stays in
+    /// view, and dots at the left mark that it has scrolled. Otherwise it is shown from its start.
+    /// Either way, dots at the right mark text beyond the end.
+    [[nodiscard]] Shown visible(float room, bool editing, const Width& width) const {
+        const std::u32string_view all(m_text);
+        const auto span = [&](std::size_t from, std::size_t to) { return width(all.substr(from, to - from)); };
+        if (span(0, all.size()) <= room) {
+            m_first = 0;
+            return { .first = 0, .end = all.size() };
+        }
+        const float dotsWidth = width(U"...");
+        const auto reserved = [&](std::size_t first, std::size_t last) {
+            return (first > 0 ? dotsWidth : 0.f) + (last < all.size() ? dotsWidth : 0.f);
+        };
+
+        if (!editing) {
+            m_first = 0;
+        } else {
+            // The cursor between the dots; and no further scrolled than needed, so that deleting
+            // at the end brings the text back from the left.
+            m_first = std::min(m_first, m_cursor);
+            while (m_first < m_cursor && span(m_first, m_cursor) > room - reserved(m_first, m_cursor)) {
+                ++m_first;
+            }
+            while (m_first > 0 && m_cursor == all.size() &&
+                   span(m_first - 1, all.size()) <= room - reserved(m_first - 1, all.size())) {
+                --m_first;
+            }
+        }
+
+        const float left = m_first > 0 ? dotsWidth : 0.f;
+        std::size_t end = m_first;
+        while (end < all.size() && span(m_first, end + 1) + (end + 1 < all.size() ? dotsWidth : 0.f) <= room - left) {
+            ++end;
+        }
+        if (editing) {
+            end = std::max(end, std::min(m_cursor, all.size())); // the cursor is never hidden
+        }
+        return {
+            .first = m_first, .end = end, .textLeft = left, .dotsLeft = m_first > 0, .dotsRight = end < all.size()
+        };
+    }
+
     /// Where the text goes: inside the field, a little in from its sides.
     [[nodiscard]] static FloatRect textArea(sf::Vector2f size, float labelHeight, const Sizes& sizes) {
         const FloatRect field = widgets::fieldBelow(size, labelHeight);
@@ -131,26 +200,19 @@ private:
         return { field.left() + inset, field.top(), std::max(field.width() - inset * 2.f, 0.f), field.height() };
     }
 
-    /// The position between characters nearest to `x`, measured from the first visible one.
-    [[nodiscard]] std::size_t cursorAt(float x, const Width& width) const {
-        std::size_t best = m_first;
+    /// The position between the shown characters nearest to `x`, measured from the first shown.
+    [[nodiscard]] std::size_t cursorAt(float x, const Shown& shown, const Width& width) const {
+        std::size_t best = shown.first;
         float bestDistance = std::abs(x);
-        for (std::size_t i = m_first + 1; i <= m_text.size(); ++i) {
-            const float distance = std::abs(width(std::u32string_view(m_text).substr(m_first, i - m_first)) - x);
+        for (std::size_t i = shown.first + 1; i <= shown.end; ++i) {
+            const float distance =
+                std::abs(width(std::u32string_view(m_text).substr(shown.first, i - shown.first)) - x);
             if (distance < bestDistance) {
                 best = i;
                 bestDistance = distance;
             }
         }
         return best;
-    }
-
-    /// Scrolls so that the cursor is inside `room`.
-    void keepCursorVisible(float room, const Width& width) const {
-        m_first = std::min(m_first, m_cursor);
-        while (m_first < m_cursor && width(std::u32string_view(m_text).substr(m_first, m_cursor - m_first)) > room) {
-            ++m_first;
-        }
     }
 
     void insert(std::u32string_view text, InputContext& context) {
@@ -222,7 +284,7 @@ private:
     TextInputOptions m_options;
     std::u32string m_text;
     std::size_t m_cursor = 0;
-    mutable std::size_t m_first = 0; ///< The first character shown: scrolled with the cursor.
+    mutable std::size_t m_first = 0; ///< The first character shown while editing: scrolled with the cursor.
     bool m_unreported = false;       ///< Changed since the last final report.
 };
 

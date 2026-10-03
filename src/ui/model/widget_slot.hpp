@@ -41,6 +41,7 @@ struct WidgetSlot {
 
     /// Where its open overlay is, in the window. Placed while `overlayOpen`; empty otherwise.
     std::optional<FloatRect> overlayRect;
+    FloatRect overlayAnchor; ///< What the open overlay is attached to, in the window.
 
     // ----- Written by input -----
 

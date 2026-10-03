@@ -151,8 +151,10 @@ struct Harness {
     [[nodiscard]] render::DrawList paintOverlay(std::string_view name) {
         const model::WidgetSlot& widget = slot(name);
         render::DrawList list;
-        Painter painter(list, { 0.f, 0.f }, overlayOf(name).size(), &measurer);
-        widget.widget->paintOverlay(painter, Style(theme, widget.colors, model::stateOf(widget), sizes));
+        const FloatRect overlay = overlayOf(name);
+        Painter painter(list, { 0.f, 0.f }, overlay.size(), &measurer);
+        const FloatRect anchor(widget.overlayAnchor.position() - overlay.position(), widget.overlayAnchor.size());
+        widget.widget->paintOverlay(painter, Style(theme, widget.colors, model::stateOf(widget), sizes), anchor);
         return list;
     }
 };
@@ -245,7 +247,7 @@ TEST_CASE("a click on a dropdown opens its list below it, a click on an entry ch
     REQUIRE(ui.click(ui.fieldOf("Mode")).empty());
     REQUIRE(ui.slot("Mode").overlayOpen);
     REQUIRE(has(model::stateOf(ui.slot("Mode")), State::Open));
-    REQUIRE(ui.overlayOf("Mode").top() > ui.rectOf("Mode").bottom());
+    REQUIRE(ui.overlayOf("Mode").top() == ui.rectOf("Mode").bottom()); // right at the field, no gap
     REQUIRE(ui.overlayOf("Mode").width() == ui.rectOf("Mode").width());
 
     const auto events = ui.click(ui.entryOf("Mode", 2));
@@ -339,7 +341,9 @@ TEST_CASE(
     ui.click(ui.fieldOf("List"));
 
     const FloatRect list = ui.overlayOf("List");
-    REQUIRE(list.bottom() < ui.rectOf("List").top());
+    const FloatRect field = ui.slot("List").overlayAnchor;
+    REQUIRE(field.top() > ui.rectOf("List").top()); // attached to the field, not to the label above it
+    REQUIRE(list.bottom() == field.top());
     REQUIRE(list.top() >= sizes.margin);
     REQUIRE(shows(ui.paintOverlay("List"), "Entry 0"));
     REQUIRE_FALSE(shows(ui.paintOverlay("List"), "Entry 7")); // the rest scroll
@@ -376,6 +380,23 @@ TEST_CASE("an open list highlights the entry under the pointer in the accent loo
     const render::DrawList list = ui.paintOverlay("Mode");
     REQUIRE(hasColor(list.shapes(), highlight));
     REQUIRE(shows(list, "Debug"));
+}
+
+TEST_CASE("an open list is one shape with its field, outlined as the open field is", "[ui][widgets][dropdown]") {
+    Harness ui({ Dropdown("Mode", modes) });
+    ui.click(ui.fieldOf("Mode"));
+
+    const PartStyle open = ui.theme.resolve(Dropdown::Field, State::Open);
+    const render::DrawList list = ui.paintOverlay("Mode");
+    REQUIRE(hasColor(list.shapes(), open.border));
+    REQUIRE(shows(list, "Normal")); // the field, painted again inside the shape
+    // The shape reaches up over the field.
+    const auto& vertices = list.shapes();
+    const auto highest =
+        std::min_element(vertices.begin(), vertices.end(), [](const sf::Vertex& a, const sf::Vertex& b) {
+            return a.position.y < b.position.y;
+        });
+    REQUIRE(highest->position.y <= -ui.slot("Mode").overlayAnchor.height() + 1.f);
 }
 
 TEST_CASE(
@@ -523,6 +544,53 @@ TEST_CASE("text wider than the field scrolls with the cursor", "[ui][widgets][te
     REQUIRE(shown != runs.end());
     REQUIRE(shown->text.size() < longText.size());
     REQUIRE(shown->text.ends_with("xyzab")); // the end, where the cursor is
+}
+
+TEST_CASE(
+    "while editing, dots mark text scrolled out at the left; afterwards it is shown from its start",
+    "[ui][widgets][text_input]"
+) {
+    Param<std::string> text;
+    Harness ui({ TextInput("Text", text) });
+    ui.click(ui.fieldOf("Text"));
+    std::u32string longText;
+    for (int i = 0; i < 80; ++i) {
+        longText.push_back(static_cast<char32_t>(U'a' + i % 26));
+    }
+    ui.type(longText);
+
+    const auto texts = [&] {
+        std::vector<std::string> result;
+        const render::DrawList painted = ui.paint("Text");
+        for (const render::TextRun& run : painted.texts()) {
+            result.emplace_back(run.text);
+        }
+        return result; // the label first, then what the field shows, left to right
+    };
+    std::vector<std::string> shown = texts();
+    REQUIRE(shown.size() == 3);
+    REQUIRE(shown[1] == "...");
+    REQUIRE(shown[2].ends_with("xyzab"));
+
+    ui.key(sf::Keyboard::Key::Home); // at the start: the dots move to the right
+    shown = texts();
+    REQUIRE(shown.size() == 3);
+    REQUIRE(shown[1].starts_with("abcde"));
+    REQUIRE(shown[2] == "...");
+
+    ui.key(sf::Keyboard::Key::End);
+    ui.key(sf::Keyboard::Key::Enter); // done: from the start again, dots at the right
+    shown = texts();
+    REQUIRE(shown.size() == 3);
+    REQUIRE(shown[1].starts_with("abcde"));
+    REQUIRE(shown[2] == "...");
+}
+
+TEST_CASE("text that fits needs no dots", "[ui][widgets][text_input]") {
+    Param<std::string> text = std::string("short");
+    Harness ui({ TextInput("Text", text) });
+    REQUIRE_FALSE(shows(ui.paint("Text"), "..."));
+    REQUIRE(shows(ui.paint("Text"), "short"));
 }
 
 TEST_CASE("text input options that cannot work are refused when the UI is built", "[ui][widgets][text_input]") {

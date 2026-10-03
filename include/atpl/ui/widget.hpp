@@ -318,8 +318,15 @@ public:
     // is open at a time. The UI also closes it when the widget's panel folds or the widget is
     // hidden or disabled.
     //
-    // The UI places the overlay below the widget, as wide as it; above it if it does not fit
-    // below; and inside the window if it fits neither way.
+    // The UI places the overlay right below the widget's anchor (by default the whole widget),
+    // as wide as it and without a gap; right above it if it does not fit below; and inside the
+    // window if it fits neither way.
+
+    /// The part of the widget its overlay is attached to, in the widget's coordinates, for a
+    /// widget of `size`: a dropdown's field, not its label. By default the whole widget.
+    [[nodiscard]] virtual FloatRect overlayAnchor(const MeasureContext& /*context*/, sf::Vector2f size) const {
+        return { { 0.f, 0.f }, size };
+    }
 
     /// The size the open overlay would like, at most `maxHeight` high: the room there is. Asked
     /// again with less room if it does not fit; a list then shows fewer entries.
@@ -328,9 +335,11 @@ public:
     }
 
     /// Emits the overlay's shapes, in the overlay's own coordinates: (0, 0) is its top-left
-    /// corner, `painter.size()` its size. Called when the overlay opens, moves, or the widget's
-    /// panel is redrawn.
-    virtual void paintOverlay(Painter& /*painter*/, const Style& /*style*/) const {}
+    /// corner, `painter.size()` its size. `anchor` is where the widget's anchor is in the same
+    /// coordinates, just above or below. The overlay is drawn above every panel, and may also
+    /// draw over its anchor: to join the two into one shape. Called when the overlay opens,
+    /// moves, or the widget's panel is redrawn.
+    virtual void paintOverlay(Painter& /*painter*/, const Style& /*style*/, const FloatRect& /*anchor*/) const {}
 
     // ----- Time -----
 

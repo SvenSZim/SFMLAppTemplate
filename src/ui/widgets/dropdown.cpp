@@ -107,28 +107,11 @@ public:
 
         const FloatRect field = widgets::fieldBelow(size, labelHeight);
         painter.box(field, style.part(Dropdown::Field));
+        paintFieldContent(painter, field, style);
+    }
 
-        // The chosen entry at the left, the arrow in a square at the right.
-        const float arrowRoom = field.height();
-        const float inset = std::max(style.sizes().padding.x * 0.6f, 2.f);
-        painter.text(
-            FloatRect(
-                field.left() + inset, field.top(), std::max(field.width() - inset - arrowRoom, 0.f), field.height()
-            ),
-            m_entries[m_selected],
-            style.part(Dropdown::Selected)
-        );
-
-        const PartStyle arrow = style.part(Dropdown::Arrow);
-        if (arrow.shown) {
-            // A chevron pointing down, or up while the list is open.
-            const sf::Vector2f centre(field.right() - arrowRoom * 0.5f, field.top() + field.height() * 0.5f);
-            const float arm = std::max(field.height() * 0.14f, 2.f);
-            const float direction = has(style.state(), State::Open) ? -1.f : 1.f;
-            const sf::Vector2f tip(centre.x, centre.y + arm * 0.5f * direction);
-            painter.line({ tip.x - arm, tip.y - arm * direction }, tip, arrow);
-            painter.line(tip, { tip.x + arm, tip.y - arm * direction }, arrow);
-        }
+    [[nodiscard]] FloatRect overlayAnchor(const MeasureContext& context, sf::Vector2f size) const override {
+        return widgets::fieldBelow(size, context.textSize(m_label, Dropdown::Label).y); // the field, not the label
     }
 
     [[nodiscard]] sf::Vector2f overlaySize(const MeasureContext& context, float maxHeight) const override {
@@ -140,17 +123,37 @@ public:
         return { 0.f, static_cast<float>(shown) * entry + pad * 2.f };
     }
 
-    void paintOverlay(Painter& painter, const Style& style) const override {
+    void paintOverlay(Painter& painter, const Style& style, const FloatRect& field) const override {
         const sf::Vector2f size = painter.size();
         const Sizes& sizes = style.sizes();
-        // The list covers what is below it: also in the gap a theme may leave between its
-        // outline and its fill, which would let the panels below show through.
-        const PartStyle list = style.part(Dropdown::List);
-        PartStyle backing = list;
+
+        // The field and the list are one shape: one outline around both, in the colour the open
+        // field's outline has, and that outline once more where they meet. It is drawn over the
+        // field, which is painted again inside it.
+        const bool below = field.bottom() <= 0.5f;
+        const FloatRect joined = below ? FloatRect(0.f, field.top(), size.x, size.y - field.top())
+                                       : FloatRect(0.f, 0.f, size.x, field.bottom());
+        const PartStyle fieldStyle = style.part(Dropdown::Field);
+        PartStyle shape = style.part(Dropdown::List);
+        shape.border = fieldStyle.border;
+        shape.borderThickness = fieldStyle.borderThickness;
+        shape.radius = fieldStyle.radius;
+        // It covers what is below it: also in the gap a theme may leave between outline and fill,
+        // which would let the panels below show through.
+        PartStyle backing = shape;
         backing.borderThickness = 0.f;
         backing.shadow = {};
-        painter.box(FloatRect({ 0.f, 0.f }, size), backing);
-        painter.box(FloatRect({ 0.f, 0.f }, size), list);
+        painter.box(joined, backing);
+        painter.box(joined, shape);
+        if (shape.borderThickness > 0.f) {
+            PartStyle seam = style.part(Dropdown::Arrow);
+            seam.color = shape.border;
+            seam.thickness = shape.borderThickness;
+            const float half = shape.borderThickness * 0.5f;
+            const float y = below ? field.bottom() - half : field.top() + half;
+            painter.line({ joined.left(), y }, { joined.right(), y }, seam);
+        }
+        paintFieldContent(painter, field, style);
 
         const std::size_t shown = visibleIn(size.y, sizes);
         clampScroll(shown, false);
@@ -197,6 +200,30 @@ public:
     }
 
 private:
+    /// What is inside the field: the chosen entry at the left, the arrow in a square at the right.
+    void paintFieldContent(Painter& painter, const FloatRect& field, const Style& style) const {
+        const float arrowRoom = field.height();
+        const float inset = std::max(style.sizes().padding.x * 0.6f, 2.f);
+        painter.text(
+            FloatRect(
+                field.left() + inset, field.top(), std::max(field.width() - inset - arrowRoom, 0.f), field.height()
+            ),
+            m_entries[m_selected],
+            style.part(Dropdown::Selected)
+        );
+
+        const PartStyle arrow = style.part(Dropdown::Arrow);
+        if (arrow.shown) {
+            // A chevron pointing down, or up while the list is open.
+            const sf::Vector2f centre(field.right() - arrowRoom * 0.5f, field.top() + field.height() * 0.5f);
+            const float arm = std::max(field.height() * 0.14f, 2.f);
+            const float direction = has(style.state(), State::Open) ? -1.f : 1.f;
+            const sf::Vector2f tip(centre.x, centre.y + arm * 0.5f * direction);
+            painter.line({ tip.x - arm, tip.y - arm * direction }, tip, arrow);
+            painter.line(tip, { tip.x + arm, tip.y - arm * direction }, arrow);
+        }
+    }
+
     [[nodiscard]] static float entryHeight(const Sizes& sizes) { return std::max(sizes.rowHeight * 0.9f, 8.f); }
     [[nodiscard]] static float listPadding(const Sizes& sizes) {
         return std::max(std::round(sizes.rowHeight * 0.12f), 2.f);

@@ -175,7 +175,8 @@ struct UI::Impl {
             const auto build = profiler.measure(render::Profiler::Section::Build);
             const auto layers = overlay.rebuild();
             Painter painter(layers.content, { 0.f, 0.f }, rect.size(), &textMeasurer);
-            slot.widget->paintOverlay(painter, Style(theme, slot.colors, model::stateOf(slot), sizes));
+            const FloatRect anchor(slot.overlayAnchor.position() - rect.position(), slot.overlayAnchor.size());
+            slot.widget->paintOverlay(painter, Style(theme, slot.colors, model::stateOf(slot), sizes), anchor);
         }
     }
 
