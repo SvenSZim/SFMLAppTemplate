@@ -75,8 +75,8 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | File (`include/atpl/core/`) | Content | Origin |
 |---|---|---|
 | `revision.hpp` | `Revision`: the change counter every shared value carries, so readers can skip unchanged values | new |
-| `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings; any number of readers and writers (D10, P10) | new |
-| `series.hpp` | `Series`: thread-safe ring buffer of `float` samples with fixed capacity; the data source for graphs (P10) | new |
+| `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings; any number of readers and writers; lock-free for small trivially copyable types, a short lock for strings; a revision that grows with every change (D10, P10) | new |
+| `series.hpp` | `Series`: thread-safe ring buffer of `float` samples with fixed capacity; `PointSeries`: the same for points (x, y), for graphs whose x-axis comes from the data. The data sources for graphs; a short lock per push or read, nothing allocated after construction (P10, D50) | new |
 | `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11) | new |
 | `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3) | new |
 | `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |

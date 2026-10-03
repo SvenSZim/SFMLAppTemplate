@@ -99,7 +99,7 @@ The UI should cost as little as possible and nothing while idle (R3, plan §5).
 
 - Catch2, one test file per source file, in `tests/<layer>/`.
 - Everything that does not need a window is tested without one. That is all of `core` and, in `ui`, the model, layout, input, theme and draw-list generation.
-- Code shared between threads has a concurrent test, run under ThreadSanitizer (`-DATPL_SANITIZE=thread`).
+- Code shared between threads has a concurrent test, run under ThreadSanitizer (`-DATPL_SANITIZE=thread`; CI runs it on every pull request). On a recent kernel the tests only start with less address randomisation: `setarch $(uname -m) -R ctest -LE display`, or `sudo sysctl -w vm.mmap_rnd_bits=28`.
 - Tests that need a display, because they open a window or draw off-screen and check pixels, go into their layer's `display` test executable (`tests/<layer>/display/`) and carry the CTest label `display`. Leave them out with `ctest -LE display`, or run them without a screen under `xvfb-run`. They never run at the same time, even with `ctest -j`: windows that open side by side disturb each other's focus and timing.
 - A bug fix comes with a test that fails without the fix.
 - Every public header must compile on its own; the build checks this for all headers under `include/atpl/`.

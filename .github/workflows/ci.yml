@@ -52,6 +52,13 @@ jobs:
             build_type: Debug
             sanitize: address,undefined
             display_tests: false
+          # Data races, in the code that is shared between threads.
+          - name: GCC, debug, ThreadSanitizer
+            cxx: g++
+            cc: gcc
+            build_type: Debug
+            sanitize: thread
+            display_tests: false
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +78,11 @@ jobs:
 
       - name: Build
         run: cmake --build build --parallel
+
+      # ThreadSanitizer cannot start with the address randomisation of recent kernels.
+      - name: Reduce address randomisation
+        if: ${{ matrix.sanitize == 'thread' }}
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: Test
         if: ${{ !matrix.display_tests }}
