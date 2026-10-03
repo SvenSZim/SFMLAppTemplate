@@ -7,6 +7,10 @@
 
 #include <SFML/System/Vector2.hpp>
 
+#include <optional>
+#include <span>
+#include <vector>
+
 namespace atpl::layout {
 
 // Where every panel and every view is in the window.
@@ -51,6 +55,12 @@ void preparePanels(model::Store& store, GridSetup grid);
 /// - A stack that is too high for the window is fitted to it: collapsed panels keep the height
 ///   of their header, and expanded panels share the rest, those that need least first. If not
 ///   even the headers fit, the last panels of the stack are not shown.
+/// - With `StackOverflow::Cards`, a stack too high for the window overlaps its collapsed panels
+///   like cards instead (D42): each is covered by the next one down to a strip of `stripHeight`
+///   (in which its title can be read), only as far as needed; expanded panels keep their height
+///   while there is room. Only if not even the strips fit are the last panels not shown. The
+///   panels of such a stack are `overlapped`, and their `cardLayer` says which is drawn above
+///   which: of two cards the one further from the stack's anchor covers the other.
 ///
 /// Grid panels fill the cells they span, or, with `Fit::Content`, take as much of them as they
 /// want (`Panel::wantedWidth` and `wantedHeight`) and sit in them at the rules' alignment. A
@@ -65,8 +75,30 @@ void preparePanels(model::Store& store, GridSetup grid);
 ///
 /// `sizes` are the layout's sizes for this window.
 void placePanels(
-    model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes, const Layout& layout = {}
+    model::Store& store,
+    sf::Vector2f windowSize,
+    GridSetup grid,
+    const Sizes& sizes,
+    const Layout& layout = {},
+    float stripHeight = 0.f
 );
+
+/// How much of a covered card stays in view: down to just below its title, so that it can be
+/// read. `titleSize` is the size of the title's text.
+[[nodiscard]] float cardStrip(const Sizes& sizes, float titleSize);
+
+/// The other panels to fold when `unfolded` is unfolded: with `StackOverflow::Cards`, all other
+/// expanded panels of its stack if the stack would not fit into the window with them open;
+/// otherwise none.
+[[nodiscard]] std::vector<PanelId> cardsToFold(
+    const model::Store& store, PanelId unfolded, sf::Vector2f windowSize, const Sizes& sizes, const Layout& layout
+);
+
+/// The order panels are drawn and found by the pointer in, from the bottom: `base` (the
+/// store's), with the cards of each overlapped stack in their layers, and the card under the
+/// pointer, if any, above all of them.
+[[nodiscard]] std::vector<PanelId>
+cardOrder(const model::Store& store, std::span<const PanelId> base, std::optional<PanelId> hovered);
 
 /// Gives every view its rectangle in the window: the whole window for the background view, and
 /// for a view widget the place of its widget. A view whose widget is not on screen gets an

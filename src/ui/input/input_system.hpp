@@ -78,6 +78,12 @@ public:
     /// Clears the mark.
     [[nodiscard]] bool takeFolded();
 
+    /// The panel a click on its header unfolded since the last call, if any. Clears the mark.
+    [[nodiscard]] std::optional<PanelId> takeUnfolded();
+
+    /// The panel under the pointer, if any.
+    [[nodiscard]] std::optional<PanelId> hoveredPanel() const { return m_hoveredPanel; }
+
     // ----- What a widget does through its context -----
 
     void markDirty(WidgetId widget);
@@ -150,6 +156,7 @@ private:
     std::optional<PanelId> m_dragged;       ///< The panel whose scrollbar is being dragged.
     float m_grab = 0.f;                     ///< Where the thumb was grabbed: from its top.
     bool m_folded = false;
+    std::optional<PanelId> m_unfolded;
     int m_buttonsDown = 0;
 };
 

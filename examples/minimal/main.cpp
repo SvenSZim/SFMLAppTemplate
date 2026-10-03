@@ -6,10 +6,13 @@
 // window's close button ends it; while a text field or a dropdown list has the keys, Escape
 // first ends the typing or closes the list.
 //
-//   minimal [--layout overlay|dashboard|cards|compact] [--ticks] [--profiler] [--smoke-test]
+//   minimal [--layout overlay|dashboard|cards|compact] [--cards] [--ticks] [--profiler] [--smoke-test]
 //
 // --layout chooses the layout theme: where panels go that do not say so, and how large things
 // are. Everything grows and shrinks with the window, within the layout theme's limits.
+// --cards lets a stack of floating panels that does not fit into the window overlap like a stack
+// of cards instead of leaving panels out (not to be confused with the "cards" layout theme, whose
+// panels sit in the window's grid): make the window low to see it.
 // --ticks shows the sliders' ticks, an optional part a theme can switch on.
 // --profiler shows the profiler readout. --smoke-test draws a few frames and exits, for
 // automated checks.
@@ -162,15 +165,20 @@ int run(int argc, char* argv[]) {
     bool smokeTest = false;
     bool profiler = false;
     bool ticks = false;
+    bool cards = false;
     Layout layout = layouts::overlay();
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument = argv[i];
         smokeTest = smokeTest || argument == "--smoke-test";
         profiler = profiler || argument == "--profiler";
         ticks = ticks || argument == "--ticks";
+        cards = cards || argument == "--cards";
         if (argument == "--layout" && i + 1 < argc) {
             layout = layoutNamed(argv[++i]);
         }
+    }
+    if (cards) {
+        layout.stackOverflow = StackOverflow::Cards; // one setting of the layout theme
     }
 
     const Resources resources = Resources::nextToExecutable(argv[0]);

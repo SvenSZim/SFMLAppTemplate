@@ -64,6 +64,7 @@ atpl_add_tests(ui
   ui/test_basic_widgets.cpp
   ui/test_binding.cpp
   ui/test_bindings.cpp
+  ui/test_card_stack.cpp
   ui/test_cell.cpp
   ui/test_display_widgets.cpp
   ui/test_input_widgets.cpp
