@@ -408,7 +408,11 @@ void InputSystem::changeValue(WidgetId widget, Value value, bool final) {
 }
 
 void InputSystem::press(WidgetId widget) {
-    const model::WidgetSlot& slot = m_store->widget(widget);
+    model::WidgetSlot& slot = m_store->widget(widget);
+    // A button bound to an on/off value sets it on every press; the reader sets it back.
+    if (slot.binding.has_value() && slot.binding->kind() == ValueKind::Bool) {
+        binding::write(slot, Value(true));
+    }
     m_events->push_back(ButtonPressed{ .widget = widget, .name = slot.name, .panel = m_store->panel(slot.panel).name });
 }
 

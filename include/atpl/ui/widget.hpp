@@ -159,7 +159,8 @@ public:
     /// and raises `ValueChanged`. `final` is false while the interaction is still going on.
     void changeValue(Value value, bool final = true);
 
-    /// Reports that the user pressed the widget as a button. The UI raises `ButtonPressed`.
+    /// Reports that the user pressed the widget as a button. The UI raises `ButtonPressed`, and
+    /// sets a bound on/off value to true.
     void press();
 
 private:

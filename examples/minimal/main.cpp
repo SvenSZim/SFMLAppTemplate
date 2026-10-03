@@ -1,13 +1,15 @@
-// The smallest application that shows the UI: a window with a few panels.
+// The smallest application that shows the UI: a window with a few panels of controls bound to
+// parameters.
 //
 // It drives the UI by hand, which is what `App` will do for an application once it exists
 // (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
 // window's close button ends it.
 //
-//   minimal [--layout overlay|dashboard|cards|compact] [--profiler] [--smoke-test]
+//   minimal [--layout overlay|dashboard|cards|compact] [--ticks] [--profiler] [--smoke-test]
 //
 // --layout chooses the layout theme: where panels go that do not say so, and how large things
 // are. Everything grows and shrinks with the window, within the layout theme's limits.
+// --ticks shows the sliders' ticks, an optional part a theme can switch on.
 // --profiler shows the profiler readout. --smoke-test draws a few frames and exits, for
 // automated checks.
 
@@ -87,7 +89,23 @@ Layout layoutNamed(std::string_view name) {
     );
 }
 
-UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool profiler) {
+/// What the controls change. In an application, the simulation would read these.
+struct Params {
+    Param<float> speed = 1.f;
+    Param<int> size = 8;
+    Param<bool> gravity = true;
+    Param<bool> trails = false;
+    Param<bool> paused = false;
+
+    void reset() {
+        speed = 1.f;
+        size = 8;
+        gravity = true;
+        trails = false;
+    }
+};
+
+UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool profiler, Params& params) {
     UISetup setup{
         .layout = std::move(layout),
         .grid = {.columns = 4, .rows = 2},
@@ -98,16 +116,29 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                 .placement = GridCell{.column = 0, .row = 0, .columnSpan = 3, .rowSpan = 2},
                 .collapsible = false,
             },
-            { .name = "Playback", .placement = Anchor::Bottom, .width = 420.f, .widgets = { Placeholder{ "Timeline" } } },
+            {
+                .name = "Playback",
+                .placement = Anchor::Bottom,
+                .columns = 2,
+                .width = 420.f,
+                .widgets = { Switch("Paused", params.paused), Button("Step") },
+            },
             // ... and these leave it to the layout theme: floating at the top left with
             // "overlay", in the free cells of the window's grid with "dashboard".
             // Click a header to fold the panel, and again to unfold it.
             {
                 .name = "Controls",
-                .widgets = { Placeholder{ "Speed" }, Placeholder{ "Size" }, Placeholder{ "Gravity" } },
+                .widgets = {
+                    Slider("Speed", params.speed, {.min = 0.0, .max = 10.0, .format = "{:.1f}"}),
+                    Slider("Size", params.size, {.min = 1.0, .max = 32.0, .step = 1.0, .format = "{:.0f}"}),
+                    Switch("Gravity", params.gravity),
+                    Switch("Trails", params.trails),
+                    Button("Reset"),
+                },
             },
             {
                 .name = "Statistics",
+                // Stand-ins until text displays and graphs exist (WP 3.10).
                 .widgets = { Placeholder{ "Ticks per second" }, Placeholder{ .name = "Graph", .rows = 3.f } },
             },
         },
@@ -120,11 +151,13 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
 int run(int argc, char* argv[]) {
     bool smokeTest = false;
     bool profiler = false;
+    bool ticks = false;
     Layout layout = layouts::overlay();
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument = argv[i];
         smokeTest = smokeTest || argument == "--smoke-test";
         profiler = profiler || argument == "--profiler";
+        ticks = ticks || argument == "--ticks";
         if (argument == "--layout" && i + 1 < argc) {
             layout = layoutNamed(argv[++i]);
         }
@@ -144,7 +177,12 @@ int run(int argc, char* argv[]) {
     );
     window.setVerticalSyncEnabled(true);
 
-    UI ui(window, describeUI(font, std::move(layout), profiler));
+    Params params;
+    UISetup setup = describeUI(font, std::move(layout), profiler, params);
+    if (ticks) {
+        setup.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
+    }
+    UI ui(window, std::move(setup));
 
     int passesLeft = 5; // only counted in a smoke test
     while (window.isOpen()) {
@@ -152,6 +190,9 @@ int run(int argc, char* argv[]) {
         for (const Event& event : ui.events()) {
             if (event.is<WindowClosed>() || event.isKey(sf::Keyboard::Key::Escape)) {
                 window.close();
+            }
+            if (event.isButton("Reset")) {
+                params.reset(); // the sliders and switches follow by themselves
             }
         }
         ui.update();

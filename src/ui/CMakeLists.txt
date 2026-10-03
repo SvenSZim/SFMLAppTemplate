@@ -33,7 +33,10 @@ add_library(atpl_ui STATIC
   theme/style.cpp
   theme/theme.cpp
   ui.cpp
+  widgets/button.cpp
   widgets/panel_frame.cpp
+  widgets/slider.cpp
+  widgets/switch.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 
