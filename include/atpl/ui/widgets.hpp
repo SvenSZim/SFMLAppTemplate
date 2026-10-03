@@ -376,6 +376,9 @@ struct ParagraphOptions {
 struct Paragraph {
     static constexpr Kind kind{ "paragraph" };
     static constexpr Part Heading{ kind, "heading", Role::Heading };
+    /// Static text, so quieter than the values of widgets and set apart from the heading: unless
+    /// a theme sets them, its colour and size lie between the heading's and the footer's, nearer
+    /// the footer.
     static constexpr Part Body{ kind, "body", Role::Text };
     static constexpr Part Footer{ kind, "footer", Role::MutedText };
     static constexpr Part Separator{ kind, "separator", Role::Line, Shown::No }; ///< Between the texts.

@@ -22,6 +22,7 @@ using theme::readableOn;
 // How the derived colours relate to the three a panel chooses. Small steps on purpose: states
 // should be noticed, not shout.
 constexpr float areaTowardsOutline = 0.14f;     // the area of a button or field: main1 moved towards main2
+constexpr float staticTextTowardsMuted = 0.65f; // a paragraph's body: between heading and footer, nearer the footer
 constexpr float hoverTowardsAccent = 0.55f;     // an outline when hovered: main2 moved towards the accent
 constexpr float pressAreaTowardsAccent = 0.16f; // an area while pressed takes a little of the accent
 constexpr float knobHoverAmount = 0.22f;        // a hovered knob, towards the accent
@@ -311,6 +312,16 @@ PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen, floa
     const Colors colors = colorsFor(palette, chosen);
     PartStyle style = roleDefault(part.role, *this, colors);
     style.shown = part.shown == Shown::Yes;
+
+    // A paragraph's body is static text: quieter than the values of widgets, which change, and
+    // clearly set apart from its heading. Its colour and its size lie between the heading's and
+    // the footer's, as this theme has them, nearer the footer.
+    if (part == Paragraph::Body) {
+        const PartStyle heading = resolve(Paragraph::Heading, State::Normal, chosen);
+        const PartStyle footer = resolve(Paragraph::Footer, State::Normal, chosen);
+        style.color = mix(heading.color, footer.color, staticTextTowardsMuted);
+        style.textSize = heading.textSize + (footer.textSize - heading.textSize) * staticTextTowardsMuted;
+    }
 
     if (const PartOverride* override = entry(part)) {
         applyEntry(*override, style);
