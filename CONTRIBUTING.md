@@ -76,6 +76,7 @@ Refs #17
   | Format | `tools/format.sh --check` | yes |
   | Linux (GCC, release) | build with warnings as errors, all tests including the window smoke test on a virtual display | yes |
   | Linux (Clang, debug, sanitizers) | build with warnings as errors, tests with AddressSanitizer and UndefinedBehaviorSanitizer | yes |
+  | Linux (GCC, debug, ThreadSanitizer) | build with warnings as errors, tests with ThreadSanitizer: data races in what is shared between threads | yes |
   | Windows (MSVC) | build and tests, as a portability check | no |
 - Merge by squashing, so `main` has one commit per work package. The squash commit follows the commit format above.
 

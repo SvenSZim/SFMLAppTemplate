@@ -13,6 +13,13 @@ target_compile_features(Catch2 PUBLIC cxx_std_20)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 
+# Test executables are asked for their tests when ctest runs, not right after they are built:
+# a ThreadSanitizer build can only start where address randomisation is reduced (see the CI
+# workflow), which is arranged for running the tests, not for building them.
+if(ATPL_SANITIZE MATCHES "thread")
+  set(CMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
+endif()
+
 # One test executable per layer. Tests may include internal headers from src/.
 function(atpl_add_tests layer)
   set(target atpl_${layer}_tests)
@@ -49,6 +56,8 @@ endfunction()
 atpl_add_tests(core
   core/test_easing.cpp
   core/test_interpolated.cpp
+  core/test_param.cpp
+  core/test_series.cpp
   core/test_version.cpp
 )
 atpl_add_tests(ui

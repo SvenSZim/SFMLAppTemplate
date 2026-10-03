@@ -111,6 +111,12 @@ void wiring() {
     atpl::Snapshot<World> snapshot;
     atpl::Series tickTimes(240);
 
+    // Points, for a graph whose x-axis comes from the data.
+    atpl::PointSeries population(500);
+    population.push({ .x = 21.5f, .y = 1200.f });
+    std::array<atpl::Point, 500> points{};
+    (void)population.read(points);
+
     Simulation simulation{ params, commands, snapshot, tickTimes, {}, 0.f };
     simulation.tick(1.f / 60.f);
 
