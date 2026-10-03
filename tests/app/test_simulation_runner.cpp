@@ -149,6 +149,23 @@ TEST_CASE("a simulation too slow for its rate drops what it could not do", "[app
     REQUIRE(simulation.ticks - before < 450);
 }
 
+TEST_CASE("catching up never keeps a slow simulation from hearing that it is paused", "[app][simulation]") {
+    Counter simulation;
+    simulation.controls.tickRate = 1000.0;
+    simulation.slow = true; // 30 ms per tick: hundreds of ticks behind at once
+    app::SimulationRunner runner(simulation, nullptr);
+    runner.start();
+    std::this_thread::sleep_for(300ms);
+
+    simulation.controls.paused = true;
+    // Heard after the current pass of catching up (0.25 s at most) and one tick more.
+    std::this_thread::sleep_for(500ms);
+    const int paused = simulation.ticks;
+    std::this_thread::sleep_for(200ms);
+    runner.stop();
+    REQUIRE(simulation.ticks == paused);
+}
+
 TEST_CASE("a state is written only when the main thread has taken the last one", "[app][simulation]") {
     Counter simulation;
     simulation.controls.unlimited = true;

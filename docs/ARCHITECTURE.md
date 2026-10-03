@@ -550,7 +550,7 @@ Rules:
 
 How the runner (`app/simulation_runner`, WP 4.3, D62) does it:
 - **Timing**: ticks have a fixed size, `1 / tickRate`. Real time that passes, times `speed`, is owed as simulated time, and ticks run while a whole one is owed. Between them the thread sleeps waiting for commands until the next tick is due. `unlimited` runs ticks back to back.
-- **Falling behind**: a simulation more than 0.25 s of real time behind drops what it could not do; it slows down, and the application stays responsive. `ticksPerSecond` shows the real rate.
+- **Falling behind**: a simulation more than 0.25 s of real time behind drops what it could not do, and a pass never spends more than 0.25 s catching up (it drops the rest then); it slows down, the application stays responsive, and pausing, steps and commands are heard after one more tick at most. `ticksPerSecond` shows the real rate.
 - **Paused**: it handles commands and the ticks asked for with `step`, and otherwise sleeps, waking at least every 20 ms, so unpausing, stepping and stopping take effect within 20 ms. `step` while running is ignored.
 - **States**: the main thread marks each state it takes (once per pass, after the wait for input). The runner writes and publishes a new one only after that, so `writeState` runs at most once per frame; also when it pauses, after a step or a command while paused, and when it stops. Each publish asks for a frame.
 - **Measurements**: `tickCount` and `time` after every tick; `ticksPerSecond` and `tickMilliseconds` (the average time a tick takes) about once a second.
