@@ -214,10 +214,10 @@ void applyState(Role role, State state, const Theme& theme, const Colors& colors
     }
 
     // Hover and use, for the areas that can be operated: the outline turns to the accent colour,
-    // partly when hovered and fully when pressed or focused. A pressed area also takes a little
+    // partly when hovered and fully when pressed, focused or open. A pressed area also takes a little
     // of the accent.
     if (role == Role::Track) {
-        if (has(state, State::Pressed) || has(state, State::Focused)) {
+        if (has(state, State::Pressed) || has(state, State::Focused) || has(state, State::Open)) {
             style.border = accent;
             style.borderThickness = std::max(style.borderThickness, theme.shape.outline);
         } else if (has(state, State::Hovered)) {

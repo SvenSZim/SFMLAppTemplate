@@ -125,10 +125,12 @@ void InputSystem::setFocus(std::optional<WidgetId> widget) {
     if (widget == m_focused) {
         return;
     }
-    if (m_focused.has_value()) {
-        model::WidgetSlot& slot = m_store->widget(*m_focused);
+    if (const std::optional<WidgetId> lost = std::exchange(m_focused, std::nullopt)) {
+        model::WidgetSlot& slot = m_store->widget(*lost);
         slot.focused = false;
         m_store->panel(slot.panel).dirty = true;
+        InputContext context = contextFor(*lost);
+        slot.widget->focusLost(context); // may report a value; the focus is already gone
     }
     if (widget.has_value()) {
         model::WidgetSlot& slot = m_store->widget(*widget);
@@ -162,17 +164,47 @@ void InputSystem::forgetHover(model::Store& store) {
 
 // ----- Handing events on -----
 
-void InputSystem::deliver(WidgetId widget, const Event& event) {
+InputContext InputSystem::contextFor(WidgetId widget) {
     const model::WidgetSlot& slot = m_store->widget(widget);
-    InputContext context(
+    return {
         *this,
         widget,
         contentOrigin(slot.panel) + slot.rect.position(),
         slot.rect.size(),
         model::stateOf(slot),
-        *m_sizes
-    );
+        *m_sizes,
+        slot.overlayOpen ? slot.overlayRect : std::nullopt,
+        m_theme,
+        slot.colors,
+        m_measurer,
+    };
+}
+
+void InputSystem::deliver(WidgetId widget, const Event& event) {
+    InputContext context = contextFor(widget);
     m_store->widget(widget).widget->handleInput(event, context);
+}
+
+void InputSystem::pressWithOverlay(const PointerPressed& press) {
+    const WidgetId owner = *m_overlay;
+    const model::WidgetSlot& slot = m_store->widget(owner);
+    const FloatRect widgetRect(contentOrigin(slot.panel) + slot.rect.position(), slot.rect.size());
+    const bool onWidget = widgetRect.contains(m_pointer);
+    const bool onOverlay = slot.overlayRect.has_value() && slot.overlayRect->contains(m_pointer);
+
+    m_owner = Owner::Ui; // used up, whatever happens: never forwarded, nothing below sees it
+    m_buttonsDown = 1;
+    if (!onWidget && !onOverlay) {
+        closeOverlay(owner);
+        setFocus(std::nullopt);
+        return;
+    }
+    if (onWidget) {
+        setPressed(owner);
+    } else {
+        m_captured = owner; // the release goes to it too
+    }
+    deliver(owner, Event(press));
 }
 
 void InputSystem::forward(Event event) {
@@ -199,6 +231,10 @@ void InputSystem::handle(
         const PointerLocation pointer = locate(m_pointer);
         const sf::Vector2f delta = m_lastForwarded ? m_pointer - *m_lastForwarded : sf::Vector2f();
 
+        if (m_overlay.has_value() && m_owner != Owner::Application) {
+            deliver(*m_overlay, Event(PointerMoved{ pointer, delta })); // over its overlay, or anywhere
+            return;
+        }
         if (m_owner == Owner::Ui || m_captured.has_value()) {
             // A drag of a widget: the widget follows, wherever the pointer goes.
             if (const auto widget = holder()) {
@@ -240,6 +276,11 @@ void InputSystem::handle(
             } else if (const auto widget = holder()) {
                 deliver(*widget, Event(press));
             }
+            return;
+        }
+
+        if (m_overlay.has_value()) {
+            pressWithOverlay(press);
             return;
         }
 
@@ -309,6 +350,10 @@ void InputSystem::handle(
         const PointerLocation pointer = locate(m_pointer);
         const Scrolled scrolled{ notches(*wheel), wheel->wheel == sf::Mouse::Wheel::Horizontal, pointer };
 
+        if (m_overlay.has_value() && m_owner != Owner::Application) {
+            deliver(*m_overlay, Event(scrolled)); // an open list scrolls; nothing else does meanwhile
+            return;
+        }
         const Hit hit = hitTest(m_pointer);
         if (m_owner == Owner::Application || (m_owner == Owner::None && !hit.panel.has_value())) {
             forward(scrolled);
@@ -363,6 +408,23 @@ void InputSystem::handle(
     }
 }
 
+void InputSystem::setLook(const Theme& theme, const render::TextMeasurer* measurer) {
+    m_theme = &theme;
+    m_measurer = measurer;
+}
+
+void InputSystem::closeOverlayIfGone(model::Store& store) {
+    m_store = &store;
+    if (!m_overlay.has_value()) {
+        return;
+    }
+    const model::WidgetSlot& slot = m_store->widget(*m_overlay);
+    const model::Panel& panel = m_store->panel(slot.panel);
+    if (!slot.visible || !slot.enabled || !panel.shown || panel.collapsed) {
+        closeOverlay(*m_overlay);
+    }
+}
+
 bool InputSystem::takeFolded() {
     return std::exchange(m_folded, false);
 }
@@ -391,6 +453,29 @@ void InputSystem::releaseFocus(WidgetId widget) {
     if (m_focused == widget) {
         setFocus(std::nullopt);
     }
+}
+
+void InputSystem::openOverlay(WidgetId widget) {
+    if (m_overlay == widget) {
+        return;
+    }
+    if (m_overlay.has_value()) {
+        closeOverlay(*m_overlay); // one at a time
+    }
+    model::WidgetSlot& slot = m_store->widget(widget);
+    slot.overlayOpen = true;
+    m_store->panel(slot.panel).dirty = true;
+    m_overlay = widget;
+}
+
+void InputSystem::closeOverlay(WidgetId widget) {
+    if (m_overlay != widget) {
+        return;
+    }
+    model::WidgetSlot& slot = m_store->widget(widget);
+    slot.overlayOpen = false;
+    m_store->panel(slot.panel).dirty = true;
+    m_overlay.reset();
 }
 
 void InputSystem::changeValue(WidgetId widget, Value value, bool final) {

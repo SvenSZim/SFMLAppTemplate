@@ -13,6 +13,7 @@ add_library(atpl_ui STATIC
   layout/grid_packing.cpp
   layout/layout.cpp
   layout/measure_context.cpp
+  layout/overlay_placement.cpp
   layout/packing.cpp
   layout/panel_placement.cpp
   layout/rules.cpp
@@ -34,11 +35,13 @@ add_library(atpl_ui STATIC
   theme/theme.cpp
   ui.cpp
   widgets/button.cpp
+  widgets/dropdown.cpp
   widgets/graph.cpp
   widgets/panel_frame.cpp
   widgets/progress_bar.cpp
   widgets/slider.cpp
   widgets/switch.cpp
+  widgets/text_input.cpp
   widgets/text_display.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)

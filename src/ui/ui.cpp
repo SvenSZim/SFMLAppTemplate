@@ -5,6 +5,7 @@
 #include "ui/input/input_system.hpp"
 #include "ui/input/window_events.hpp"
 #include "ui/layout/arrange.hpp"
+#include "ui/layout/overlay_placement.hpp"
 #include "ui/layout/widget_layout.hpp"
 #include "ui/model/store.hpp"
 #include "ui/render/font_measurer.hpp"
@@ -18,6 +19,7 @@
 #include <SFML/System/Clock.hpp>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -39,6 +41,7 @@ struct UI::Impl {
         binding::attachAll(store);            // the bindings given in the setup; refuses wrong kinds
         stackingChanged();
 
+        input.setLook(theme, &textMeasurer);
         renderer.setProfiler(&profiler);
         profiler.setVisible(setup.profiler);
         windowResized();
@@ -145,6 +148,38 @@ struct UI::Impl {
         }
     }
 
+    /// The open overlay, if there is one: placed for where its widget is now, and painted
+    /// again when it opens, moves or changes size, or when its widget's panel is redrawn. To be
+    /// called before the panels are painted, which clears their marks.
+    void placeAndPaintOverlay() {
+        input.closeOverlayIfGone(store); // its panel may have folded, or the widget been hidden
+        const std::optional<WidgetId> open = input.overlay();
+        layout::placeOverlays(store, open, windowSize, theme, sizes, &textMeasurer);
+        if (!open.has_value()) {
+            overlay.setVisible(false);
+            overlayOf.reset();
+            return;
+        }
+
+        const model::WidgetSlot& slot = store.widget(*open);
+        const FloatRect rect = slot.overlayRect.value_or(FloatRect());
+        overlay.setVisible(true);
+        overlay.setPosition(rect.position());
+        overlay.setSize(rect.size()); // a new size repaints
+        overlay.setContentClip(std::nullopt);
+        if (overlayOf != open || store.panel(slot.panel).dirty) {
+            overlay.markDirty();
+        }
+        overlayOf = open;
+        if (overlay.isDirty()) {
+            const auto build = profiler.measure(render::Profiler::Section::Build);
+            const auto layers = overlay.rebuild();
+            Painter painter(layers.content, { 0.f, 0.f }, rect.size(), &textMeasurer);
+            const FloatRect anchor(slot.overlayAnchor.position() - rect.position(), slot.overlayAnchor.size());
+            slot.widget->paintOverlay(painter, Style(theme, slot.colors, model::stateOf(slot), sizes), anchor);
+        }
+    }
+
     sf::RenderWindow& window;
     sf::Vector2f windowSize;
 
@@ -158,6 +193,8 @@ struct UI::Impl {
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
     std::vector<PanelId> stacking;              // the panels from the bottom to the top
     std::vector<render::PanelBatch*> drawOrder; // the same, as the renderer is given them
+    render::PanelBatch overlay;                 // above every panel: an open dropdown list
+    std::optional<WidgetId> overlayOf;          // whose overlay it holds
     render::FontMeasurer textMeasurer;
     render::TextCache textCache;
     render::Renderer renderer;
@@ -298,9 +335,11 @@ void UI::update() {
 bool UI::draw() {
     Impl& impl = *m_impl;
     impl.placeIfOutdated(); // the application may have changed a panel since `update`
+    impl.placeAndPaintOverlay();
     impl.paintChangedPanels();
     const bool drawn =
-        impl.renderer.present(impl.window, impl.theme.palette.window, impl.flag, impl.drawOrder).has_value();
+        impl.renderer.present(impl.window, impl.theme.palette.window, impl.flag, impl.drawOrder, &impl.overlay)
+            .has_value();
     if (impl.animating) {
         impl.flag.request(); // something moves: the next pass must not wait for input
     }

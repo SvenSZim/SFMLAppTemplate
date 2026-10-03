@@ -1,6 +1,9 @@
 #include "atpl/ui/widget.hpp"
 
 #include "ui/input/input_system.hpp"
+#include "ui/render/text_measurer.hpp"
+
+#include <utility>
 
 namespace atpl {
 
@@ -8,14 +11,27 @@ namespace atpl {
 // the state it changes.
 
 InputContext::InputContext(
-    input::InputSystem& input, WidgetId widget, sf::Vector2f origin, sf::Vector2f size, State state, const Sizes& sizes
+    input::InputSystem& input,
+    WidgetId widget,
+    sf::Vector2f origin,
+    sf::Vector2f size,
+    State state,
+    const Sizes& sizes,
+    std::optional<FloatRect> overlay,
+    const Theme* theme,
+    PanelColors colors,
+    const render::TextMeasurer* measurer
 ) :
     m_input(&input),
     m_widget(widget),
     m_origin(origin),
     m_size(size),
     m_state(state),
-    m_sizes(&sizes) {}
+    m_sizes(&sizes),
+    m_overlay(overlay),
+    m_theme(theme),
+    m_colors(colors),
+    m_measurer(measurer) {}
 
 sf::Vector2f InputContext::size() const {
     return m_size;
@@ -31,6 +47,29 @@ State InputContext::state() const {
 
 const Sizes& InputContext::sizes() const {
     return *m_sizes;
+}
+
+sf::Vector2f InputContext::textSize(std::string_view text, const Part& part) const {
+    if (m_measurer == nullptr || m_theme == nullptr) {
+        return {};
+    }
+    const PartStyle style = m_theme->resolve(part, State::Normal, m_colors, m_sizes->text);
+    return m_measurer->measure(text, style.font, style.textSize);
+}
+
+std::optional<FloatRect> InputContext::overlay() const {
+    if (!m_overlay.has_value()) {
+        return std::nullopt;
+    }
+    return FloatRect(m_overlay->position() - m_origin, m_overlay->size());
+}
+
+void InputContext::openOverlay() {
+    m_input->openOverlay(m_widget);
+}
+
+void InputContext::closeOverlay() {
+    m_input->closeOverlay(m_widget);
 }
 
 void InputContext::markDirty() {

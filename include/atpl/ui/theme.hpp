@@ -112,6 +112,7 @@ enum class State : std::uint8_t {
     Focused = 4,  ///< It has the keyboard focus.
     Disabled = 8, ///< It does not react to input.
     Active = 16,  ///< It is "on" or selected: a switch that is on, the chosen dropdown entry.
+    Open = 32,    ///< Its overlay is open: a dropdown showing its list.
 };
 
 [[nodiscard]] constexpr State operator|(State a, State b) {

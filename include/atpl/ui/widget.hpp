@@ -127,7 +127,11 @@ public:
         sf::Vector2f origin,
         sf::Vector2f size,
         State state,
-        const Sizes& sizes
+        const Sizes& sizes,
+        std::optional<FloatRect> overlay = std::nullopt,
+        const Theme* theme = nullptr,
+        PanelColors colors = {},
+        const render::TextMeasurer* measurer = nullptr
     );
 
     /// The widget's size in pixels. The widget's own coordinates run from (0, 0) at its top-left
@@ -142,9 +146,22 @@ public:
 
     [[nodiscard]] const Sizes& sizes() const;
 
+    /// The size one line of text would have when drawn as `part`, as `MeasureContext::textSize`
+    /// says: for finding the character under the pointer.
+    [[nodiscard]] sf::Vector2f textSize(std::string_view text, const Part& part) const;
+
     /// Says that the widget looks different now. Its panel is redrawn. A change of `state()` is
     /// noticed without this.
     void markDirty();
+
+    /// Opens or closes the widget's overlay (see `Widget::overlaySize`). Opening it closes any
+    /// other.
+    void openOverlay();
+    void closeOverlay();
+
+    /// Where the open overlay is, in the widget's own coordinates: below it, so from its height
+    /// down, or above it, at negative heights. Empty while it is closed, or not placed yet.
+    [[nodiscard]] std::optional<FloatRect> overlay() const;
 
     /// Sends all pointer input to this widget until `releasePointer()`, wherever the pointer goes:
     /// for dragging. Released automatically when the button is.
@@ -170,6 +187,10 @@ private:
     sf::Vector2f m_size;
     State m_state;
     const Sizes* m_sizes;
+    std::optional<FloatRect> m_overlay;
+    const Theme* m_theme;
+    PanelColors m_colors;
+    const render::TextMeasurer* m_measurer;
 };
 
 /// What a widget can do while time passes.
@@ -278,6 +299,48 @@ public:
     /// `changeValue`, `press`.
     virtual bool handleInput(const Event& /*event*/, InputContext& /*context*/) { return false; }
 
+    /// Whether the widget answers to the pointer: is hovered, pressed and handed pointer input.
+    /// Widgets that only show something (a text display, a graph) say no; the pointer then
+    /// passes over them as over the panel's background, and they never look hovered.
+    [[nodiscard]] virtual bool reactsToPointer() const { return true; }
+
+    /// Called when the widget loses the keyboard focus, however that happens: it gave it up, the
+    /// user pressed elsewhere, or another widget took it. A text input reports its final value
+    /// here.
+    virtual void focusLost(InputContext& /*context*/) {}
+
+    // ----- Overlay -----
+    //
+    // A widget can have one thing that is drawn above every panel and may reach beyond its own
+    // rectangle: a dropdown's list. It opens it with `InputContext::openOverlay()`. While it is
+    // open, the widget's state has `State::Open`, all pointer input goes to the widget, and a
+    // press anywhere but on the widget or its overlay closes it and is used up. Only one overlay
+    // is open at a time. The UI also closes it when the widget's panel folds or the widget is
+    // hidden or disabled.
+    //
+    // The UI places the overlay right below the widget's anchor (by default the whole widget),
+    // as wide as it and without a gap; right above it if it does not fit below; and inside the
+    // window if it fits neither way.
+
+    /// The part of the widget its overlay is attached to, in the widget's coordinates, for a
+    /// widget of `size`: a dropdown's field, not its label. By default the whole widget.
+    [[nodiscard]] virtual FloatRect overlayAnchor(const MeasureContext& /*context*/, sf::Vector2f size) const {
+        return { { 0.f, 0.f }, size };
+    }
+
+    /// The size the open overlay would like, at most `maxHeight` high: the room there is. Asked
+    /// again with less room if it does not fit; a list then shows fewer entries.
+    [[nodiscard]] virtual sf::Vector2f overlaySize(const MeasureContext& /*context*/, float /*maxHeight*/) const {
+        return {};
+    }
+
+    /// Emits the overlay's shapes, in the overlay's own coordinates: (0, 0) is its top-left
+    /// corner, `painter.size()` its size. `anchor` is where the widget's anchor is in the same
+    /// coordinates, just above or below. The overlay is drawn above every panel, and may also
+    /// draw over its anchor: to join the two into one shape. Called when the overlay opens,
+    /// moves, or the widget's panel is redrawn.
+    virtual void paintOverlay(Painter& /*painter*/, const Style& /*style*/, const FloatRect& /*anchor*/) const {}
+
     // ----- Time -----
 
     /// Called once per frame with the time since the last frame, in seconds. For animations.
@@ -292,11 +355,6 @@ public:
 
     // ----- Value -----
     //
-    /// Whether the widget answers to the pointer: is hovered, pressed and handed pointer input.
-    /// Widgets that only show something (a text display, a graph) say no; the pointer then
-    /// passes over them as over the panel's background, and they never look hovered.
-    [[nodiscard]] virtual bool reactsToPointer() const { return true; }
-
     // A widget never sees what it is bound to. It keeps its own copy of its value. The UI hands
     // it new values (`setValue`) and is told about the user's changes (`InputContext::changeValue`).
 
