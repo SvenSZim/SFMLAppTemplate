@@ -2,6 +2,7 @@
 
 #include "atpl/ui/widget.hpp"
 
+#include "ui/binding/sync.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
 #include <algorithm>
@@ -393,8 +394,8 @@ void InputSystem::releaseFocus(WidgetId widget) {
 }
 
 void InputSystem::changeValue(WidgetId widget, Value value, bool final) {
-    const model::WidgetSlot& slot = m_store->widget(widget);
-    // Writing the bound value comes with bindings (WP 3.8); the event is raised already.
+    model::WidgetSlot& slot = m_store->widget(widget);
+    binding::write(slot, value); // the bound value first: the event reports what is stored
     m_events->push_back(
         ValueChanged{
             .widget = widget,

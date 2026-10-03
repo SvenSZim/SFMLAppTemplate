@@ -10,6 +10,7 @@
 
 #include <SFML/System/Vector2.hpp>
 
+#include <chrono>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -310,6 +311,18 @@ public:
     /// For widgets that accept `ValueKind::Series`: where to read samples from, or null when
     /// nothing is bound. The widget reads when the source's revision changes, in `update`.
     virtual void setSeries(const SeriesBinding* /*source*/) {}
+
+    /// How often at most the widget is handed a new value of its binding, or told that its series
+    /// changed. A bound value that changes every tick would otherwise repaint the panel every
+    /// frame; a change in between is not lost, it arrives with the next hand-over.
+    ///
+    /// By default: at once for widgets that edit their value or show a series (a slider must
+    /// follow, a graph must move smoothly), eight times per second for values that are only
+    /// shown. A widget type overrides this if it needs something else.
+    [[nodiscard]] virtual std::chrono::milliseconds refreshInterval() const {
+        return editsValue() || accepts(ValueKind::Series) ? std::chrono::milliseconds(0)
+                                                          : std::chrono::milliseconds(125);
+    }
 };
 
 } // namespace atpl

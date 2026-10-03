@@ -1,5 +1,6 @@
 #include "atpl/ui/ui.hpp"
 
+#include "ui/binding/sync.hpp"
 #include "ui/frame_loop.hpp"
 #include "ui/input/input_system.hpp"
 #include "ui/input/window_events.hpp"
@@ -35,6 +36,7 @@ struct UI::Impl {
         batches(store.panels().size()),
         renderer(&textCache) {
         layout::prepare(store, grid, layout); // finds grid cells; refuses what cannot be laid out
+        binding::attachAll(store);            // the bindings given in the setup; refuses wrong kinds
         stackingChanged();
 
         renderer.setProfiler(&profiler);
@@ -288,6 +290,8 @@ void UI::update() {
         impl.placementOutdated = true;
         impl.flag.request();
     }
+    // Bound values that changed are handed to their widgets.
+    binding::sync(impl.store, binding::Clock::now());
     impl.placeIfOutdated();
 }
 
@@ -325,6 +329,38 @@ WidgetHandle& WidgetHandle::setEnabled(bool enabled) {
 
 bool WidgetHandle::isEnabled() const {
     return m_ui->m_impl->store.widget(m_id).enabled;
+}
+
+WidgetHandle& WidgetHandle::bind(AnyBinding binding) {
+    binding::attach(m_ui->m_impl->store, m_id, std::move(binding));
+    m_ui->m_impl->flag.request();
+    return *this;
+}
+
+WidgetHandle& WidgetHandle::unbind() {
+    binding::attach(m_ui->m_impl->store, m_id, std::nullopt);
+    return *this;
+}
+
+Value WidgetHandle::value() const {
+    const model::WidgetSlot& slot = m_ui->m_impl->store.widget(m_id);
+    if (std::optional<Value> current = slot.widget->value()) {
+        return *std::move(current);
+    }
+    throw SetupError("widget \"" + slot.name + "\" has no value");
+}
+
+WidgetHandle& WidgetHandle::setValue(const Value& value) {
+    UI::Impl& impl = *m_ui->m_impl;
+    model::WidgetSlot& slot = impl.store.widget(m_id);
+    if (!slot.widget->accepts(kindOf(value))) {
+        throw SetupError("widget \"" + slot.name + "\" does not work with values of this kind");
+    }
+    slot.widget->setValue(value);
+    binding::write(slot, value); // as if the user had entered it
+    impl.store.panel(slot.panel).dirty = true;
+    impl.flag.request();
+    return *this;
 }
 
 ViewHandle& ViewHandle::onDraw(DrawFunction draw) {

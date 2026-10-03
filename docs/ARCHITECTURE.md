@@ -129,7 +129,7 @@ src/ui/
 ├─ ui.cpp     frame_loop.hpp/.cpp
 ├─ model/    panel.hpp  widget_slot.hpp  view.hpp  store.hpp/.cpp  name_index.hpp/.cpp  setup.cpp
 ├─ input/    input_system.hpp/.cpp  input_context.cpp  event.cpp  window_events.hpp/.cpp
-├─ binding/  adapters.hpp/.cpp  sync.hpp/.cpp
+├─ binding/  any_binding.cpp  sync.hpp/.cpp
 ├─ layout/   layout.cpp  arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
 │            grid_packing.hpp/.cpp  packing.hpp/.cpp  cell.hpp/.cpp  rules.hpp/.cpp
 │            measure_context.cpp
@@ -219,6 +219,14 @@ Rules:
 - What a widget **is** (range, step count, option labels) is part of its descriptor, not of the binding.
 - Numbers of every C++ type travel as `double`, enums as the index of the enumerator. Exact for `float`, for integers up to 32 bits and for 64-bit integers up to 2^53; larger 64-bit values are bound as text to be shown exactly. Writing back rounds integers and clamps to the type's range (`numberTo<T>`).
 - A descriptor only accepts sources of its widget's kind, checked by the compiler. Binding by name is checked when it runs and throws `SetupError` for a wrong kind.
+
+How it is built (`binding/`, WP 3.8):
+- **`AnyBinding`** holds a pointer to one of the five interfaces. For a `Param<T>`, a `Series`, a `PointSeries` or two functions it makes an adapter and keeps it alive; an application's own implementation is used as it is. `get`, `set` and `revision` work in the kind's type (`Value`), so the UI never sees the application's types.
+- **Bindings of functions** notice changes by asking the getter when the revision is asked for.
+- **Points**: a `PointSeries` is bound like a `Series`; its binding says `hasPoints()` and gives the points through `readPoints`, its y values through `read`.
+- **Syncing** (`binding::sync`, every `UI::update`): for each bound widget, the revision is compared with the one the widget last got; only on a change is the value handed over (`Widget::setValue`) and the panel marked dirty. A series only marks its graph's panel: the graph reads the series itself. A widget hears of changes at most as often as `Widget::refreshInterval` says: by default at once for widgets that edit their value or show a series, every 125 ms for values that are only shown; a widget type can ask for something else. A change in between is not lost, it arrives with the next hand-over.
+- **Writing** (`binding::write`): what the user enters goes into the binding before `ValueChanged` is raised, and the widget is not handed it back. `WidgetHandle::set` writes the same way, without an event.
+- **Checks**: a binding of a kind the widget does not work with, or a read-only binding for a widget that edits its value, throws `SetupError` naming the widget: in `bind`, and for the bindings of the setup when the UI is built.
 
 ### 4.6 In-panel layout (P12, D44)
 
