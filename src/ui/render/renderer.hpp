@@ -10,6 +10,7 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <span>
 
@@ -37,6 +38,13 @@ public:
     /// With a profiler, `present` reports what each frame took to it, and draws its readout on
     /// top of everything while the readout is visible.
     void setProfiler(Profiler* profiler) { m_profiler = profiler; }
+
+    /// What draws the application's views (ARCHITECTURE.md 4.7): called with no index before the
+    /// first panel, for the view behind them all, and with the index of each panel in the list
+    /// right after it is drawn, for the views inside it. Above them come the next panels, the
+    /// overlay and the readout. Without one, no views are drawn.
+    using ViewPainter = std::function<void(sf::RenderTarget& target, std::optional<std::size_t> afterPanel)>;
+    void setViewPainter(ViewPainter painter) { m_viewPainter = std::move(painter); }
 
     /// Draws `panels` in order and then `overlay`, if there is one.
     FrameStats
@@ -69,6 +77,7 @@ private:
 
     TextRenderer* m_textRenderer;
     Profiler* m_profiler = nullptr;
+    ViewPainter m_viewPainter;
     std::size_t m_rebuildsSeen = 0;
     std::size_t m_framesDrawn = 0;
     std::size_t m_framesSkipped = 0;

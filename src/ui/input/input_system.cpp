@@ -3,6 +3,7 @@
 #include "atpl/ui/widget.hpp"
 
 #include "ui/binding/sync.hpp"
+#include "ui/layout/panel_placement.hpp"
 #include "ui/layout/widget_layout.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
@@ -63,6 +64,7 @@ InputSystem::Hit InputSystem::hitTest(sf::Vector2f position) const {
             const model::WidgetSlot& slot = m_store->widget(WidgetId{ first + i });
             if (slot.visible && slot.enabled && slot.widget->reactsToPointer() && slot.rect.contains(local)) {
                 hit.widget = WidgetId{ first + i };
+                hit.view = slot.view.has_value();
                 break;
             }
         }
@@ -85,10 +87,10 @@ PointerLocation InputSystem::locate(sf::Vector2f position) const {
         view = m_store->backgroundView();
     }
     if (view.has_value()) {
-        const model::View& entry = m_store->view(*view);
         location.view = view;
-        location.viewName = entry.name;
-        location.inView = position - entry.rect.position();
+        location.viewName = m_store->view(*view).name;
+        location.inView =
+            position - layout::placeOf(*m_store, *view, *m_sizes).rect.position(); // scrolled with its panel
     }
     return location;
 }
@@ -305,9 +307,12 @@ void InputSystem::handle(
             return;
         }
 
-        const Hit hit = hitTest(m_pointer);
+        Hit hit = hitTest(m_pointer);
+        if (hit.view) {
+            hit.widget.reset(); // a view is not hovered as a widget is: it is the application's
+        }
         setHover(hit);
-        if (hit.panel.has_value()) {
+        if (!hit.applications()) {
             if (hit.widget.has_value()) {
                 deliver(*hit.widget, Event(PointerMoved{ pointer, delta }));
             }
@@ -341,9 +346,9 @@ void InputSystem::handle(
         }
 
         const Hit hit = hitTest(m_pointer);
-        setHover(hit);
+        setHover(hit.view ? Hit{ .panel = hit.panel } : hit);
         m_buttonsDown = 1;
-        if (!hit.panel.has_value()) {
+        if (hit.applications()) {
             m_owner = Owner::Application;
             setFocus(std::nullopt);
             m_lastForwarded = m_pointer;
@@ -413,7 +418,7 @@ void InputSystem::handle(
                     }
                 }
             }
-        } else if (!hitTest(m_pointer).panel.has_value()) {
+        } else if (hitTest(m_pointer).applications()) {
             forward(release); // a release without a press we saw: by where it happens
         }
 
@@ -438,8 +443,8 @@ void InputSystem::handle(
             return;
         }
         const Hit hit = hitTest(m_pointer);
-        if (m_owner == Owner::Application || (m_owner == Owner::None && !hit.panel.has_value())) {
-            forward(scrolled);
+        if (m_owner == Owner::Application || (m_owner == Owner::None && hit.applications())) {
+            forward(scrolled); // over a view too: it may zoom, even in a panel that scrolls
             return;
         }
         // Over a panel the wheel is the UI's, whether a widget uses it or not. During a press it

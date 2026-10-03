@@ -5,6 +5,7 @@
 #include "ui/input/input_system.hpp"
 #include "ui/layout/arrange.hpp"
 #include "ui/layout/overlay_placement.hpp"
+#include "ui/layout/panel_placement.hpp"
 #include "ui/layout/widget_layout.hpp"
 #include "ui/render/panel_batch.hpp"
 #include "ui/render/text_measurer.hpp"
@@ -343,4 +344,30 @@ TEST_CASE("content is cut off before the panel's bottom border, and cannot be cl
         }
     }
     REQUIRE(cut != nullptr);
+}
+
+TEST_CASE("a view in a scrolled panel moves with it, and only its visible part counts", "[ui][scrolling][views]") {
+    Param<float> level = 0.f;
+    std::vector<WidgetSetup> widgets = manyWidgets(12, level);
+    widgets.insert(widgets.begin(), View("map", { .height = 60.f }));
+    Harness ui(std::move(widgets), { 600.f, 260.f });
+    layout::placeViews(ui.store, ui.window, sizes);
+    const ViewId map = ui.store.names().view("map");
+
+    const layout::ViewPlace before = layout::placeOf(ui.store, map, sizes);
+    REQUIRE(before.visible == before.rect); // at the top of the content: all of it in view
+
+    ui.wheel(ui.rectOf("B0").center(), -1.f); // one notch down
+    const layout::ViewPlace after = layout::placeOf(ui.store, map, sizes);
+    REQUIRE(after.rect.top() == before.rect.top() - ui.panel().scroll);
+    REQUIRE(after.visible.top() == ui.panel().rect.top() + sizes.headerHeight); // cut at the header
+    REQUIRE(after.visible.bottom() == after.rect.bottom());
+
+    // The pointer over it says where it is in the view, scrolled.
+    const sf::Vector2f at(after.rect.center().x, after.visible.bottom() - 2.f);
+    const auto events = ui.moveTo(at);
+    REQUIRE(events.size() == 1);
+    const PointerLocation& pointer = events[0].getIf<PointerMoved>()->pointer;
+    REQUIRE(pointer.isIn("map"));
+    REQUIRE(pointer.inView == at - after.rect.position());
 }

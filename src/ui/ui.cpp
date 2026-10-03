@@ -45,6 +45,9 @@ struct UI::Impl {
 
         input.setLook(theme, &textMeasurer);
         renderer.setProfiler(&profiler);
+        renderer.setViewPainter([this](sf::RenderTarget& target, std::optional<std::size_t> afterPanel) {
+            drawViews(target, afterPanel);
+        });
         profiler.setVisible(setup.profiler);
         windowResized();
         looksChanged();
@@ -212,6 +215,47 @@ struct UI::Impl {
             const FloatRect anchor(slot.overlayAnchor.position() - rect.position(), slot.overlayAnchor.size());
             slot.widget->paintOverlay(painter, Style(theme, slot.colors, model::stateOf(slot), sizes), anchor);
         }
+    }
+
+    /// The application's views at one point of the drawing order: the background view, or the
+    /// views inside the panel drawn at `afterPanel` in the draw order.
+    void drawViews(sf::RenderTarget& target, std::optional<std::size_t> afterPanel) {
+        if (!afterPanel.has_value()) {
+            if (const std::optional<ViewId> background = store.backgroundView()) {
+                drawView(target, *background);
+            }
+            return;
+        }
+        const PanelId panel = stacking[*afterPanel];
+        for (std::uint32_t i = 0; i < store.views().size(); ++i) {
+            const model::View& view = store.views()[i];
+            if (view.widget.has_value() && store.widget(*view.widget).panel == panel) {
+                drawView(target, ViewId{ i });
+            }
+        }
+    }
+
+    /// One view: its draw function with (0, 0) at the view's top-left corner, one unit a pixel,
+    /// and nothing drawn outside the part of it that can be seen.
+    void drawView(sf::RenderTarget& target, ViewId id) {
+        const model::View& view = store.view(id);
+        const layout::ViewPlace place = layout::placeOf(store, id, sizes);
+        if (!view.draw || place.visible.width() <= 0.f || place.visible.height() <= 0.f) {
+            return;
+        }
+        const sf::Vector2f targetSize(target.getSize());
+        sf::View camera(sf::FloatRect({ 0.f, 0.f }, place.rect.size()));
+        camera.setViewport(
+            sf::FloatRect(
+                { place.rect.left() / targetSize.x, place.rect.top() / targetSize.y },
+                { place.rect.width() / targetSize.x, place.rect.height() / targetSize.y }
+            )
+        );
+        camera.setScissor(render::scissorFor(place.visible, target.getSize()));
+        const sf::View previous = target.getView();
+        target.setView(camera);
+        view.draw(target, place.rect.size());
+        target.setView(previous); // whatever the draw function did to it
     }
 
     sf::RenderWindow& window;
@@ -450,7 +494,8 @@ ViewHandle& ViewHandle::onDraw(DrawFunction draw) {
 }
 
 FloatRect ViewHandle::rect() const {
-    return m_ui->m_impl->store.view(m_id).rect;
+    const UI::Impl& impl = *m_ui->m_impl;
+    return layout::placeOf(impl.store, m_id, impl.sizes).rect; // scrolled with its panel
 }
 
 PanelHandle& PanelHandle::setCollapsed(bool collapsed) {

@@ -484,6 +484,24 @@ cardOrder(const model::Store& store, std::span<const PanelId> base, std::optiona
     return order;
 }
 
+ViewPlace placeOf(const model::Store& store, ViewId id, const Sizes& sizes) {
+    const model::View& view = store.view(id);
+    if (!view.widget.has_value()) {
+        return { view.rect, view.rect }; // the background: the whole window
+    }
+    const model::Panel& panel = store.panel(store.widget(*view.widget).panel);
+    const FloatRect rect(view.rect.position() - sf::Vector2f(0.f, panel.scroll), view.rect.size());
+    // The panel's content area: below the header, above the margin at the bottom.
+    const float top = panel.rect.top() + std::min(sizes.headerHeight, panel.rect.height());
+    const float bottom = std::max(panel.rect.bottom() - sizes.padding.y, top);
+    const float visibleTop = std::max(rect.top(), top);
+    const float visibleBottom = std::min(rect.bottom(), bottom);
+    if (rect.width() <= 0.f || visibleBottom <= visibleTop) {
+        return { rect, {} };
+    }
+    return { rect, FloatRect(rect.left(), visibleTop, rect.width(), visibleBottom - visibleTop) };
+}
+
 void placeViews(model::Store& store, sf::Vector2f windowSize, const Sizes& sizes) {
     for (model::View& view : store.views()) {
         if (!view.widget.has_value()) {

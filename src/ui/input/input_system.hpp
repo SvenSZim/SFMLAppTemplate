@@ -29,6 +29,8 @@ namespace atpl::input {
 /// - A press and everything up to its release go to the same place. A drag that starts on a
 ///   widget goes to that widget wherever the pointer goes, and is never forwarded; a drag that
 ///   starts outside the panels is forwarded even where it crosses one.
+/// - Over a view widget it is as over no panel: the input goes to the application, with the view
+///   it is over (WP 4.4).
 /// - The wheel over a panel is the UI's, whether anything in the panel uses it or not. In a panel
 ///   whose content overflows it scrolls the content; in one that does not, it goes to the widget
 ///   under the pointer. The scrollbar's thumb can be dragged; a press on its track moves the
@@ -105,6 +107,11 @@ private:
         std::optional<WidgetId> widget; ///< Only widgets that are drawn, enabled and react to the pointer.
         bool header = false;            ///< The pointer is over the panel's header.
         bool scrollbar = false;         ///< The pointer is over the panel's scrollbar.
+        bool view = false;              ///< The widget is a view: what happens over it is the application's.
+
+        /// Whether the pointer is where the application gets the input: over no panel, or over
+        /// a view widget.
+        [[nodiscard]] bool applications() const { return !panel.has_value() || view; }
     };
 
     [[nodiscard]] Hit hitTest(sf::Vector2f position) const;

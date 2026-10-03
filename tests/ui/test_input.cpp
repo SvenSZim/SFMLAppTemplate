@@ -210,12 +210,31 @@ TEST_CASE("a click on a panel is not forwarded, a click outside is", "[ui][input
 
     REQUIRE(f.click(100.f, 60.f).empty());  // on the button
     REQUIRE(f.click(100.f, 127.f).empty()); // on the panel, below its widgets
-    REQUIRE(f.click(600.f, 300.f).empty()); // on the scene panel
 
     const auto outside = f.click(300.f, 300.f);
     REQUIRE(outside.size() == 2);
     REQUIRE(outside[0].is<PointerPressed>());
     REQUIRE(outside[1].is<PointerReleased>());
+}
+
+TEST_CASE("what happens over a view widget is the application's, as outside the panels", "[ui][input]") {
+    Fixture f;
+    const auto click = f.click(600.f, 300.f); // on the scene panel's view
+    REQUIRE(click.size() == 2);
+    REQUIRE(click[0].getIf<PointerPressed>()->pointer.isIn("minimap"));
+    REQUIRE(f.minimap->received.empty()); // the view widget itself hears nothing
+
+    // A drag that starts in the view stays the application's, also over the other panel.
+    f.press(600.f, 300.f);
+    REQUIRE(f.move(30.f, 55.f).size() == 1);
+    REQUIRE(f.button->received.empty());
+    f.release(30.f, 55.f);
+
+    // The wheel over a view is the application's, to zoom: also inside a panel.
+    REQUIRE(f.wheel(600.f, 300.f).size() == 1);
+    // A move over it is forwarded, and the view is not hovered as a widget is.
+    REQUIRE(f.move(610.f, 300.f).size() == 1);
+    REQUIRE_FALSE(f.input.hovered().has_value());
 }
 
 TEST_CASE("a widget gets the pointer in its own coordinates", "[ui][input]") {

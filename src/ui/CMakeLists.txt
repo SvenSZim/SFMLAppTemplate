@@ -46,6 +46,7 @@ add_library(atpl_ui STATIC
   widgets/text_display.cpp
   widgets/text_input.cpp
   widgets/value_display.cpp
+  widgets/view.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 

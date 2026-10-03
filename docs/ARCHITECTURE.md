@@ -324,6 +324,12 @@ Both are the same thing to the app: a named view with a draw callback, set throu
 
 View regions are clipped to rectangles; a view cannot have rounded corners unless it is rendered to a texture first (opt-in, D7).
 
+How it is built (WP 4.4, D63):
+- **The view widget** (`View`): a height of its own (`ViewOptions::height`, scaled like other sizes, at least two rows), or none, and then dynamic: as high as its width and `aspectRatio` say, and in a grid cell all the height the other widgets leave. It draws nothing itself but an optional `Frame` a theme can show.
+- **Where a view is now** (`layout::placeOf`): its place from layout, moved up by its panel's scroll, and the part of it that can be seen, inside the panel's content area. Drawing, the pointer and `ViewHandle::rect()` use it.
+- **Drawing**: the renderer calls the UI before the first panel, for the background view, and after each panel, for the views inside it, so a view is above its panel and below the panels above it, the overlay and the readout. Each draw function gets the target with (0, 0) at the view's top-left corner and one unit a pixel (a `sf::View` whose viewport is the view's place) and a scissor for its visible part; the target's view is restored after it. A view without a draw function, or with nothing visible, costs nothing.
+- **Input**: over a view widget the pointer is as over no panel: presses, drags, moves and the wheel are forwarded with the view's name and the position in it, a drag that starts there stays the application's, and the wheel over a view goes to the application even in a panel that scrolls, so that a view can zoom. The view widget itself gets no input and is never hovered.
+
 ### 4.8 Events (P4, D11, D15, D29)
 
 One `Event` type, one stream, read on the main thread after `UI::handleInput()` through `UI::events()`:
@@ -376,6 +382,7 @@ Options that cannot work (max not above min, a negative step, a logarithmic axis
 - `UI::handleInput()` waits at most for the first event of a pass (`frame::nextEvent`) and takes the rest as they are (`frame::pendingEvent`), so a stream of pointer moves cannot hold up the frame.
 
 How `input/input_system` does it (WP 3.5):
+- **Views**: over a view widget, input is the application's (4.7).
 - **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, its header, its scrollbar, or the widget under it (scrolled, 4.6b) that is drawn, enabled and reacts to the pointer (`Widget::reactsToPointer`; the display widgets do not, WP 3.10), so a widget that only shows never looks hovered.
 - **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.
 - **Hover, pressed, focused, overlay open** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
