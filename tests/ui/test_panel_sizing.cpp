@@ -368,6 +368,44 @@ TEST_CASE("a collapsed panel is never too small for its widgets", "[ui][layout][
     REQUIRE(ui.shown(0)); // its header has room
 }
 
+// ----- Folding -----
+
+TEST_CASE("while a panel folds, its content keeps its place and the panels below follow", "[ui][layout][sizing]") {
+    Ui ui(
+        { floating("folding", { item("a", { 50.f, 20.f }), item("b", { 50.f, 20.f }) }),
+          floating("below", { item("c", { 50.f, 20.f }) }) }
+    );
+    ui.arrange();
+    const FloatRect open = ui.rectOf(0);
+    const FloatRect widget = ui.store.widget(WidgetId{ 1 }).rect;
+    REQUIRE(open.height() == 95.f); // 30 + 10 + 20 + 5 + 20 + 10
+    REQUIRE(ui.rectOf(1).top() == 115.f);
+
+    model::Panel& panel = ui.store.panel(PanelId{ 0 });
+    panel.collapsed = true;
+    panel.opening = 0.5f; // half-way
+    ui.arrange();
+    REQUIRE(ui.rectOf(0).height() == 63.f); // 30 + 65 / 2, rounded
+    REQUIRE(ui.rectOf(1).top() == 83.f);
+    REQUIRE(ui.store.widget(WidgetId{ 1 }).rect == widget); // laid out as in the open panel
+    REQUIRE(ui.drawn(1));                                   // and still drawn, cut off at the edge
+
+    panel.opening.reset(); // arrived
+    ui.arrange();
+    REQUIRE(ui.rectOf(0).height() == 30.f);
+    REQUIRE_FALSE(ui.drawn(1));
+}
+
+TEST_CASE("a panel is never left out while it folds", "[ui][layout][sizing]") {
+    // Half-way its content area is lower than its widget needs; that does not count yet.
+    Ui ui({ floating("folding", { item("a", { 50.f, 100.f }, { 50.f, 100.f }) }) });
+    model::Panel& panel = ui.store.panel(PanelId{ 0 });
+    panel.collapsed = true;
+    panel.opening = 0.3f;
+    ui.arrange();
+    REQUIRE(ui.shown(0));
+}
+
 // ----- The presets -----
 
 TEST_CASE("each preset arranges the same panels the way it describes", "[ui][layout][sizing]") {

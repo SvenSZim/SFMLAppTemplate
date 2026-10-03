@@ -134,6 +134,8 @@ void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f wind
     float total = static_cast<float>(count - 1) * gap;
     for (std::size_t i = 0; i < count; ++i) {
         heights[i] = wantedHeight(*stack[i], sizes);
+        model::Panel& panel = *stack[i];
+        panel.openHeight = panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
         total += heights[i];
     }
     if (total > available) {
@@ -271,11 +273,15 @@ float panelWidth(const model::Panel& panel, sf::Vector2f windowSize, GridSetup g
     return floatingWidth(panel, windowSize, sizes);
 }
 
+float openShare(const model::Panel& panel) {
+    // Starts and ends gently: smoothstep.
+    const float t = std::clamp(panel.openness(), 0.f, 1.f);
+    return t * t * (3.f - 2.f * t);
+}
+
 float wantedHeight(const model::Panel& panel, const Sizes& sizes) {
-    if (panel.collapsed) {
-        return sizes.headerHeight;
-    }
-    return panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
+    const float open = panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
+    return std::round(sizes.headerHeight + (open - sizes.headerHeight) * openShare(panel));
 }
 
 void placePanels(
@@ -302,9 +308,12 @@ void placePanels(
             rect = aligned({ panel.wantedWidth, height }, cells, rules.alignment);
         }
 
-        // A collapsed panel is its header, at the side of its place the rules say.
-        if (panel.collapsed) {
-            rect = aligned({ rect.width(), sizes.headerHeight }, rect, rules.collapseTowards);
+        // A collapsed panel is its header, at the side of its place the rules say; on the way
+        // there it shrinks towards that side.
+        panel.openHeight = rect.height();
+        if (panel.openness() < 1.f) {
+            const float height = sizes.headerHeight + (rect.height() - sizes.headerHeight) * openShare(panel);
+            rect = aligned({ rect.width(), std::round(height) }, rect, rules.collapseTowards);
         }
         assign(
             panel,
@@ -327,7 +336,7 @@ void placeViews(model::Store& store, sf::Vector2f windowSize, const Sizes& sizes
 
         const model::WidgetSlot& slot = store.widget(*view.widget);
         const model::Panel& panel = store.panel(slot.panel);
-        if (!panel.shown || panel.collapsed || !slot.visible) {
+        if (!panel.shown || panel.isClosed() || !slot.visible) {
             view.rect = {};
             continue;
         }

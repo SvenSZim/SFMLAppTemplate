@@ -176,6 +176,14 @@ TEST_CASE("a frame is drawn only when something changed", "[ui][facade][display]
         ui.panel("Inspector").setCollapsed(true);
         REQUIRE(ui.panel("Inspector").isCollapsed());
         REQUIRE(ui.draw());
+
+        // It folds over a moment: frames keep coming until it has arrived, and then stop.
+        int frames = 0;
+        const sf::Clock clock;
+        while (clock.getElapsedTime() < sf::seconds(1.f)) {
+            frames += Fixture::frame(ui) ? 1 : 0;
+        }
+        REQUIRE(frames >= 3);
         REQUIRE(ui.panel("Inspector").rect().height() == ui.sizes().headerHeight);
         REQUIRE_FALSE(ui.draw());
     }

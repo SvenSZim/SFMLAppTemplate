@@ -2,6 +2,8 @@
 
 #include "atpl/ui/widget.hpp"
 
+#include "ui/widgets/panel_frame.hpp"
+
 #include <algorithm>
 #include <utility>
 
@@ -33,7 +35,13 @@ InputSystem::Hit InputSystem::hitTest(sf::Vector2f position) const {
         if (!panel.shown || !panel.rect.contains(position)) {
             continue;
         }
-        Hit hit{ .panel = *it, .widget = std::nullopt };
+        Hit hit{ .panel = *it,
+                 .widget = std::nullopt,
+                 .header = position.y < panel.rect.top() + m_sizes->headerHeight };
+        if (hit.header) {
+            return hit;
+        }
+        // Only what is inside the panel can be hit: content cut off at its edge is not there.
         const sf::Vector2f local = position - contentOrigin(*it);
         const std::uint32_t first = panel.firstWidget;
         for (std::uint32_t i = 0; i < panel.widgetCount; ++i) {
@@ -88,12 +96,27 @@ void InputSystem::setHover(const Hit& hit) {
     }
     if (hit.panel != m_hoveredPanel) {
         if (m_hoveredPanel.has_value()) {
-            m_store->panel(*m_hoveredPanel).hovered = false;
+            model::Panel& panel = m_store->panel(*m_hoveredPanel);
+            panel.hovered = false;
+            if (panel.headerHovered) {
+                panel.headerHovered = false;
+                panel.dirty = true;
+            }
         }
         if (hit.panel.has_value()) {
             m_store->panel(*hit.panel).hovered = true;
         }
         m_hoveredPanel = hit.panel;
+    }
+    if (hit.panel.has_value()) {
+        // The header of a collapsible panel answers to the pointer: its arrow lights up.
+        model::Panel& panel = m_store->panel(*hit.panel);
+        if (panel.headerHovered != hit.header) {
+            panel.headerHovered = hit.header;
+            if (panel.collapsible) {
+                panel.dirty = true;
+            }
+        }
     }
 }
 
@@ -231,6 +254,9 @@ void InputSystem::handle(
         }
 
         m_owner = Owner::Ui;
+        if (hit.header && pressedButton->button == sf::Mouse::Button::Left) {
+            m_pressedHeader = hit.panel;
+        }
         if (m_focused != hit.widget) {
             setFocus(std::nullopt); // the widget may take it again while it handles the press
         }
@@ -252,6 +278,16 @@ void InputSystem::handle(
             if (const auto widget = holder()) {
                 deliver(*widget, Event(release));
             }
+            // A click on the header of a collapsible panel folds or unfolds it.
+            const Hit hit = hitTest(m_pointer);
+            if (m_pressedHeader.has_value() && hit.header && hit.panel == m_pressedHeader &&
+                releasedButton->button == sf::Mouse::Button::Left) {
+                model::Panel& panel = m_store->panel(*m_pressedHeader);
+                if (panel.collapsible) {
+                    widgets::setCollapsed(panel, !panel.collapsed);
+                    m_folded = true;
+                }
+            }
         } else if (!hitTest(m_pointer).panel.has_value()) {
             forward(release); // a release without a press we saw: by where it happens
         }
@@ -259,6 +295,7 @@ void InputSystem::handle(
         m_buttonsDown = std::max(m_buttonsDown - 1, 0);
         if (m_buttonsDown == 0) {
             m_owner = Owner::None;
+            m_pressedHeader.reset();
             m_captured.reset(); // released together with the button
             setPressed(std::nullopt);
             setHover(hitTest(m_pointer));
@@ -323,6 +360,10 @@ void InputSystem::handle(
         }
         return;
     }
+}
+
+bool InputSystem::takeFolded() {
+    return std::exchange(m_folded, false);
 }
 
 // ----- What a widget does through its context -----

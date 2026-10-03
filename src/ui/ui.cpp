@@ -14,7 +14,9 @@
 #include "ui/widgets/panel_frame.hpp"
 
 #include <SFML/Graphics/View.hpp>
+#include <SFML/System/Clock.hpp>
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -113,6 +115,10 @@ struct UI::Impl {
             }
             batch.setPosition(panel.rect.position());
             batch.setSize(panel.rect.size());
+            // Widgets are cut off at the edge of the content area: below the header, inside the panel.
+            batch.setContentClip(FloatRect(
+                0.f, sizes.headerHeight, panel.rect.width(), std::max(panel.rect.height() - sizes.headerHeight, 0.f)
+            ));
             if (std::exchange(panel.dirty, false)) {
                 batch.markDirty();
             }
@@ -121,7 +127,7 @@ struct UI::Impl {
                 const auto build = profiler.measure(render::Profiler::Section::Build);
                 const auto layers = batch.rebuild();
                 Painter frame(layers.frame, { 0.f, 0.f }, panel.rect.size(), &textMeasurer);
-                widgets::paintPanelFrame(frame, panel.title, theme, panel.colors, sizes);
+                widgets::paintPanelFrame(frame, panel, theme, sizes);
 
                 // Each widget paints itself at the place layout gave it. The content starts
                 // below the header.
@@ -157,6 +163,8 @@ struct UI::Impl {
     frame::RedrawFlag flag;
 
     input::InputSystem input;
+    sf::Clock clock;        // the time between updates, for animations
+    bool animating = false; // something moves: frames keep coming
     std::vector<Event> events;
 };
 
@@ -246,9 +254,11 @@ void UI::handleInput() {
     Impl& impl = *m_impl;
     impl.events.clear();
 
-    // While no frame is asked for, the first call sleeps until something happens, for one
-    // display frame at most: this is where an idle application spends its time.
-    while (const std::optional<sf::Event> event = frame::nextEvent(impl.window, impl.flag)) {
+    // While no frame is asked for, the first event is waited for, one display frame at most:
+    // this is where an idle application spends its time. The rest are taken as they are,
+    // without waiting, so that a stream of pointer moves cannot hold up the frame.
+    for (std::optional<sf::Event> event = frame::nextEvent(impl.window, impl.flag); event.has_value();
+         event = frame::pendingEvent(impl.window, impl.flag)) {
         if (event->is<sf::Event::Resized>()) {
             impl.windowResized();
         }
@@ -257,6 +267,10 @@ void UI::handleInput() {
             continue;
         }
         impl.input.handle(*event, impl.store, impl.stacking, impl.sizes, impl.events);
+        if (impl.input.takeFolded()) {
+            impl.placementOutdated = true; // a panel began to fold or unfold
+            impl.flag.request();
+        }
     }
 }
 
@@ -265,14 +279,28 @@ std::span<const Event> UI::events() const {
 }
 
 void UI::update() {
-    m_impl->placeIfOutdated();
+    Impl& impl = *m_impl;
+    // Panels that fold or unfold move on by the time since the last update; while one does,
+    // frames keep coming.
+    const float seconds = impl.clock.restart().asSeconds();
+    impl.animating = widgets::animatePanels(impl.store, std::min(seconds, 0.1f), impl.layout.foldSeconds);
+    if (impl.animating) {
+        impl.placementOutdated = true;
+        impl.flag.request();
+    }
+    impl.placeIfOutdated();
 }
 
 bool UI::draw() {
     Impl& impl = *m_impl;
     impl.placeIfOutdated(); // the application may have changed a panel since `update`
     impl.paintChangedPanels();
-    return impl.renderer.present(impl.window, impl.theme.palette.window, impl.flag, impl.drawOrder).has_value();
+    const bool drawn =
+        impl.renderer.present(impl.window, impl.theme.palette.window, impl.flag, impl.drawOrder).has_value();
+    if (impl.animating) {
+        impl.flag.request(); // something moves: the next pass must not wait for input
+    }
+    return drawn;
 }
 
 void UI::requestRedraw() {
@@ -311,8 +339,7 @@ FloatRect ViewHandle::rect() const {
 
 PanelHandle& PanelHandle::setCollapsed(bool collapsed) {
     model::Panel& panel = m_ui->m_impl->store.panel(m_id);
-    if (panel.collapsed != collapsed) {
-        panel.collapsed = collapsed;
+    if (widgets::setCollapsed(panel, collapsed)) { // folds over a moment, as a click does
         m_ui->m_impl->panelChanged(panel);
     }
     return *this;

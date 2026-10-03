@@ -1,4 +1,4 @@
-// The smallest application that shows the UI: a window with a few empty panels.
+// The smallest application that shows the UI: a window with a few panels.
 //
 // It drives the UI by hand, which is what `App` will do for an application once it exists
 // (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
@@ -29,6 +29,46 @@ namespace {
 
 using namespace atpl;
 
+// A stand-in for the built-in widgets, which come later (WP 3.9): a box with a name. It is
+// written the way an application writes a widget of its own: a descriptor with its parts, and
+// the widget's behaviour; no positions, no colours.
+struct Placeholder {
+    static constexpr Kind kind{ "placeholder" };
+    static constexpr Part Box{ kind, "box", Role::Track };
+    static constexpr Part Name{ kind, "name", Role::MutedText };
+
+    std::string name;
+    float rows = 1.f; ///< How many rows high it would like to be.
+
+    [[nodiscard]] std::unique_ptr<Widget> create() const;
+};
+
+class PlaceholderWidget final : public Widget {
+public:
+    PlaceholderWidget(std::string name, float rows) :
+        m_name(std::move(name)),
+        m_rows(rows) {}
+
+    [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
+        const float row = context.sizes().rowHeight;
+        return { .min = { 60.f, row * 0.75f * m_rows }, .preferred = { 160.f, row * m_rows } };
+    }
+
+    void paint(Painter& painter, const Style& style) const override {
+        const FloatRect all({ 0.f, 0.f }, painter.size());
+        painter.box(all, style.part(Placeholder::Box));
+        painter.text(all, m_name, style.part(Placeholder::Name), Align::Center);
+    }
+
+private:
+    std::string m_name;
+    float m_rows;
+};
+
+std::unique_ptr<Widget> Placeholder::create() const {
+    return std::make_unique<PlaceholderWidget>(name, rows);
+}
+
 Layout layoutNamed(std::string_view name) {
     if (name == "overlay") {
         return layouts::overlay();
@@ -58,11 +98,18 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                 .placement = GridCell{.column = 0, .row = 0, .columnSpan = 3, .rowSpan = 2},
                 .collapsible = false,
             },
-            { .name = "Playback", .placement = Anchor::Bottom, .width = 420.f },
+            { .name = "Playback", .placement = Anchor::Bottom, .width = 420.f, .widgets = { Placeholder{ "Timeline" } } },
             // ... and these leave it to the layout theme: floating at the top left with
             // "overlay", in the free cells of the window's grid with "dashboard".
-            { .name = "Controls" },
-            { .name = "Statistics" },
+            // Click a header to fold the panel, and again to unfold it.
+            {
+                .name = "Controls",
+                .widgets = { Placeholder{ "Speed" }, Placeholder{ "Size" }, Placeholder{ "Gravity" } },
+            },
+            {
+                .name = "Statistics",
+                .widgets = { Placeholder{ "Ticks per second" }, Placeholder{ .name = "Graph", .rows = 3.f } },
+            },
         },
         .profiler = profiler,
     };

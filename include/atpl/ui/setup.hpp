@@ -31,11 +31,21 @@ struct GridSetup {
 
 /// The parts of a panel, for theming: `theme[Panel::Background].borderThickness = 2.f;`.
 /// The panel's outline belongs to its background.
+///
+///   Background   the whole panel, with its outline and shadow
+///   Header       an area of its own behind the title; not shown unless a theme wants it
+///   Title        the panel's title in the header
+///   Arrow        the sign in the header that shows a panel can be folded, and which way;
+///                a theme can hide it: `theme[Panel::Arrow].shown = false;`
+///   Underline    a line below the header; not shown unless a theme wants it
+///   Scrollbar    shows how far the content is scrolled
 struct Panel {
     static constexpr Kind kind{ "panel" };
     static constexpr Part Background{ kind, "background", Role::Surface };
-    static constexpr Part Header{ kind, "header", Role::Surface };
+    static constexpr Part Header{ kind, "header", Role::Surface, Shown::No };
     static constexpr Part Title{ kind, "title", Role::Title };
+    static constexpr Part Arrow{ kind, "arrow", Role::Line };
+    static constexpr Part Underline{ kind, "underline", Role::Line, Shown::No };
     static constexpr Part Scrollbar{ kind, "scrollbar", Role::Line };
 };
 

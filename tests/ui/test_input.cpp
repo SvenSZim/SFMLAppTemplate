@@ -411,6 +411,61 @@ TEST_CASE("the topmost panel gets the pointer", "[ui][input]") {
     REQUIRE(below->received.empty());
 }
 
+// ----- The header -----
+
+TEST_CASE("a click on the header of a collapsible panel folds it, and the next one unfolds it", "[ui][input][panel]") {
+    Fixture f;
+    REQUIRE(f.click(100.f, 25.f).empty()); // in the header: kept
+    REQUIRE(f.panel("Controls").collapsed);
+    REQUIRE(f.panel("Controls").opening.has_value()); // it folds over a moment
+    REQUIRE(f.input.takeFolded());
+    REQUIRE_FALSE(f.input.takeFolded()); // the mark is cleared
+
+    f.click(100.f, 25.f);
+    REQUIRE_FALSE(f.panel("Controls").collapsed);
+}
+
+TEST_CASE("a press on the header that is released elsewhere folds nothing", "[ui][input][panel]") {
+    Fixture f;
+    f.press(100.f, 25.f);
+    f.release(100.f, 80.f); // on the panel, but not on its header
+    REQUIRE_FALSE(f.panel("Controls").collapsed);
+    f.press(30.f, 55.f); // and a press on a widget released on the header neither
+    f.release(100.f, 25.f);
+    REQUIRE_FALSE(f.panel("Controls").collapsed);
+    REQUIRE_FALSE(f.input.takeFolded());
+}
+
+TEST_CASE("a panel that cannot be folded ignores clicks on its header", "[ui][input][panel]") {
+    Fixture f;
+    f.panel("Controls").collapsible = false;
+    f.click(100.f, 25.f);
+    REQUIRE_FALSE(f.panel("Controls").collapsed);
+}
+
+TEST_CASE("the header knows when the pointer is over it", "[ui][input][panel]") {
+    Fixture f;
+    f.move(100.f, 25.f);
+    REQUIRE(f.panel("Controls").headerHovered);
+    REQUIRE(f.panel("Controls").dirty); // its arrow lights up
+
+    f.clean();
+    f.move(30.f, 55.f); // into the content
+    REQUIRE_FALSE(f.panel("Controls").headerHovered);
+    REQUIRE(f.panel("Controls").dirty);
+
+    f.move(100.f, 25.f);
+    f.move(300.f, 300.f); // out of the panel
+    REQUIRE_FALSE(f.panel("Controls").headerHovered);
+}
+
+TEST_CASE("the header is not part of the content: widgets are found only below it", "[ui][input][panel]") {
+    Fixture f;
+    f.slot("Button").rect.setPosition({ 10.f, -25.f }); // a widget that reaches up into the header
+    f.click(30.f, 25.f);
+    REQUIRE(f.button->received.empty());
+}
+
 // ----- What widgets report -----
 
 TEST_CASE("a widget that is pressed as a button raises ButtonPressed", "[ui][input]") {

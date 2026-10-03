@@ -141,6 +141,9 @@ struct Layout {
     bool collapsible = true;
     Alignment collapseTowards = Alignment::TopLeft;
 
+    /// How long folding or unfolding a panel takes, in seconds. 0: at once.
+    float foldSeconds = 0.18f;
+
     // Panels in the window's grid.
     Fit fit = Fit::Fill;
     Alignment alignment = Alignment::TopLeft; ///< Where a panel that does not fill its cells sits.

@@ -47,7 +47,19 @@ inline const sf::Time defaultIdleWait = sf::milliseconds(16);
 ///
 /// Events after which the window's content has to be drawn again (a resize, the window coming
 /// back into focus) ask for a frame themselves.
+///
+/// Only the first event of a pass may be waited for. Take the rest with `pendingEvent`, which
+/// never waits: a loop that waits for every event would never end while the pointer moves, and
+/// nothing would be drawn in the meantime.
+///
+///     for (auto event = frame::nextEvent(window, flag); event; event = frame::pendingEvent(window, flag)) {
+///         ...
+///     }
 [[nodiscard]] std::optional<sf::Event>
 nextEvent(sf::WindowBase& window, RedrawFlag& flag, sf::Time idleWait = defaultIdleWait);
+
+/// The window's next event if there is one, without waiting. Events after which the window has
+/// to be drawn again ask for a frame, as with `nextEvent`.
+[[nodiscard]] std::optional<sf::Event> pendingEvent(sf::WindowBase& window, RedrawFlag& flag);
 
 } // namespace atpl::frame
