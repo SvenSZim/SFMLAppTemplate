@@ -11,6 +11,61 @@ FloatRect headerRect(sf::Vector2f panelSize, const Sizes& sizes) {
     return { 0.f, 0.f, panelSize.x, std::min(sizes.headerHeight, panelSize.y) };
 }
 
+FloatRect contentArea(sf::Vector2f panelSize, const Sizes& sizes) {
+    const float top = std::min(sizes.headerHeight, panelSize.y);
+    return { 0.f, top, panelSize.x, std::max(panelSize.y - top - sizes.padding.y, 0.f) };
+}
+
+float ScrollbarPlace::thumbTop(float scroll) const {
+    const float travel = track.height() - thumbLength;
+    return track.top() + (range > 0.f ? std::clamp(scroll / range, 0.f, 1.f) * travel : 0.f);
+}
+
+float ScrollbarPlace::scrollFor(float top) const {
+    const float travel = track.height() - thumbLength;
+    return travel > 0.f ? std::clamp((top - track.top()) / travel, 0.f, 1.f) * range : 0.f;
+}
+
+std::optional<ScrollbarPlace> scrollbarOf(const model::Panel& panel, const Sizes& sizes, float overflow) {
+    if (overflow <= 0.f || panel.contentHeight <= 0.f) {
+        return std::nullopt;
+    }
+    const sf::Vector2f size = panel.rect.size();
+    const float inset = sizes.padding.y * 0.5f;
+    const float top = sizes.headerHeight + inset;
+    const float height = size.y - top - inset;
+    if (height <= 0.f) {
+        return std::nullopt;
+    }
+    const float width = std::min(sizes.scrollbarWidth, sizes.padding.x);
+    const float centre = size.x - sizes.padding.x * 0.5f;
+
+    ScrollbarPlace place;
+    place.track = FloatRect(centre - width * 0.5f, top, width, height);
+    place.hitArea = FloatRect(size.x - sizes.padding.x, top, sizes.padding.x, height);
+    const float visible = size.y - sizes.headerHeight;
+    place.thumbLength = std::min(std::max(height * visible / panel.contentHeight, sizes.rowHeight), height);
+    place.range = overflow;
+    return place;
+}
+
+void paintScrollbar(
+    Painter& painter, const model::Panel& panel, const ScrollbarPlace& place, const Theme& theme, const Sizes& sizes
+) {
+    PartStyle thumb = theme.resolve(Panel::Scrollbar, State::Normal, panel.colors, sizes.text);
+    if (!thumb.shown) {
+        return;
+    }
+    if (panel.scrollbarHovered || panel.scrollbarDragged) {
+        thumb.color = theme.resolve(Panel::Title, State::Normal, panel.colors, sizes.text).color;
+    }
+    thumb.radius = fullyRound;
+    thumb.borderThickness = 0.f;
+    thumb.shadow = {};
+    thumb.gradient = Gradient::None;
+    painter.box(FloatRect(place.track.left(), place.track.top(), place.track.width(), place.thumbLength), thumb);
+}
+
 void paintPanelFrame(Painter& painter, const model::Panel& panel, const Theme& theme, const Sizes& sizes) {
     const sf::Vector2f size = painter.size();
     const PanelColors colors = panel.colors;

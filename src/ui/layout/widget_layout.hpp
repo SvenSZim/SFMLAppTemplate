@@ -67,6 +67,9 @@ struct WidgetLayout {
 
     /// In a grid: the size a cell would like, from the widgets' preferred sizes.
     sf::Vector2f cell;
+
+    /// In a grid: the height its rows were given. 0 for packed widgets.
+    float rowHeight = 0.f;
 };
 
 /// Gives every widget of the panel its rectangle, for a panel `panelWidth` wide, and writes the
@@ -101,7 +104,12 @@ WidgetLayout layoutWidgets(
 );
 
 /// How much of a panel's content does not fit into the height the panel has for it, or 0. This
-/// is how far the content can be scrolled.
+/// is how far the content can be scrolled. While the panel folds or unfolds, its open height
+/// counts: the content keeps its place meanwhile.
 [[nodiscard]] float contentOverflow(const model::Panel& panel, const Sizes& sizes);
+
+/// How far one notch of the wheel scrolls: the same in every panel. The layout's row height, or
+/// the lowest row of a grid on screen if that is lower.
+[[nodiscard]] float scrollStep(const model::Store& store, const Sizes& sizes);
 
 } // namespace atpl::layout

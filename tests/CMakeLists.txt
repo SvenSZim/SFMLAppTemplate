@@ -82,6 +82,7 @@ atpl_add_tests(ui
   ui/test_panel_batch.cpp
   ui/test_profiler.cpp
   ui/test_rect.cpp
+  ui/test_scrolling.cpp
   ui/test_shapes.cpp
   ui/test_text_layout.cpp
   ui/test_theme.cpp

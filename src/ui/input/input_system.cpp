@@ -3,6 +3,7 @@
 #include "atpl/ui/widget.hpp"
 
 #include "ui/binding/sync.hpp"
+#include "ui/layout/widget_layout.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
 #include <algorithm>
@@ -25,8 +26,10 @@ namespace {
 // ----- Where the pointer is -----
 
 sf::Vector2f InputSystem::contentOrigin(PanelId panel) const {
-    // Widget rectangles are in the panel's content, which starts below the header.
-    return m_store->panel(panel).rect.position() + sf::Vector2f(0.f, m_sizes->headerHeight);
+    // Widget rectangles are in the panel's content, which starts below the header and is moved
+    // up by as much as it is scrolled.
+    const model::Panel& entry = m_store->panel(panel);
+    return entry.rect.position() + sf::Vector2f(0.f, m_sizes->headerHeight - entry.scroll);
 }
 
 InputSystem::Hit InputSystem::hitTest(sf::Vector2f position) const {
@@ -42,7 +45,18 @@ InputSystem::Hit InputSystem::hitTest(sf::Vector2f position) const {
         if (hit.header) {
             return hit;
         }
-        // Only what is inside the panel can be hit: content cut off at its edge is not there.
+        // The scrollbar, in the padding at the right, of a panel that scrolls.
+        if (const auto bar = widgets::scrollbarOf(panel, *m_sizes, layout::contentOverflow(panel, *m_sizes))) {
+            if (bar->hitArea.contains(position - panel.rect.position())) {
+                hit.scrollbar = true;
+                return hit;
+            }
+        }
+        // Only what can be seen can be hit: content cut off at the edge of the content area is
+        // not there.
+        if (!widgets::contentArea(panel.rect.size(), *m_sizes).contains(position - panel.rect.position())) {
+            return hit;
+        }
         const sf::Vector2f local = position - contentOrigin(*it);
         const std::uint32_t first = panel.firstWidget;
         for (std::uint32_t i = 0; i < panel.widgetCount; ++i) {
@@ -109,6 +123,15 @@ void InputSystem::setHover(const Hit& hit) {
         }
         m_hoveredPanel = hit.panel;
     }
+    // The scrollbar lights up under the pointer.
+    for (std::uint32_t i = 0; i < m_store->panels().size(); ++i) {
+        model::Panel& panel = m_store->panel(PanelId{ i });
+        const bool over = hit.scrollbar && hit.panel == PanelId{ i };
+        if (panel.scrollbarHovered != over) {
+            panel.scrollbarHovered = over;
+            panel.dirty = true;
+        }
+    }
     if (hit.panel.has_value()) {
         // The header of a collapsible panel answers to the pointer: its arrow lights up.
         model::Panel& panel = m_store->panel(*hit.panel);
@@ -155,6 +178,35 @@ void InputSystem::setPressed(std::optional<WidgetId> widget) {
         m_store->panel(slot.panel).dirty = true;
     }
     m_pressed = widget;
+}
+
+void InputSystem::scrollTo(PanelId panelId, float offset) {
+    model::Panel& panel = m_store->panel(panelId);
+    const float clamped = std::clamp(offset, 0.f, layout::contentOverflow(panel, *m_sizes));
+    if (clamped == panel.scroll) {
+        return;
+    }
+    panel.scroll = clamped; // only an offset: the panel is not painted again
+    // Other widgets are under the pointer now. As after layout, the next move finds which: so a
+    // scroll repaints the panel at most once, to drop the hover, and not with every notch.
+    if (m_owner == Owner::None && m_hovered.has_value()) {
+        setHover(Hit{ .panel = m_hoveredPanel, .widget = std::nullopt, .header = false, .scrollbar = false });
+    }
+}
+
+void InputSystem::dragScrollbar() {
+    model::Panel& panel = m_store->panel(*m_dragged);
+    if (const auto bar = widgets::scrollbarOf(panel, *m_sizes, layout::contentOverflow(panel, *m_sizes))) {
+        scrollTo(*m_dragged, bar->scrollFor(m_pointer.y - panel.rect.top() - m_grab));
+    }
+}
+
+void InputSystem::clampScroll(model::Store& store, const Sizes& sizes) {
+    for (model::Panel& panel : store.panels()) {
+        if (panel.shown && !panel.isClosed()) {
+            panel.scroll = std::clamp(panel.scroll, 0.f, layout::contentOverflow(panel, sizes));
+        }
+    }
 }
 
 void InputSystem::forgetHover(model::Store& store) {
@@ -235,6 +287,10 @@ void InputSystem::handle(
             deliver(*m_overlay, Event(PointerMoved{ pointer, delta })); // over its overlay, or anywhere
             return;
         }
+        if (m_dragged.has_value()) {
+            dragScrollbar();
+            return;
+        }
         if (m_owner == Owner::Ui || m_captured.has_value()) {
             // A drag of a widget: the widget follows, wherever the pointer goes.
             if (const auto widget = holder()) {
@@ -299,6 +355,24 @@ void InputSystem::handle(
         if (hit.header && pressedButton->button == sf::Mouse::Button::Left) {
             m_pressedHeader = hit.panel;
         }
+        if (hit.scrollbar) {
+            setFocus(std::nullopt);
+            if (pressedButton->button == sf::Mouse::Button::Left) {
+                // On the thumb: it is dragged from where it was grabbed. Beside it: it jumps
+                // there first, grabbed at its middle.
+                model::Panel& panel = m_store->panel(*hit.panel);
+                const auto bar = widgets::scrollbarOf(panel, *m_sizes, layout::contentOverflow(panel, *m_sizes));
+                const float y = m_pointer.y - panel.rect.top();
+                const float top = bar->thumbTop(panel.scroll);
+                const bool onThumb = y >= top && y <= top + bar->thumbLength;
+                m_grab = onThumb ? y - top : bar->thumbLength * 0.5f;
+                m_dragged = hit.panel;
+                panel.scrollbarDragged = true;
+                panel.dirty = true;
+                dragScrollbar();
+            }
+            return;
+        }
         if (m_focused != hit.widget) {
             setFocus(std::nullopt); // the widget may take it again while it handles the press
         }
@@ -314,6 +388,12 @@ void InputSystem::handle(
         const PointerLocation pointer = locate(m_pointer);
         const PointerReleased release{ releasedButton->button, pointer };
 
+        if (m_dragged.has_value() && releasedButton->button == sf::Mouse::Button::Left) {
+            model::Panel& panel = m_store->panel(*m_dragged);
+            panel.scrollbarDragged = false;
+            panel.dirty = true;
+            m_dragged.reset();
+        }
         if (m_owner == Owner::Application) {
             forward(release);
         } else if (m_owner == Owner::Ui) {
@@ -359,9 +439,23 @@ void InputSystem::handle(
             forward(scrolled);
             return;
         }
-        // Over a panel the wheel is the UI's, whether a widget uses it or not.
-        if (const auto widget = m_owner == Owner::Ui ? holder() : hit.widget) {
-            deliver(*widget, Event(scrolled));
+        // Over a panel the wheel is the UI's, whether a widget uses it or not. During a press it
+        // goes where the press went.
+        if (m_owner == Owner::Ui) {
+            if (const auto widget = holder()) {
+                deliver(*widget, Event(scrolled));
+            }
+            return;
+        }
+        // A panel that scrolls takes the wheel itself: no widget in it is moved by accident while
+        // its content passes under the pointer.
+        const model::Panel& panel = m_store->panel(*hit.panel);
+        if (!scrolled.horizontal && layout::contentOverflow(panel, *m_sizes) > 0.f) {
+            scrollTo(*hit.panel, panel.scroll - scrolled.delta * layout::scrollStep(*m_store, *m_sizes));
+            return;
+        }
+        if (hit.widget.has_value()) {
+            deliver(*hit.widget, Event(scrolled));
         }
         return;
     }

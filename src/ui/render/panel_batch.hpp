@@ -19,11 +19,12 @@ namespace atpl::render {
 /// already there is done when drawing, without rebuilding:
 ///
 ///   moving the panel         a different position
-///   scrolling its content    a different offset of the content layer
+///   scrolling its content    a different offset of the content layer, and of the scrollbar's
 ///
-/// A batch has two layers. The frame is the panel itself: background, header, scrollbar. The
-/// content is its widgets; it can be scrolled, and is then clipped to the content area so that
-/// nothing shows outside it.
+/// A batch has three layers. The frame is the panel itself: background, header. The content is
+/// its widgets; it can be scrolled, and is then clipped to the content area so that nothing
+/// shows outside it. The scrollbar is the thumb of a panel that scrolls, drawn at the top of its
+/// track and moved down it by its own offset.
 ///
 /// The batch does not know what a panel or a widget is. Whoever owns it paints into the two
 /// lists when `isDirty()` says so.
@@ -40,9 +41,10 @@ public:
     struct Layers {
         DrawList& frame;
         DrawList& content;
+        DrawList& scrollbar;
     };
 
-    /// Starts painting the panel anew: empties both layers, keeping their memory, and returns
+    /// Starts painting the panel anew: empties the layers, keeping their memory, and returns
     /// them to be filled. The batch is clean afterwards.
     Layers rebuild();
 
@@ -75,6 +77,10 @@ public:
     void setScroll(float offset);
     [[nodiscard]] float scroll() const { return m_scroll; }
 
+    /// How far the scrollbar's thumb is moved down from where it was painted.
+    void setScrollbarOffset(float offset);
+    [[nodiscard]] float scrollbarOffset() const { return m_scrollbarOffset; }
+
     /// A hidden panel is not drawn. It keeps its geometry.
     void setVisible(bool visible);
     [[nodiscard]] bool isVisible() const { return m_visible; }
@@ -83,6 +89,7 @@ public:
 
     [[nodiscard]] const DrawList& frame() const { return m_frame; }
     [[nodiscard]] const DrawList& content() const { return m_content; }
+    [[nodiscard]] const DrawList& scrollbar() const { return m_scrollbar; }
 
     /// From the panel's coordinates to the window's, for the frame layer.
     [[nodiscard]] sf::Transform frameTransform() const;
@@ -90,12 +97,16 @@ public:
     /// The same for the content layer: the scroll offset is included.
     [[nodiscard]] sf::Transform contentTransform() const;
 
+    /// The same for the scrollbar layer: the thumb's offset is included.
+    [[nodiscard]] sf::Transform scrollbarTransform() const;
+
     /// The content's clip area in the window's coordinates, or empty if it is not clipped.
     [[nodiscard]] std::optional<FloatRect> clipInWindow() const;
 
 private:
     DrawList m_frame;
     DrawList m_content;
+    DrawList m_scrollbar;
     bool m_dirty = true;
     bool m_changed = true;
     bool m_visible = true;
@@ -105,6 +116,7 @@ private:
     sf::Vector2f m_size;
     std::optional<FloatRect> m_contentClip;
     float m_scroll = 0.f;
+    float m_scrollbarOffset = 0.f;
 };
 
 } // namespace atpl::render

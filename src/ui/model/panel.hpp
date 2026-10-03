@@ -51,6 +51,12 @@ struct Panel {
     bool hovered = false;
     bool headerHovered = false; ///< The pointer is over the header.
 
+    /// How far the content is scrolled up, in pixels: from 0 to `layout::contentOverflow`.
+    /// Interaction state, written only by input; kept within its range when layout changes it.
+    float scroll = 0.f;
+    bool scrollbarHovered = false; ///< The pointer is over the scrollbar.
+    bool scrollbarDragged = false; ///< The scrollbar's thumb is being dragged.
+
     /// While the panel folds or unfolds: how far open it is, from 0 (folded) to 1 (open).
     /// Empty when it is at rest. Advanced by the panel's animation.
     std::optional<float> opening;
@@ -71,6 +77,9 @@ struct Panel {
 
     /// The height the panel's widgets need, padding included. 0 for a panel without widgets.
     float contentHeight = 0.f;
+
+    /// In a grid: the height of one row of cells. 0 for a packed panel.
+    float rowHeight = 0.f;
 
     /// The size the panel would like before it is placed: from its content, the layout theme's
     /// rules and its limits. 0: none worked out; placement then uses the defaults.

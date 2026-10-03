@@ -5,10 +5,11 @@ namespace atpl::render {
 PanelBatch::Layers PanelBatch::rebuild() {
     m_frame.clear();
     m_content.clear();
+    m_scrollbar.clear();
     m_dirty = false;
     m_changed = true;
     ++m_rebuildCount;
-    return { m_frame, m_content };
+    return { m_frame, m_content, m_scrollbar };
 }
 
 bool PanelBatch::takeChanged() {
@@ -45,6 +46,13 @@ void PanelBatch::setScroll(float offset) {
     }
 }
 
+void PanelBatch::setScrollbarOffset(float offset) {
+    if (offset != m_scrollbarOffset) {
+        m_scrollbarOffset = offset;
+        m_changed = true;
+    }
+}
+
 void PanelBatch::setVisible(bool visible) {
     if (visible != m_visible) {
         m_visible = visible;
@@ -61,6 +69,12 @@ sf::Transform PanelBatch::frameTransform() const {
 sf::Transform PanelBatch::contentTransform() const {
     sf::Transform transform;
     transform.translate({ m_position.x, m_position.y - m_scroll });
+    return transform;
+}
+
+sf::Transform PanelBatch::scrollbarTransform() const {
+    sf::Transform transform;
+    transform.translate({ m_position.x, m_position.y + m_scrollbarOffset });
     return transform;
 }
 
