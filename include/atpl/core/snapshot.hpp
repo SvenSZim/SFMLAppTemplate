@@ -2,6 +2,10 @@
 
 #include "atpl/core/revision.hpp"
 
+#include <array>
+#include <atomic>
+#include <cstdint>
+
 namespace atpl {
 
 /// Hands the latest complete state from one thread to another without either waiting for the other.
@@ -68,6 +72,68 @@ public:
 
     /// Grows with every publish.
     [[nodiscard]] Revision revision() const;
+
+private:
+    // A triple buffer. The writer owns one buffer and the reader another; the third is the one
+    // handed over. `m_shared` says which buffer that is, and whether it holds a state the reader
+    // has not taken yet. Handing over is one atomic exchange on either side: nobody waits.
+    static constexpr std::uint8_t indexMask = 0x3;
+    static constexpr std::uint8_t newState = 0x4;
+
+    std::array<T, 3> m_buffers;
+    std::uint8_t m_write = 0;                ///< Only the writer touches it.
+    std::uint8_t m_read = 1;                 ///< Only the reader touches it.
+    std::atomic<std::uint8_t> m_shared{ 2 }; ///< The buffer in between, and `newState` if unread.
+    std::atomic<Revision> m_revision{ 0 };
 };
+
+// The exchange is acquire-release on both sides: what the writer wrote into a buffer before
+// publishing it is seen by the reader that takes it, and what the reader read from a buffer it
+// gives back is finished before the writer writes into it again.
+
+template <typename T>
+Snapshot<T>::Snapshot() = default;
+
+template <typename T>
+Snapshot<T>::Snapshot(const T& initial) :
+    m_buffers{ initial, initial, initial } {}
+
+template <typename T>
+T& Snapshot<T>::writeBuffer() {
+    return m_buffers[m_write];
+}
+
+template <typename T>
+void Snapshot<T>::publish() {
+    const std::uint8_t previous =
+        m_shared.exchange(static_cast<std::uint8_t>(m_write | newState), std::memory_order_acq_rel);
+    m_write = previous & indexMask; // a state the reader never took is written over next
+    m_revision.fetch_add(1, std::memory_order_release);
+}
+
+template <typename T>
+void Snapshot<T>::publish(const T& state) {
+    writeBuffer() = state;
+    publish();
+}
+
+template <typename T>
+bool Snapshot<T>::hasNew() const {
+    return (m_shared.load(std::memory_order_acquire) & newState) != 0;
+}
+
+template <typename T>
+const T& Snapshot<T>::read() {
+    if (hasNew()) {
+        const std::uint8_t previous = m_shared.exchange(m_read, std::memory_order_acq_rel);
+        m_read = previous & indexMask;
+    }
+    return m_buffers[m_read];
+}
+
+template <typename T>
+Revision Snapshot<T>::revision() const {
+    return m_revision.load(std::memory_order_acquire);
+}
 
 } // namespace atpl

@@ -57,7 +57,9 @@ atpl_add_tests(core
   core/test_easing.cpp
   core/test_interpolated.cpp
   core/test_param.cpp
+  core/test_queue.cpp
   core/test_series.cpp
+  core/test_snapshot.cpp
   core/test_text_log.cpp
   core/test_version.cpp
 )

@@ -78,8 +78,8 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings; any number of readers and writers; lock-free for small trivially copyable types, a short lock for strings; a revision that grows with every change (D10, P10) | new |
 | `series.hpp` | `Series`: thread-safe ring buffer of `float` samples with fixed capacity; `PointSeries`: the same for points (x, y), for graphs whose x-axis comes from the data. The data sources for graphs; a short lock per push or read, nothing allocated after construction (P10, D50) | new |
 | `text_log.hpp` | `TextLog`: thread-safe log of text lines with fixed capacity, each with the time it was pushed, and a count of all lines ever pushed. The data source for log widgets; a short lock per push or read (WP 3.18, D58) | new |
-| `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11) | new |
-| `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3) | new |
+| `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11). One lock around a deque; `waitDrain` sleeps on a condition variable that every push signals (WP 4.1) | new |
+| `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3). A triple buffer: the writer and the reader each own one buffer, and hand the third over with one atomic exchange (acquire-release) that also says whether it holds an unread state (WP 4.1) | new |
 | `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |
 | `random.hpp` | Random number generator, one instance per thread | new |
 | `timing.hpp` | Stopwatch, scoped timer, rate limiter, fixed-timestep accumulator | new |
