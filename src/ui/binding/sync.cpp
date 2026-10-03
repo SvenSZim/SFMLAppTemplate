@@ -21,9 +21,11 @@ namespace {
         case ValueKind::Text:
             return "text";
         case ValueKind::Series:
+            return "a series";
+        case ValueKind::Lines:
             break;
     }
-    return "a series";
+    return "a log of lines";
 }
 
 } // namespace
@@ -48,6 +50,7 @@ void attach(model::Store& store, WidgetId widget, std::optional<AnyBinding> bind
     slot.synced = false; // hand over the value with the next sync, whatever its revision
     slot.nextHandOver = {};
     slot.widget->setSeries(slot.binding.has_value() ? slot.binding->series() : nullptr);
+    slot.widget->setLines(slot.binding.has_value() ? slot.binding->lines() : nullptr);
     store.panel(slot.panel).dirty = true;
 }
 
@@ -77,8 +80,8 @@ bool sync(model::Store& store, Clock::time_point now) {
             continue;
         }
 
-        // A series: the graph reads it itself; it only needs painting again.
-        if (slot.binding->kind() != ValueKind::Series) {
+        // A series or a log: the widget reads it itself; it only needs painting again.
+        if (slot.binding->kind() != ValueKind::Series && slot.binding->kind() != ValueKind::Lines) {
             if (const std::optional<Value> value = slot.binding->get()) {
                 slot.widget->setValue(*value);
             }

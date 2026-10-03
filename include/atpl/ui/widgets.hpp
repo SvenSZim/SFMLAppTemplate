@@ -352,6 +352,42 @@ struct Graph {
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 
+struct LogOptions {
+    std::string label;
+    std::size_t lines = 6; ///< How many lines it shows: this fixes its height.
+};
+
+/// The newest lines of a log, newest at the bottom. Kind: Lines (a `TextLog`).
+///
+///     TextLog events(200);
+///     Log("Events", events, {.lines = 6})
+///     events.push("Reset");                 // from any thread
+///
+/// Its size is fixed by its options, never by the text: new lines never move anything. A line
+/// wider than the log is cut short with an ellipsis. It follows the newest line; scrolled back
+/// (the wheel, where its panel does not scroll itself, or its scrollbar), it keeps showing the
+/// same lines until it is scrolled to the end again. A theme can show the time each line was
+/// pushed (`Time`).
+struct Log {
+    static constexpr Kind kind{ "log" };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part Background{ kind, "background", Role::Track };
+    static constexpr Part Text{ kind, "text", Role::Text };
+    static constexpr Part Time{ kind, "time", Role::MutedText, Shown::No };
+    static constexpr Part Scrollbar{ kind, "scrollbar", Role::Line };
+
+    std::string name;
+    LogOptions options;
+    std::optional<AnyBinding> binding;
+
+    Log(std::string name, LogOptions options = {});
+    Log(std::string name, TextLog& lines, LogOptions options = {});
+    Log(std::string name, LinesBinding& lines, LogOptions options = {});
+
+    /// Throws `SetupError` if `lines` is zero.
+    [[nodiscard]] std::unique_ptr<Widget> create() const;
+};
+
 struct ParagraphOptions {
     std::string heading;       ///< Shown as a heading, wrapped. Empty: no heading.
     std::string text;          ///< Shown as body text, wrapped to the panel's width. Empty: no body.

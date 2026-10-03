@@ -3,6 +3,7 @@
 add_library(atpl_core STATIC
   easing.cpp
   series.cpp
+  text_log.cpp
   version.cpp
 )
 add_library(atpl::core ALIAS atpl_core)

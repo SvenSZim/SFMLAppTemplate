@@ -87,6 +87,21 @@ private:
     mutable std::vector<Point> m_scratch;
 };
 
+/// A `TextLog` as the binding of a log.
+class LogBinding final : public LinesBinding {
+public:
+    explicit LogBinding(TextLog& log) :
+        m_log(&log) {}
+
+    std::size_t read(std::vector<LogLine>& out, std::size_t newest) const override { return m_log->read(out, newest); }
+    [[nodiscard]] std::size_t size() const override { return m_log->size(); }
+    [[nodiscard]] std::uint64_t pushed() const override { return m_log->pushed(); }
+    [[nodiscard]] Revision revision() const override { return m_log->revision(); }
+
+private:
+    TextLog* m_log;
+};
+
 [[nodiscard]] std::string nameOf(ValueKind kind) {
     switch (kind) {
         case ValueKind::Bool:
@@ -98,9 +113,11 @@ private:
         case ValueKind::Text:
             return "text";
         case ValueKind::Series:
+            return "series";
+        case ValueKind::Lines:
             break;
     }
-    return "series";
+    return "lines";
 }
 
 } // namespace
@@ -114,6 +131,12 @@ AnyBinding::AnyBinding(Series& series) :
 
 AnyBinding::AnyBinding(PointSeries& series) :
     AnyBinding(owning(std::make_shared<PointsBinding>(series))) {}
+
+AnyBinding::AnyBinding(TextLog& log) :
+    AnyBinding(owning(std::make_shared<LogBinding>(log))) {}
+
+AnyBinding::AnyBinding(LinesBinding& binding) :
+    AnyBinding(Target(&binding), nullptr) {}
 
 AnyBinding::AnyBinding(BoolBinding& binding) :
     AnyBinding(Target(&binding), nullptr) {}
@@ -160,10 +183,12 @@ ValueKind AnyBinding::kind() const {
             return ValueKind::Index;
         case 3:
             return ValueKind::Text;
+        case 4:
+            return ValueKind::Series;
         default:
             break;
     }
-    return ValueKind::Series;
+    return ValueKind::Lines;
 }
 
 bool AnyBinding::isReadOnly() const {
@@ -172,7 +197,7 @@ bool AnyBinding::isReadOnly() const {
             if constexpr (requires { binding->isReadOnly(); }) {
                 return binding->isReadOnly();
             } else {
-                return true; // a series is only shown
+                return true; // a series or a log is only shown
             }
         },
         m_target
@@ -215,6 +240,11 @@ Revision AnyBinding::revision() const {
 const SeriesBinding* AnyBinding::series() const {
     const auto* const* series = std::get_if<SeriesBinding*>(&m_target);
     return series != nullptr ? *series : nullptr;
+}
+
+const LinesBinding* AnyBinding::lines() const {
+    const auto* const* lines = std::get_if<LinesBinding*>(&m_target);
+    return lines != nullptr ? *lines : nullptr;
 }
 
 ValueKind kindOf(const Value& value) {

@@ -3,6 +3,7 @@
 #include "atpl/core/param.hpp"
 #include "atpl/core/revision.hpp"
 #include "atpl/core/series.hpp"
+#include "atpl/core/text_log.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -34,6 +35,7 @@ enum class ValueKind {
     Index,  ///< a position in a list of options: dropdown
     Text,   ///< text: text input, text display
     Series, ///< a run of samples: graph
+    Lines,  ///< a stream of text lines: log
 };
 
 /// The interface between a widget and one value of kind `T`.
@@ -88,6 +90,26 @@ public:
     /// Copies the newest points into `out`, oldest first, and returns how many were copied.
     /// Nothing for a source of samples.
     virtual std::size_t readPoints(std::span<Point> /*out*/) const { return 0; }
+};
+
+/// The interface between a log and its lines.
+class LinesBinding {
+public:
+    virtual ~LinesBinding() = default;
+
+    /// Replaces the contents of `out` with the newest `newest` lines, oldest first, and returns
+    /// how many.
+    virtual std::size_t read(std::vector<LogLine>& out, std::size_t newest) const = 0;
+
+    /// How many lines there are now.
+    [[nodiscard]] virtual std::size_t size() const = 0;
+
+    /// How many lines were ever added, including those dropped since: tells a reader how many
+    /// came since it last looked.
+    [[nodiscard]] virtual std::uint64_t pushed() const = 0;
+
+    /// Changes whenever the lines may have changed.
+    [[nodiscard]] virtual Revision revision() const = 0;
 };
 
 // Which C++ types map to which kind.
@@ -184,6 +206,7 @@ public:
     AnyBinding(IndexBinding& binding);
     AnyBinding(TextBinding& binding);
     AnyBinding(SeriesBinding& binding);
+    AnyBinding(LinesBinding& binding);
 
     /// A binding made of two functions, for data of any type and shape:
     ///
@@ -213,6 +236,9 @@ public:
     /// Points, for graphs whose x-axis comes from the data.
     AnyBinding(PointSeries& series);
 
+    /// A log of text lines, for log widgets.
+    AnyBinding(TextLog& log);
+
     [[nodiscard]] ValueKind kind() const;
     [[nodiscard]] bool isReadOnly() const;
 
@@ -230,8 +256,12 @@ public:
     /// The source of a series binding, or null.
     [[nodiscard]] const SeriesBinding* series() const;
 
+    /// The source of a lines binding, or null.
+    [[nodiscard]] const LinesBinding* lines() const;
+
 private:
-    using Target = std::variant<BoolBinding*, NumberBinding*, IndexBinding*, TextBinding*, SeriesBinding*>;
+    using Target =
+        std::variant<BoolBinding*, NumberBinding*, IndexBinding*, TextBinding*, SeriesBinding*, LinesBinding*>;
 
     AnyBinding(Target target, std::shared_ptr<void> owned);
 

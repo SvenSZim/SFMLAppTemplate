@@ -77,6 +77,7 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | `revision.hpp` | `Revision`: the change counter every shared value carries, so readers can skip unchanged values | new |
 | `param.hpp` | `Param<T>`: thread-safe value that reads and writes like a `T`, for numbers, enums and strings; any number of readers and writers; lock-free for small trivially copyable types, a short lock for strings; a revision that grows with every change (D10, P10) | new |
 | `series.hpp` | `Series`: thread-safe ring buffer of `float` samples with fixed capacity; `PointSeries`: the same for points (x, y), for graphs whose x-axis comes from the data. The data sources for graphs; a short lock per push or read, nothing allocated after construction (P10, D50) | new |
+| `text_log.hpp` | `TextLog`: thread-safe log of text lines with fixed capacity, each with the time it was pushed, and a count of all lines ever pushed. The data source for log widgets; a short lock per push or read (WP 3.18, D58) | new |
 | `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11) | new |
 | `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3) | new |
 | `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |
@@ -189,6 +190,7 @@ public:
     virtual std::optional<Value> value() const;
     virtual void setValue(const Value&);                           // from the binding or the app
     virtual void setSeries(const SeriesBinding*);                  // graphs only
+    virtual void setLines(const LinesBinding*);                    // logs only
 };
 ```
 
@@ -217,11 +219,12 @@ A widget type states the **kind of value** it works with, not a C++ type. It bin
 | Text input | text | `Param<std::string>` |
 | Dropdown | index into its options | `Param<int>` or `Param<AnyEnum>` |
 | Graph | series, read-only | `Series` |
+| Log | lines, read-only | `TextLog` |
 | Paragraph | none: static text, set in the setup (D56) | — |
 | View | none (draw callback) | — |
 
 Rules:
-- Everything the template ships (`Param<T>`, `Series`) is thread-safe.
+- Everything the template ships (`Param<T>`, `Series`, `TextLog`) is thread-safe.
 - Plain variables cannot be bound directly.
 - An application may implement a binding interface over its own data, or build one from a getter and a setter: `ui.widget("Speed").bind(getter, setter)`. Thread safety of such a binding is the application's responsibility.
 - What a widget **is** (range, step count, option labels) is part of its descriptor, not of the binding.
@@ -229,9 +232,10 @@ Rules:
 - A descriptor only accepts sources of its widget's kind, checked by the compiler. Binding by name is checked when it runs and throws `SetupError` for a wrong kind.
 
 How it is built (`binding/`, WP 3.8):
-- **`AnyBinding`** holds a pointer to one of the five interfaces. For a `Param<T>`, a `Series`, a `PointSeries` or two functions it makes an adapter and keeps it alive; an application's own implementation is used as it is. `get`, `set` and `revision` work in the kind's type (`Value`), so the UI never sees the application's types.
+- **`AnyBinding`** holds a pointer to one of the six interfaces. For a `Param<T>`, a `Series`, a `PointSeries`, a `TextLog` or two functions it makes an adapter and keeps it alive; an application's own implementation is used as it is. `get`, `set` and `revision` work in the kind's type (`Value`), so the UI never sees the application's types.
 - **Bindings of functions** notice changes by asking the getter when the revision is asked for.
 - **Points**: a `PointSeries` is bound like a `Series`; its binding says `hasPoints()` and gives the points through `readPoints`, its y values through `read`.
+- **Lines** (WP 3.18): a `TextLog` is bound as kind `Lines` through `LinesBinding` (`read` the newest lines, `size`, `pushed`, `revision`). Like a graph, a log is handed its source (`Widget::setLines`) and reads it when it paints; sync only marks its panel when the revision changes.
 - **Syncing** (`binding::sync`, every `UI::update`): for each bound widget, the revision is compared with the one the widget last got; only on a change is the value handed over (`Widget::setValue`) and the panel marked dirty. A series only marks its graph's panel: the graph reads the series itself. A widget hears of changes at most as often as `Widget::refreshInterval` says: by default at once for widgets that edit their value or show a series, every 125 ms for values that are only shown; a widget type can ask for something else. A change in between is not lost, it arrives with the next hand-over.
 - **Writing** (`binding::write`): what the user enters goes into the binding before `ValueChanged` is raised, and the widget is not handed it back. `WidgetHandle::set` writes the same way, without an event.
 - **Checks**: a binding of a kind the widget does not work with, or a read-only binding for a widget that edits its value, throws `SetupError` naming the widget: in `bind`, and for the bindings of the setup when the UI is built.
@@ -351,6 +355,7 @@ One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and
 | TextDisplay (WP 3.10) | label at the left in the muted text, value at the right | none | any but a series, shown only: numbers in its `format`, on/off values as "on" and "off", choices as their number |
 | ProgressBar (WP 3.10) | label above, a bar below, filled in the accent look as far as the value is between `min` and `max` | none | Number, shown only |
 | Graph (WP 3.10) | label above with the newest value at the right (`Value`, hidden unless a theme shows it), a box below with the curve; the baseline at zero or at the average (`base`); optional parts a theme can show: `Shadow` (the area between curve and baseline), `Grid`, `Axis`, `AxisLabels` | none | Series or PointSeries, read by the graph itself when it paints |
+| Log (WP 3.18) | label above; a box with the newest lines, the newest at the bottom; a line too wide is cut with an ellipsis, never wrapped; optional `Time` (the time of day each line was pushed, hidden unless a theme shows it); a thin scrollbar thumb in the box's right inset when it holds more than it shows | the wheel (where its panel does not scroll, D55) and its scrollbar scroll it back; scrolled back it keeps showing the same lines while new ones come, and at the end it follows again | Lines (`TextLog`). Its height is fixed by `lines`, never by the text, so new lines never run layout (D56) |
 | Dropdown (WP 3.11) | label above; a field with the chosen entry and an arrow, pointing up while open; the open list in the overlay, joined to the field: one outline around both in the open field's outline colour, and that outline once more where they meet; the highlighted entry in the accent look, a scrollbar when it scrolls | a click on the field opens the list; a click on an entry, or a press dragged to one and released, chooses it; a click elsewhere or on the field closes it. While open: Up, Down, Home, End move the highlight, Enter chooses, Escape closes, the wheel scrolls. It shows `maxVisible` entries at most, fewer if there is less room | Index; an integer parameter is bound as one |
 | TextInput (WP 3.11) | label above; a field with the text, or the muted `placeholder` while it is empty; a steady cursor while focused, the outline in the accent colour; dots where text is hidden: while editing, at the left once it has scrolled and at the right if text follows; afterwards it is shown from its start, with dots at the right | a click takes the focus and puts the cursor there; typing, Left, Right, Home, End, Backspace, Delete, Ctrl+V; Enter or Escape gives the focus up. Text wider than the field scrolls with the cursor. At most `maxLength` characters (code points, not bytes) | Text; written on every change (`final` false), once more with `final` true when the editing ends (`Widget::focusLost`) |
 | Paragraph (WP 3.13) | a heading, a body and a footer, each optional and each a part of its own text type; the body, static text, is quieter than the values of widgets and set apart from its heading: its colour and its size lie between the heading's and the footer's, nearer the footer (0.65 of the way), unless a theme sets them; all three wrap to the widget's width, line breaks start new lines, and empty ones take no room; `align` places all three; `Separator` lines between them if a theme shows them, in a gap that is there either way | none: it does not react to the pointer | none: static. As wide as its longest line, at most a panel of the layout's width (it wraps instead), and at least its longest word; as high as its wrapped texts at the width it gets |
