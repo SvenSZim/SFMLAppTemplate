@@ -408,6 +408,9 @@ void InputSystem::handle(
                 if (panel.collapsible) {
                     widgets::setCollapsed(panel, !panel.collapsed);
                     m_folded = true;
+                    if (!panel.collapsed) {
+                        m_unfolded = m_pressedHeader;
+                    }
                 }
             }
         } else if (!hitTest(m_pointer).panel.has_value()) {
@@ -521,6 +524,10 @@ void InputSystem::closeOverlayIfGone(model::Store& store) {
 
 bool InputSystem::takeFolded() {
     return std::exchange(m_folded, false);
+}
+
+std::optional<PanelId> InputSystem::takeUnfolded() {
+    return std::exchange(m_unfolded, std::nullopt);
 }
 
 // ----- What a widget does through its context -----

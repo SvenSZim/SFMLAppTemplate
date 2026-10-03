@@ -197,7 +197,7 @@ In this order:
    - its content area is lower than the highest minimum height among its widgets, or
    - its content area is narrower than the widest minimum width among its widgets.
 
-A stack of floating panels that is too high for the window keeps today's rule (headers stay, the rest is shared, D40), with the card stack as an option (D42).
+A stack of floating panels that is too high for the window keeps today's rule (headers stay, the rest is shared, D40), with the card stack as an option (D42, built in WP 3.14, D57; ARCHITECTURE.md 4.6b).
 
 Text that is too wide for its widget still ends in an ellipsis. There is still no horizontal scrolling.
 

@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -100,15 +102,36 @@ void share(std::vector<float>& heights, float available) {
     return std::round(std::min(asked, window.x));
 }
 
-/// One stack of floating panels.
-void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f window, const Sizes& sizes) {
-    // The panels of this stack that the application wants to see, in the order listed.
+/// The panels of the stack at `anchor` that the application wants to see, in the order listed.
+[[nodiscard]] std::vector<model::Panel*> stackAt(std::span<model::Panel> panels, Anchor anchor) {
     std::vector<model::Panel*> stack;
     for (model::Panel& panel : panels) {
         const Anchor* own = std::get_if<Anchor>(&panel.placement);
         if (own != nullptr && *own == anchor && panel.visible && !panel.tooSmall) {
             stack.push_back(&panel);
         }
+    }
+    return stack;
+}
+
+/// The height a panel has when it is open.
+[[nodiscard]] float openHeightOf(const model::Panel& panel, const Sizes& sizes) {
+    return panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
+}
+
+/// One stack of floating panels.
+void placeStack(
+    std::span<model::Panel> panels,
+    Anchor anchor,
+    sf::Vector2f window,
+    const Sizes& sizes,
+    StackOverflow overflow,
+    float strip
+) {
+    std::vector<model::Panel*> stack = stackAt(panels, anchor);
+    for (model::Panel* panel : stack) {
+        panel->overlapped = false;
+        panel->cardLayer = 0;
     }
     if (stack.empty()) {
         return;
@@ -117,10 +140,26 @@ void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f wind
     const float header = sizes.headerHeight;
     const float gap = sizes.margin;
     const float available = window.y - 2.f * sizes.margin;
+    const bool cards = overflow == StackOverflow::Cards;
+    strip = std::clamp(strip > 0.f ? strip : header, 1.f, header);
 
-    // If not even the headers fit, the last panels have to go.
+    // From here on the stack is listed as it is seen, from the top down: a stack at a bottom
+    // anchor starts with its last panel. Every panel but the lowest can be a covered card.
+    const Side side = vertical(anchor);
+    const auto seen = [&](std::vector<model::Panel*> panelsInOrder) {
+        if (side == Side::End) {
+            std::reverse(panelsInOrder.begin(), panelsInOrder.end());
+        }
+        return panelsInOrder;
+    };
+
+    // If not even the headers fit (or, with cards, the strips), the last panels have to go.
+    const auto least = [&](std::size_t count) {
+        return cards ? static_cast<float>(count - 1) * strip + header
+                     : static_cast<float>(count) * header + static_cast<float>(count - 1) * gap;
+    };
     std::size_t count = stack.size();
-    while (count > 0 && static_cast<float>(count) * header + static_cast<float>(count - 1) * gap > available) {
+    while (count > 0 && least(count) > available) {
         --count;
         assign(*stack[count], {}, false);
     }
@@ -128,40 +167,91 @@ void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f wind
     if (stack.empty()) {
         return;
     }
+    const std::vector<model::Panel*> view = seen(stack);
 
-    // Heights: what each panel wants, cut down if the stack is too high.
+    // Heights: what each panel wants. From the top of one to the top of the next: its height and
+    // the gap, unless it is covered.
     std::vector<float> heights(count);
+    std::vector<float> steps(count);
     float total = static_cast<float>(count - 1) * gap;
     for (std::size_t i = 0; i < count; ++i) {
-        heights[i] = wantedHeight(*stack[i], sizes);
-        model::Panel& panel = *stack[i];
-        panel.openHeight = panel.wantedHeight > 0.f ? panel.wantedHeight : sizes.headerHeight + panel.contentHeight;
+        model::Panel& panel = *view[i];
+        heights[i] = wantedHeight(panel, sizes);
+        panel.openHeight = openHeightOf(panel, sizes);
+        steps[i] = heights[i] + gap;
         total += heights[i];
     }
-    if (total > available) {
+
+    if (total > available && cards) {
+        // Cards: collapsed panels are covered down to their strip, only as far as needed; the
+        // expanded ones keep their height while there is room, and share it when there is not.
+        std::vector<std::size_t> folded;
+        std::vector<std::size_t> open;
+        for (std::size_t i = 0; i + 1 < count; ++i) {
+            (heights[i] <= header + 0.5f ? folded : open).push_back(i);
+        }
+        float openTotal = heights[count - 1];
+        for (const std::size_t i : open) {
+            openTotal += heights[i] + gap;
+        }
+        const float foldedRoom = available - openTotal;
+        if (!folded.empty() && foldedRoom >= static_cast<float>(folded.size()) * strip) {
+            const float step = std::min(foldedRoom / static_cast<float>(folded.size()), header + gap);
+            for (const std::size_t i : folded) {
+                steps[i] = std::floor(step);
+            }
+        } else {
+            // Even with every collapsed panel at its strip the open ones are too high: they share
+            // what is left, each keeping its header.
+            for (const std::size_t i : folded) {
+                steps[i] = strip;
+            }
+            std::vector<std::size_t> shared = open;
+            shared.push_back(count - 1);
+            std::vector<float> contents;
+            float room = available - static_cast<float>(folded.size()) * strip - static_cast<float>(open.size()) * gap;
+            for (const std::size_t i : shared) {
+                contents.push_back(heights[i] - header);
+                room -= header;
+            }
+            share(contents, std::max(room, 0.f));
+            for (std::size_t k = 0; k < shared.size(); ++k) {
+                heights[shared[k]] = std::floor(contents[k] + header);
+                steps[shared[k]] = heights[shared[k]] + gap;
+            }
+        }
+        total = heights[count - 1];
+        for (std::size_t i = 0; i + 1 < count; ++i) {
+            total += steps[i];
+        }
+        for (std::size_t i = 0; i < count; ++i) {
+            view[i]->overlapped = true;
+            view[i]->cardLayer = static_cast<int>(i); // the lower card covers the one above
+        }
+    } else if (total > available) {
         // Every panel keeps its header; what is left over is shared among the contents.
         for (float& height : heights) {
             height -= header;
         }
         share(heights, available - static_cast<float>(count - 1) * gap - static_cast<float>(count) * header);
         total = static_cast<float>(count - 1) * gap;
-        for (float& height : heights) {
-            height = std::floor(height + header);
-            total += height;
+        for (std::size_t i = 0; i < count; ++i) {
+            heights[i] = std::floor(heights[i] + header);
+            steps[i] = heights[i] + gap;
+            total += heights[i];
         }
     }
 
     // Vertically: from the top, from the bottom, or centred.
-    const Side side = vertical(anchor);
     float y = sizes.margin;
     if (side == Side::Middle) {
         y = std::round((window.y - total) * 0.5f);
     } else if (side == Side::End) {
-        y = window.y - sizes.margin;
+        y = window.y - sizes.margin - total;
     }
 
     for (std::size_t i = 0; i < count; ++i) {
-        model::Panel& panel = *stack[i];
+        model::Panel& panel = *view[i];
 
         // Horizontally: in a narrow window the margin shrinks first, then the panel.
         const float width = floatingWidth(panel, window, sizes);
@@ -172,15 +262,8 @@ void placeStack(std::span<model::Panel> panels, Anchor anchor, sf::Vector2f wind
         } else if (horizontal(anchor) == Side::End) {
             x = window.x - margin - width;
         }
-
-        if (side == Side::End) {
-            y -= heights[i]; // upwards: the first panel is the lowest
-            assign(panel, FloatRect(std::round(x), std::round(y), width, heights[i]), true);
-            y -= gap;
-        } else {
-            assign(panel, FloatRect(std::round(x), std::round(y), width, heights[i]), true);
-            y += heights[i] + gap;
-        }
+        assign(panel, FloatRect(std::round(x), std::round(y), width, heights[i]), true);
+        y += steps[i];
     }
 }
 
@@ -285,7 +368,12 @@ float wantedHeight(const model::Panel& panel, const Sizes& sizes) {
 }
 
 void placePanels(
-    model::Store& store, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes, const Layout& layout
+    model::Store& store,
+    sf::Vector2f windowSize,
+    GridSetup grid,
+    const Sizes& sizes,
+    const Layout& layout,
+    float stripHeight
 ) {
     const std::span<model::Panel> panels = store.panels();
 
@@ -323,8 +411,77 @@ void placePanels(
     }
 
     for (const Anchor anchor : anchors) {
-        placeStack(panels, anchor, windowSize, sizes);
+        placeStack(panels, anchor, windowSize, sizes, layout.stackOverflow, stripHeight);
     }
+}
+
+float cardStrip(const Sizes& sizes, float titleSize) {
+    // The title sits in the middle of the header: the strip ends a little below it.
+    return std::min(std::ceil(sizes.headerHeight * 0.5f + titleSize * 0.5f + 2.f), sizes.headerHeight);
+}
+
+std::vector<PanelId> cardsToFold(
+    const model::Store& store, PanelId unfolded, sf::Vector2f windowSize, const Sizes& sizes, const Layout& layout
+) {
+    const model::Panel& opened = store.panel(unfolded);
+    const Anchor* anchor = std::get_if<Anchor>(&opened.placement);
+    if (layout.stackOverflow != StackOverflow::Cards || anchor == nullptr) {
+        return {};
+    }
+    // The stack as it would be with this panel open and the others as they are.
+    std::vector<PanelId> others;
+    float total = -sizes.margin;
+    for (std::uint32_t i = 0; i < store.panels().size(); ++i) {
+        const model::Panel& panel = store.panel(PanelId{ i });
+        const Anchor* own = std::get_if<Anchor>(&panel.placement);
+        if (own == nullptr || *own != *anchor || !panel.visible || panel.tooSmall) {
+            continue;
+        }
+        const bool open = PanelId{ i } == unfolded || !panel.collapsed;
+        total += (open ? openHeightOf(panel, sizes) : sizes.headerHeight) + sizes.margin;
+        if (open && PanelId{ i } != unfolded) {
+            others.push_back(PanelId{ i });
+        }
+    }
+    if (total <= windowSize.y - 2.f * sizes.margin) {
+        return {}; // there is room for all of them
+    }
+    return others;
+}
+
+std::vector<PanelId>
+cardOrder(const model::Store& store, std::span<const PanelId> base, std::optional<PanelId> hovered) {
+    std::vector<PanelId> order(base.begin(), base.end());
+    // The cards of each overlapped stack, in their layers, in the places the stack has in `base`.
+    for (const Anchor anchor : anchors) {
+        std::vector<std::size_t> places;
+        for (std::size_t i = 0; i < order.size(); ++i) {
+            const model::Panel& panel = store.panel(order[i]);
+            const Anchor* own = std::get_if<Anchor>(&panel.placement);
+            if (own != nullptr && *own == anchor && panel.overlapped) {
+                places.push_back(i);
+            }
+        }
+        std::vector<PanelId> cards;
+        for (const std::size_t i : places) {
+            cards.push_back(order[i]);
+        }
+        std::stable_sort(cards.begin(), cards.end(), [&](PanelId a, PanelId b) {
+            return store.panel(a).cardLayer < store.panel(b).cardLayer;
+        });
+        for (std::size_t k = 0; k < places.size(); ++k) {
+            order[places[k]] = cards[k];
+        }
+    }
+    // The card under the pointer above everything.
+    if (hovered.has_value() && store.panel(*hovered).overlapped) {
+        const auto at = std::find(order.begin(), order.end(), *hovered);
+        if (at != order.end()) {
+            order.erase(at);
+            order.push_back(*hovered);
+        }
+    }
+    return order;
 }
 
 void placeViews(model::Store& store, sf::Vector2f windowSize, const Sizes& sizes) {

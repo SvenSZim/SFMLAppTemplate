@@ -148,7 +148,14 @@ void arrange(
     // panel too small for its widgets is left out and the others are placed again without it;
     // that can only leave more room for them, so this ends after a few rounds at most.
     for (std::size_t round = 0; round <= count; ++round) {
-        placePanels(store, windowSize, grid, sizes, layout);
+        placePanels(
+            store,
+            windowSize,
+            grid,
+            sizes,
+            layout,
+            cardStrip(sizes, theme.resolve(Panel::Title, State::Normal, {}, sizes.text).textSize)
+        );
 
         bool leftOut = false;
         for (std::size_t i = 0; i < count; ++i) {

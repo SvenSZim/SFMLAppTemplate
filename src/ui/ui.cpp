@@ -6,6 +6,7 @@
 #include "ui/input/window_events.hpp"
 #include "ui/layout/arrange.hpp"
 #include "ui/layout/overlay_placement.hpp"
+#include "ui/layout/panel_placement.hpp"
 #include "ui/layout/widget_layout.hpp"
 #include "ui/model/store.hpp"
 #include "ui/render/font_measurer.hpp"
@@ -84,10 +85,32 @@ struct UI::Impl {
     /// Panels may have moved between the window's grid and floating: the order they are drawn
     /// in, and found by the pointer in, follows.
     void stackingChanged() {
-        stacking = store.stackingOrder();
+        baseStacking = store.stackingOrder();
+        stacking.clear();
+        orderCards();
+    }
+
+    /// The order of the panels as it is now: in an overlapped stack, cards cover each other in
+    /// their layers, and the one under the pointer comes to the front. Only the order changes;
+    /// no panel is painted again.
+    void orderCards() {
+        std::vector<PanelId> order = layout::cardOrder(store, baseStacking, input.hoveredPanel());
+        if (order == stacking) {
+            return;
+        }
+        stacking = std::move(order);
         drawOrder.clear();
         for (const PanelId panel : stacking) {
             drawOrder.push_back(&batches[panel.index]);
+        }
+        flag.request();
+    }
+
+    /// A panel was unfolded: in a stack of cards that would not fit, the others fold.
+    void makeRoomFor(PanelId unfolded) {
+        for (const PanelId other : layout::cardsToFold(store, unfolded, windowSize, sizes, layout)) {
+            panelChanged(store.panel(other));
+            widgets::setCollapsed(store.panel(other), true);
         }
     }
 
@@ -203,7 +226,8 @@ struct UI::Impl {
 
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
     std::vector<float> thumbs;                  // the scrollbar thumb each was painted with, 0 for none
-    std::vector<PanelId> stacking;              // the panels from the bottom to the top
+    std::vector<PanelId> baseStacking;          // the panels from the bottom to the top, as set up
+    std::vector<PanelId> stacking;              // the same, with cards in the order they are seen
     std::vector<render::PanelBatch*> drawOrder; // the same, as the renderer is given them
     render::PanelBatch overlay;                 // above every panel: an open dropdown list
     std::optional<WidgetId> overlayOf;          // whose overlay it holds
@@ -322,6 +346,10 @@ void UI::handleInput() {
             impl.placementOutdated = true; // a panel began to fold or unfold
             impl.flag.request();
         }
+        if (const std::optional<PanelId> unfolded = impl.input.takeUnfolded()) {
+            impl.makeRoomFor(*unfolded);
+        }
+        impl.orderCards(); // the card under the pointer may be another one now
     }
 }
 
@@ -342,6 +370,7 @@ void UI::update() {
     // Bound values that changed are handed to their widgets.
     binding::sync(impl.store, binding::Clock::now());
     impl.placeIfOutdated();
+    impl.orderCards(); // a stack may have begun or stopped overlapping
 }
 
 bool UI::draw() {
@@ -428,6 +457,9 @@ PanelHandle& PanelHandle::setCollapsed(bool collapsed) {
     model::Panel& panel = m_ui->m_impl->store.panel(m_id);
     if (widgets::setCollapsed(panel, collapsed)) { // folds over a moment, as a click does
         m_ui->m_impl->panelChanged(panel);
+        if (!collapsed) {
+            m_ui->m_impl->makeRoomFor(m_id);
+        }
     }
     return *this;
 }

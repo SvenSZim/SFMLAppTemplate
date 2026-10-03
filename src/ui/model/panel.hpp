@@ -98,6 +98,12 @@ struct Panel {
     /// others are placed without it.
     bool tooSmall = false;
 
+    /// Whether the panel is in a stack of floating panels that overlap like cards (WP 3.14), and
+    /// where it is in that stack from the bottom of the drawing order: a card is drawn above
+    /// those with a lower layer.
+    bool overlapped = false;
+    int cardLayer = 0;
+
     // ----- Written by whoever changes how the panel looks; taken by the UI before drawing -----
 
     bool dirty = true; ///< The panel has to be painted again. A new panel has never been painted.
