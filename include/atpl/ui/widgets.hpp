@@ -114,8 +114,16 @@ struct Slider {
     Slider(std::string name, Param<T>& value, SliderOptions options = {});
     Slider(std::string name, NumberBinding& value, SliderOptions options = {});
 
+    /// Throws `SetupError` for options that cannot work: `max` not above `min`, a negative
+    /// `step`, a `format` that is not valid for a number.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
+
+template <NumberValue T>
+Slider::Slider(std::string sliderName, Param<T>& value, SliderOptions sliderOptions) :
+    name(std::move(sliderName)),
+    options(std::move(sliderOptions)),
+    binding(AnyBinding(value)) {}
 
 struct ProgressBarOptions {
     std::string label;

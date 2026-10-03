@@ -61,6 +61,7 @@ atpl_add_tests(core
   core/test_version.cpp
 )
 atpl_add_tests(ui
+  ui/test_basic_widgets.cpp
   ui/test_binding.cpp
   ui/test_bindings.cpp
   ui/test_cell.cpp

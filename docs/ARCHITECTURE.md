@@ -138,7 +138,7 @@ src/ui/
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
 │            profiler.hpp/.cpp  frame_stats.hpp
-└─ widgets/  panel_frame.hpp/.cpp  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
+└─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
 
@@ -320,6 +320,18 @@ What the UI keeps for itself, and what it forwards:
 - Kept: pointer presses, releases, moves and scrolling over a panel; keys and text while a widget has keyboard focus.
 - A press and everything up to its release go to the same place. A drag that starts in a view keeps being forwarded when it crosses a panel; a drag that starts on a widget is never forwarded. Input is never cut off in the middle of an interaction.
 - Window events are always forwarded. A close request is only reported; the application decides.
+
+### 4.7a The built-in widgets
+
+One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and a widget class (internal). They follow the design agreed in WP 2.2. Sizes come from the layout's (`widgets/shapes_of_widgets.hpp`: knob size, track shares), so they follow the window.
+
+| Widget | Look | Input | Value |
+|---|---|---|---|
+| Button (WP 3.9) | a face with its label in the middle | pressed on, released on: `press()`; a press dragged away does nothing | none; a bound `Param<bool>` is set on every press |
+| Switch (WP 3.9) | its label at the left, a pill at the right; on: the track in the accent look | a click flips it: `changeValue(on)` | Bool |
+| Slider (WP 3.9) | label at the top left, value at the top right in its `format`, the track below, filled up to the knob; `Ticks` hidden unless a theme shows them | a press on the track row moves it there and dragging follows (`final` false), the release reports `final` true; the wheel moves it a step or a hundredth of the range | Number, kept in `[min, max]` and on `step` |
+
+A slider's options that cannot work (max not above min, a negative step, a format that cannot show a number) throw `SetupError` when the UI is built.
 
 ### 4.8a The panel frame (WP 3.6)
 
