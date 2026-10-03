@@ -66,7 +66,8 @@ TEST_CASE("assigning one parameter to another copies the value", "[core][param]"
     REQUIRE(b.get() == 2.f);
 
     const Revision before = a.revision();
-    a = a; // to itself: nothing happens
+    const Param<float>& same = a; // through a reference: compilers warn about the plain form
+    a = same;                     // to itself: nothing happens
     REQUIRE(a.revision() == before);
 }
 
