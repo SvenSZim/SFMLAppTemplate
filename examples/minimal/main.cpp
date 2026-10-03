@@ -1,10 +1,10 @@
 // The smallest application that shows the UI: a window with a few panels of controls bound to
 // parameters, and displays of a made-up simulation.
 //
-// It drives the UI by hand, which is what `App` will do for an application once it exists
-// (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
-// window's close button ends it; while a text field or a dropdown list has the keys, Escape
-// first ends the typing or closes the list.
+// It runs through `App`, which opens the window, loads the font, and runs the loop: input, the
+// application's update, the UI's update, a frame if anything changed; and nothing at all while
+// nothing happens. Escape or the window's close button ends it; while a text field or a dropdown
+// list has the keys, Escape first ends the typing or closes the list.
 //
 //   minimal [--layout overlay|dashboard|cards|compact] [--cards] [--ticks] [--profiler] [--smoke-test]
 //
@@ -17,14 +17,11 @@
 // --profiler shows the profiler readout. --smoke-test draws a few frames and exits, for
 // automated checks.
 
-#include "atpl/app/resources.hpp"
+#include "atpl/app/app.hpp"
 #include "atpl/core/series.hpp"
 #include "atpl/core/text_log.hpp"
 #include "atpl/core/version.hpp"
 #include "atpl/ui/ui.hpp"
-
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/System/Clock.hpp>
 
 #include <array>
 #include <cmath>
@@ -105,7 +102,7 @@ struct Stats {
     }
 };
 
-UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool profiler, Params& params, Stats& stats) {
+UISetup describeUI(Layout layout, bool profiler, Params& params, Stats& stats) {
     UISetup setup{
         .layout = std::move(layout),
         .grid = {.columns = 4, .rows = 2},
@@ -170,7 +167,6 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
         },
         .profiler = profiler,
     };
-    setup.theme.font = std::move(font);
     return setup;
 }
 
@@ -194,83 +190,68 @@ int run(int argc, char* argv[]) {
         layout.stackOverflow = StackOverflow::Cards; // one setting of the layout theme
     }
 
-    const Resources resources = Resources::nextToExecutable(argv[0]);
-    const auto font = std::make_shared<const sf::Font>(resources.loadFont("fonts/default.ttf"));
-
-    sf::ContextSettings settings;
-    settings.antiAliasingLevel = 8;
-    sf::RenderWindow window(
-        sf::VideoMode({ 1280, 720 }),
-        "atpl minimal " + std::string(versionString()),
-        sf::Style::Default,
-        sf::State::Windowed,
-        settings
-    );
-    window.setVerticalSyncEnabled(true);
-
     Params params;
     Stats stats;
-    UISetup setup = describeUI(font, std::move(layout), profiler, params, stats);
+    UISetup ui = describeUI(std::move(layout), profiler, params, stats);
     if (ticks) {
-        setup.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
+        ui.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
     }
-    UI ui(window, std::move(setup));
-
-    int passesLeft = 5; // only counted in a smoke test
+    // The window, the UI with the font from the resources, and the loop. Closing the window
+    // ends it.
+    App app({ .window = { .title = "atpl minimal " + std::string(versionString()) }, .ui = std::move(ui) });
     stats.events.push("Started");
-    sf::Clock tickClock;
-    sf::Time untilTick;
-    sf::Clock rateClock;
-    while (window.isOpen()) {
-        ui.handleInput(); // sleeps while there is nothing to do
-        for (const Event& event : ui.events()) {
-            if (event.is<WindowClosed>() || event.isKey(sf::Keyboard::Key::Escape)) {
-                window.close();
-            }
-            if (event.isButton("Reset")) {
-                params.reset(); // the sliders and switches follow by themselves
-                stats.events.push("Reset");
-            }
-            if (event.isButton("Step") && params.paused.get()) {
-                stats.tick(params);
-                stats.events.push("Step");
-            }
-            // What the user changed, in the log: the run name once it is entered.
-            if (const auto* changed = event.getIf<ValueChanged>(); changed != nullptr && changed->final) {
-                if (changed->name == "Paused") {
-                    stats.events.push(params.paused.get() ? "Paused" : "Running");
-                } else if (changed->name == "Draw") {
-                    stats.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
-                } else if (changed->name == "Run name") {
-                    stats.events.push("Run name: " + params.runName.get());
-                }
+
+    // What the user does: called once per event, on the main thread.
+    app.onEvent([&](const Event& event) {
+        if (event.isKey(sf::Keyboard::Key::Escape)) {
+            app.quit();
+        }
+        if (event.isButton("Reset")) {
+            params.reset(); // the sliders and switches follow by themselves
+            stats.events.push("Reset");
+        }
+        if (event.isButton("Step") && params.paused.get()) {
+            stats.tick(params);
+            stats.events.push("Step");
+        }
+        // What the user changed, in the log: the run name once it is entered.
+        if (const auto* changed = event.getIf<ValueChanged>(); changed != nullptr && changed->final) {
+            if (changed->name == "Paused") {
+                stats.events.push(params.paused.get() ? "Paused" : "Running");
+            } else if (changed->name == "Draw") {
+                stats.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
+            } else if (changed->name == "Run name") {
+                stats.events.push("Run name: " + params.runName.get());
             }
         }
-        // The made-up simulation: a tick every 50 ms while it runs. The displays follow by
-        // themselves, as the controls do.
-        const sf::Time tickTime = sf::seconds(1.f / Stats::ticksPerSecond);
-        for (untilTick -= tickClock.restart(); untilTick <= sf::Time::Zero; untilTick += tickTime) {
+    });
+
+    // The made-up simulation, on the main thread until it gets a thread of its own: a tick
+    // every 50 ms while it runs. The displays follow by themselves, as the controls do.
+    float untilTick = 0.f;
+    float untilRate = 1.f;
+    int passesLeft = 5; // only counted in a smoke test
+    app.onUpdate([&](float dt) {
+        for (untilTick -= dt; untilTick <= 0.f; untilTick += 1.f / Stats::ticksPerSecond) {
             if (!params.paused.get()) {
                 stats.tick(params);
             }
         }
-        if (rateClock.getElapsedTime().asSeconds() >= 1.f) {
-            rateClock.restart();
+        if ((untilRate -= dt) <= 0.f) {
+            untilRate += 1.f;
             stats.rate = static_cast<float>(std::exchange(stats.ticksThisSecond, 0));
         }
         stats.status = params.paused.get() ? std::format("Paused at {:.1f} s", stats.time)
                                            : std::format("Running, {:.1f} s simulated", stats.time);
-        ui.update();
-        ui.draw(); // draws only if something changed
-
         if (smokeTest) {
-            ui.requestRedraw();
+            app.ui().requestRedraw();
             if (--passesLeft == 0) {
-                window.close();
+                app.quit();
             }
         }
-    }
-    return 0;
+    });
+
+    return app.run();
 }
 
 } // namespace

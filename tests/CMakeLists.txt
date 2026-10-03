@@ -111,6 +111,10 @@ atpl_add_display_tests(ui
 atpl_copy_resources(atpl_ui_display_tests)
 # The resource tests load the real font, so they need the resources next to their executable.
 atpl_copy_resources(atpl_app_tests)
+atpl_add_display_tests(app
+  app/display/test_app.cpp
+)
+atpl_copy_resources(atpl_app_display_tests)
 
 # Measures the render pipeline on a scene of a hundred widgets; see docs/PROJECT_PLAN.md 5.5.
 # As a test it runs for a few frames only: the times mean nothing then, but it checks that an
