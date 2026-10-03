@@ -3,6 +3,7 @@
 #include "atpl/ui/binding.hpp"
 #include "atpl/ui/id.hpp"
 #include "atpl/ui/rect.hpp"
+#include "atpl/ui/value.hpp"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -53,14 +54,23 @@ public:
     WidgetHandle& unbind();
 
     /// The value the widget currently shows, as a `T`.
-    /// Throws `SetupError` if the widget's kind of value cannot be read as a `T`.
+    /// Throws `SetupError` if the widget has no value, or one that cannot be read as a `T`.
     template <BindableValue T>
-    [[nodiscard]] T get() const;
+    [[nodiscard]] T get() const {
+        return valueAs<T>(value());
+    }
 
-    /// Sets the widget's value as if the user had entered it; a bound value is written too.
-    /// Throws `SetupError` if the widget's kind of value cannot be set from a `T`.
+    /// Sets the widget's value as if the user had entered it; a bound value is written too. No
+    /// event is raised: the application knows what it did.
+    /// Throws `SetupError` if the widget does not work with values of `T`'s kind.
     template <BindableValue T>
-    WidgetHandle& set(const T& value);
+    WidgetHandle& set(const T& value) {
+        return setValue(valueOf(value));
+    }
+
+    /// The same without a type: the widget's value as it holds it.
+    [[nodiscard]] Value value() const;
+    WidgetHandle& setValue(const Value& value);
 
     /// Greyed out and not reacting to input while disabled.
     WidgetHandle& setEnabled(bool enabled);

@@ -7,6 +7,7 @@
 #include "atpl/ui/theme.hpp"
 #include "atpl/ui/widget.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -51,7 +52,9 @@ struct WidgetSlot {
     // ----- Written by the application (`bind`), kept in step by binding -----
 
     std::optional<AnyBinding> binding;
-    std::size_t revisionSeen = 0; ///< The binding's change counter when the widget last got its value.
+    Revision revisionSeen = 0; ///< The binding's change counter when the widget last got its value.
+    bool synced = false;       ///< Whether the widget got a value from its binding at all yet.
+    std::chrono::steady_clock::time_point nextHandOver; ///< For values only shown: not before this.
 };
 
 /// The widget's state as the theme and the widget itself see it.

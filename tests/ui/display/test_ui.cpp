@@ -41,6 +41,25 @@ struct Plain {
     [[nodiscard]] std::unique_ptr<Widget> create() const { return std::make_unique<PlainWidget>(); }
 };
 
+/// A widget that holds a number and can be bound to one.
+class NumberWidget final : public Widget {
+public:
+    [[nodiscard]] SizeRequest measure(const MeasureContext&) const override { return {}; }
+    void paint(Painter&, const Style&) const override {}
+    [[nodiscard]] bool accepts(ValueKind kind) const override { return kind == ValueKind::Number; }
+    [[nodiscard]] bool editsValue() const override { return true; }
+    [[nodiscard]] std::optional<Value> value() const override { return Value(m_value); }
+    void setValue(const Value& value) override { m_value = std::get<double>(value); }
+
+private:
+    double m_value = 0.0;
+};
+
+struct Number {
+    std::string name;
+    [[nodiscard]] std::unique_ptr<Widget> create() const { return std::make_unique<NumberWidget>(); }
+};
+
 struct Region {
     static constexpr bool isView = true;
     std::string name;
@@ -378,6 +397,39 @@ TEST_CASE("resizing the window places the panels anew and tells the application"
         FloatRect(margin, margin, std::round((1100.f - 3.f * margin) / 2.f), 650.f - 2.f * margin)
     );
     REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 1100.f, 650.f));
+}
+
+TEST_CASE("a widget bound to a parameter shows its value and writes it", "[ui][facade][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "Controls", .widgets = { Number{ "Speed" }, Plain{ "Label" } } } };
+    UI ui(f.window, std::move(setup));
+    Param<float> speed = 2.5f;
+
+    ui.widget("Speed").bind(speed);
+    ui.update(); // bound values are handed over in the update step
+    REQUIRE(ui.widget("Speed").get<float>() == 2.5f);
+    REQUIRE(ui.widget("Speed").get<int>() == 3); // read as another number type
+
+    speed = 4.f; // e.g. from the simulation thread
+    ui.update();
+    REQUIRE(ui.widget("Speed").get<double>() == 4.0);
+
+    ui.widget("Speed").set(7.f); // as if the user had entered it: the parameter follows
+    REQUIRE(speed.get() == 7.f);
+
+    // Wrong kinds are refused loudly.
+    Param<bool> flag;
+    REQUIRE_THROWS_AS(ui.widget("Speed").bind(flag), SetupError);
+    REQUIRE_THROWS_AS(ui.widget("Speed").set(true), SetupError);
+    REQUIRE_THROWS_AS(ui.widget("Speed").get<std::string>(), SetupError);
+    REQUIRE_THROWS_AS(ui.widget("Label").get<float>(), SetupError); // it has no value
+    REQUIRE_THROWS_AS(ui.widget("Label").bind(speed), SetupError);
+
+    ui.widget("Speed").unbind();
+    speed = 1.f;
+    ui.update();
+    REQUIRE(ui.widget("Speed").get<float>() == 7.f); // keeps what it showed
 }
 
 TEST_CASE("a view keeps the draw function the application gives it", "[ui][facade][display]") {

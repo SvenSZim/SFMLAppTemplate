@@ -8,10 +8,13 @@
 #include <cstddef>
 #include <functional>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace atpl {
 
@@ -19,6 +22,10 @@ namespace atpl {
 // only about the kind of value it shows or edits. For each kind there is one small interface.
 // `Param<T>` and `Series` are the ready-made, thread-safe sources; an application can also
 // implement an interface over its own data, or build a binding from two functions.
+
+/// A widget's value, whatever its kind: `bool` for Bool, `double` for Number, `std::size_t` for
+/// Index, `std::string` for Text. (Series have no single value.)
+using Value = std::variant<bool, double, std::size_t, std::string>;
 
 /// The kinds of value widgets work with.
 enum class ValueKind {
@@ -61,6 +68,10 @@ using IndexBinding = Binding<std::size_t>;
 using TextBinding = Binding<std::string>;
 
 /// The interface between a graph and its data.
+///
+/// Data comes as samples (the x-axis is time or a count) or as points (the x-axis comes from
+/// the data). A source of points says so with `hasPoints` and gives them through `readPoints`;
+/// its `read` gives the y values.
 class SeriesBinding {
 public:
     virtual ~SeriesBinding() = default;
@@ -70,6 +81,13 @@ public:
 
     /// Changes whenever the samples may have changed.
     [[nodiscard]] virtual Revision revision() const = 0;
+
+    /// Whether the data are points with an x value of their own.
+    [[nodiscard]] virtual bool hasPoints() const { return false; }
+
+    /// Copies the newest points into `out`, oldest first, and returns how many were copied.
+    /// Nothing for a source of samples.
+    virtual std::size_t readPoints(std::span<Point> /*out*/) const { return 0; }
 };
 
 // Which C++ types map to which kind.
@@ -192,9 +210,87 @@ public:
     [[nodiscard]] static AnyBinding
     ofText(std::function<std::string()> get, std::function<void(const std::string&)> set = {});
 
+    /// Points, for graphs whose x-axis comes from the data.
+    AnyBinding(PointSeries& series);
+
     [[nodiscard]] ValueKind kind() const;
     [[nodiscard]] bool isReadOnly() const;
+
+    // ----- What the UI does with it (an application rarely needs these) -----
+
+    /// The current value. Nothing for a series.
+    [[nodiscard]] std::optional<Value> get() const;
+
+    /// Stores a value; it must be of the binding's kind. Does nothing if the binding is read-only.
+    void set(const Value& value) const;
+
+    /// Changes whenever the value may have changed.
+    [[nodiscard]] Revision revision() const;
+
+    /// The source of a series binding, or null.
+    [[nodiscard]] const SeriesBinding* series() const;
+
+private:
+    using Target = std::variant<BoolBinding*, NumberBinding*, IndexBinding*, TextBinding*, SeriesBinding*>;
+
+    AnyBinding(Target target, std::shared_ptr<void> owned);
+
+    template <typename Interface>
+    static AnyBinding owning(std::shared_ptr<Interface> binding) {
+        Interface* target = binding.get();
+        return AnyBinding(Target(target), std::move(binding));
+    }
+
+    Target m_target;
+    std::shared_ptr<void> m_owned; ///< Keeps an adapter alive that this binding made; empty otherwise.
 };
+
+namespace detail {
+
+/// The type a kind of value travels as: `bool`, `double`, `std::size_t` or `std::string`.
+template <BindableValue T>
+using KindType = std::conditional_t<
+    BoolValue<T>,
+    bool,
+    std::conditional_t<NumberValue<T>, double, std::conditional_t<IndexValue<T>, std::size_t, std::string>>>;
+
+/// A `Param<T>` seen as the binding of its kind: conversions in both directions, thread-safe
+/// because the parameter is.
+template <BindableValue T>
+class ParamBinding final : public Binding<KindType<T>> {
+public:
+    explicit ParamBinding(Param<T>& param) :
+        m_param(&param) {}
+
+    [[nodiscard]] KindType<T> get() const override {
+        if constexpr (NumberValue<T> || IndexValue<T>) {
+            return static_cast<KindType<T>>(m_param->get());
+        } else {
+            return m_param->get();
+        }
+    }
+
+    void set(const KindType<T>& value) override {
+        if constexpr (NumberValue<T>) {
+            m_param->set(numberTo<T>(value));
+        } else if constexpr (IndexValue<T>) {
+            m_param->set(static_cast<T>(value));
+        } else {
+            m_param->set(value);
+        }
+    }
+
+    [[nodiscard]] Revision revision() const override { return m_param->revision(); }
+
+private:
+    Param<T>* m_param;
+};
+
+} // namespace detail
+
+template <BindableValue T>
+AnyBinding::AnyBinding(Param<T>& param) :
+    AnyBinding(owning(std::make_shared<detail::ParamBinding<T>>(param))) {}
 
 // The two templates only work out the kind and convert between the application's type and the
 // kind's type. Everything else happens in the functions above.
