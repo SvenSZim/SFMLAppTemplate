@@ -1,5 +1,5 @@
 // The smallest application that shows the UI: a window with a few panels of controls bound to
-// parameters, and displays of a made-up simulation.
+// parameters, and displays of a made-up simulation that runs on a thread of its own.
 //
 // It runs through `App`, which opens the window, loads the font, and runs the loop: input, the
 // application's update, the UI's update, a frame if anything changed; and nothing at all while
@@ -61,18 +61,15 @@ Layout layoutNamed(std::string_view name) {
 enum class DrawMode { Filled, Outlined, Points };
 constexpr std::array<const char*, 3> drawModeNames{ "Filled", "Outlined", "Points" };
 
-/// What the controls change. In an application, the simulation would read these.
+/// What the controls change. The simulation reads these from its thread: they are `Param`s.
 struct Params {
-    Param<float> speed = 1.f;
     Param<int> size = 8;
     Param<bool> gravity = true;
     Param<bool> trails = false;
     Param<DrawMode> drawMode = DrawMode::Filled;
     Param<std::string> runName;
-    Param<bool> paused = false;
 
     void reset() {
-        speed = 1.f;
         size = 8;
         gravity = true;
         trails = false;
@@ -80,29 +77,45 @@ struct Params {
     }
 };
 
-/// What a simulation would report, made up here: a run that loops, and a measurement on it.
-struct Stats {
-    static constexpr float ticksPerSecond = 20.f;
-
-    Param<float> rate = 0.f;     ///< Ticks in the last second.
-    Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
-    Series energy{ 200 };
-    TextLog events{ 100 };     ///< What happened: any thread may write to it.
-    Param<std::string> status; ///< What it is doing, in words.
-
-    float time = 0.f; ///< Simulated seconds.
-    int ticksThisSecond = 0;
-
-    void tick(const Params& params) {
-        time += params.speed.get() / ticksPerSecond;
-        progress = std::fmod(time * 5.f, 100.f);
-        const float wave = std::sin(time) + 0.3f * std::sin(time * 4.7f) + 0.1f * std::sin(time * 23.f);
-        energy.push((params.gravity.get() ? 2.f : 1.f) * static_cast<float>(params.size.get()) * (1.5f + wave));
-        ++ticksThisSecond;
-    }
+/// What the main thread needs from the simulation for one frame.
+struct Moment {
+    double time = 0.0; ///< Simulated seconds.
 };
 
-UISetup describeUI(Layout layout, bool profiler, Params& params, Stats& stats) {
+/// A made-up simulation on a thread of its own: a run that loops, and a measurement on it.
+/// 20 ticks per second of simulated time; the speed slider changes how fast that time passes.
+class MadeUp final : public Simulation<Moment> {
+public:
+    explicit MadeUp(const Params& params) :
+        m_params(params) {
+        controls.tickRate = 20.0;
+    }
+
+    // What it reports, for widgets to show. Thread-safe: it writes them, the UI reads them.
+    Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
+    Series energy{ 200 };
+
+private:
+    void tick(float dt) override {
+        m_time += dt;
+        progress = std::fmod(m_time * 5.f, 100.f);
+        const float wave = std::sin(m_time) + 0.3f * std::sin(m_time * 4.7f) + 0.1f * std::sin(m_time * 23.f);
+        energy.push((m_params.gravity.get() ? 2.f : 1.f) * static_cast<float>(m_params.size.get()) * (1.5f + wave));
+    }
+
+    void writeState(Moment& moment) const override { moment.time = m_time; }
+
+    const Params& m_params;
+    float m_time = 0.f;
+};
+
+/// What the main thread reports.
+struct Report {
+    TextLog events{ 100 };     ///< What happened: any thread may write to it.
+    Param<std::string> status; ///< What the simulation is doing, in words.
+};
+
+UISetup describeUI(Layout layout, bool profiler, Params& params, MadeUp& simulation, Report& report) {
     UISetup setup{
         .layout = std::move(layout),
         .grid = {.columns = 4, .rows = 2},
@@ -120,10 +133,10 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Stats& stats) {
                 .width = 420.f,
                 .widgets = {
                     // The controls on top, what it is doing below them, and the log of what happened.
-                    at({ .column = 0, .row = 0 }, Switch("Paused", params.paused)),
+                    at({ .column = 0, .row = 0 }, Switch("Paused", simulation.controls.paused)),
                     at({ .column = 1, .row = 0 }, Button("Step")),
-                    at({ .column = 0, .row = 1, .columnSpan = 2 }, TextDisplay("Status", stats.status)),
-                    at({ .column = 0, .row = 2, .columnSpan = 2, .rowSpan = 3 }, Log("Events", stats.events, {.lines = 4})),
+                    at({ .column = 0, .row = 1, .columnSpan = 2 }, TextDisplay("Status", report.status)),
+                    at({ .column = 0, .row = 2, .columnSpan = 2, .rowSpan = 3 }, Log("Events", report.events, {.lines = 4})),
                 },
             },
             // ... and these leave it to the layout theme: floating at the top left with
@@ -132,7 +145,7 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Stats& stats) {
             {
                 .name = "Controls",
                 .widgets = {
-                    Slider("Speed", params.speed, {.min = 0.0, .max = 10.0, .format = "{:.1f}"}),
+                    Slider("Speed", simulation.controls.speed, {.min = 0.0, .max = 10.0, .format = "{:.1f}"}),
                     Slider("Size", params.size, {.min = 1.0, .max = 32.0, .step = 1.0, .format = "{:.0f}"}),
                     Switch("Gravity", params.gravity),
                     Switch("Trails", params.trails),
@@ -159,9 +172,9 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Stats& stats) {
             {
                 .name = "Statistics",
                 .widgets = {
-                    ValueDisplay("Ticks per second", stats.rate, {.format = "{:.0f}"}),
-                    ProgressBar("Progress", stats.progress, {.min = 0.0, .max = 100.0}),
-                    spanning({ .rows = 3 }, Graph("Energy", stats.energy)),
+                    ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
+                    ProgressBar("Progress", simulation.progress, {.min = 0.0, .max = 100.0}),
+                    spanning({ .rows = 3 }, Graph("Energy", simulation.energy)),
                 },
             },
         },
@@ -191,58 +204,50 @@ int run(int argc, char* argv[]) {
     }
 
     Params params;
-    Stats stats;
-    UISetup ui = describeUI(std::move(layout), profiler, params, stats);
+    MadeUp simulation(params);
+    Report report;
+    UISetup ui = describeUI(std::move(layout), profiler, params, simulation, report);
     if (ticks) {
         ui.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
     }
     // The window, the UI with the font from the resources, and the loop. Closing the window
     // ends it.
     App app({ .window = { .title = "atpl minimal " + std::string(versionString()) }, .ui = std::move(ui) });
-    stats.events.push("Started");
+    report.events.push("Started");
 
-    // What the user does: called once per event, on the main thread.
+    // What the user does: called once per event, on the main thread. The simulation hears of it
+    // through its controls and parameters.
     app.onEvent([&](const Event& event) {
         if (event.isKey(sf::Keyboard::Key::Escape)) {
             app.quit();
         }
         if (event.isButton("Reset")) {
             params.reset(); // the sliders and switches follow by themselves
-            stats.events.push("Reset");
+            simulation.controls.speed = 1.0;
+            report.events.push("Reset");
         }
-        if (event.isButton("Step") && params.paused.get()) {
-            stats.tick(params);
-            stats.events.push("Step");
+        if (event.isButton("Step") && simulation.controls.paused.get()) {
+            simulation.controls.step(); // one tick, on the simulation's thread
+            report.events.push("Step");
         }
         // What the user changed, in the log: the run name once it is entered.
         if (const auto* changed = event.getIf<ValueChanged>(); changed != nullptr && changed->final) {
             if (changed->name == "Paused") {
-                stats.events.push(params.paused.get() ? "Paused" : "Running");
+                report.events.push(simulation.controls.paused.get() ? "Paused" : "Running");
             } else if (changed->name == "Draw") {
-                stats.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
+                report.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
             } else if (changed->name == "Run name") {
-                stats.events.push("Run name: " + params.runName.get());
+                report.events.push("Run name: " + params.runName.get());
             }
         }
     });
 
-    // The made-up simulation, on the main thread until it gets a thread of its own: a tick
-    // every 50 ms while it runs. The displays follow by themselves, as the controls do.
-    float untilTick = 0.f;
-    float untilRate = 1.f;
+    // Once per pass, on the main thread: the status from the state of this pass.
     int passesLeft = 5; // only counted in a smoke test
-    app.onUpdate([&](float dt) {
-        for (untilTick -= dt; untilTick <= 0.f; untilTick += 1.f / Stats::ticksPerSecond) {
-            if (!params.paused.get()) {
-                stats.tick(params);
-            }
-        }
-        if ((untilRate -= dt) <= 0.f) {
-            untilRate += 1.f;
-            stats.rate = static_cast<float>(std::exchange(stats.ticksThisSecond, 0));
-        }
-        stats.status = params.paused.get() ? std::format("Paused at {:.1f} s", stats.time)
-                                           : std::format("Running, {:.1f} s simulated", stats.time);
+    app.onUpdate([&](float) {
+        const double time = simulation.state().time;
+        report.status = simulation.controls.paused.get() ? std::format("Paused at {:.1f} s", time)
+                                                         : std::format("Running, {:.1f} s simulated", time);
         if (smokeTest) {
             app.ui().requestRedraw();
             if (--passesLeft == 0) {
@@ -251,7 +256,7 @@ int run(int argc, char* argv[]) {
         }
     });
 
-    return app.run();
+    return app.run(simulation); // the simulation runs on its own thread until the app ends
 }
 
 } // namespace

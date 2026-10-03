@@ -1,5 +1,7 @@
 #include "atpl/app/app.hpp"
 
+#include "app/simulation_runner.hpp"
+
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/ContextSettings.hpp>
@@ -7,6 +9,7 @@
 #include <SFML/Window/WindowEnums.hpp>
 
 #include <atomic>
+#include <exception>
 #include <memory>
 #include <utility>
 
@@ -57,9 +60,14 @@ struct App::Impl {
     }
 
     /// One pass of the main loop: input and events, the application's update, the UI's update,
-    /// and a frame if one is needed. Waits for input when nothing else is to do.
-    void pass() {
+    /// and a frame if one is needed. Waits for input when nothing else is to do. With a
+    /// simulation, its newest state is taken once, after the wait: the whole pass, and the frame
+    /// it draws, show that one moment (D33).
+    void pass(app::SimulationRunner* runner) {
         interface->handleInput();
+        if (runner != nullptr) {
+            runner->showNewestState();
+        }
         for (const Event& event : interface->events()) {
             if (eventHandler) {
                 eventHandler(event);
@@ -124,9 +132,25 @@ int App::run() {
     Impl& impl = *m_impl;
     impl.clock.restart();
     while (impl.window.isOpen() && !impl.quitting.load(std::memory_order_acquire)) {
-        impl.pass();
+        impl.pass(nullptr);
     }
     impl.quitting.store(false, std::memory_order_release); // a later run() starts afresh
+    return impl.exitCode.load(std::memory_order_relaxed);
+}
+
+int App::run(SimulationBase& simulation) {
+    Impl& impl = *m_impl;
+    app::SimulationRunner runner(simulation, [&impl] { impl.interface->requestRedraw(); });
+    runner.start();
+    impl.clock.restart();
+    while (impl.window.isOpen() && !impl.quitting.load(std::memory_order_acquire) && runner.failure() == nullptr) {
+        impl.pass(&runner);
+    }
+    runner.stop(); // the simulation thread ends before anything it uses goes away
+    impl.quitting.store(false, std::memory_order_release);
+    if (const std::exception_ptr failure = runner.failure()) {
+        std::rethrow_exception(failure); // on the main thread, from run()
+    }
     return impl.exitCode.load(std::memory_order_relaxed);
 }
 
