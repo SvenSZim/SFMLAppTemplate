@@ -138,7 +138,7 @@ src/ui/
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
 │            profiler.hpp/.cpp  frame_stats.hpp
-└─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  number_format.hpp  utf8.hpp
+└─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  number_format.hpp  utf8.hpp  paragraph.cpp
              button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
@@ -217,7 +217,7 @@ A widget type states the **kind of value** it works with, not a C++ type. It bin
 | Text input | text | `Param<std::string>` |
 | Dropdown | index into its options | `Param<int>` or `Param<AnyEnum>` |
 | Graph | series, read-only | `Series` |
-| Paragraph | text (its body), read-only | `Param<std::string>` |
+| Paragraph | none: static text, set in the setup (D56) | — |
 | View | none (draw callback) | — |
 
 Rules:
@@ -352,6 +352,7 @@ One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and
 | Graph (WP 3.10) | label above with the newest value at the right (`Value`, hidden unless a theme shows it), a box below with the curve; the baseline at zero or at the average (`base`); optional parts a theme can show: `Shadow` (the area between curve and baseline), `Grid`, `Axis`, `AxisLabels` | none | Series or PointSeries, read by the graph itself when it paints |
 | Dropdown (WP 3.11) | label above; a field with the chosen entry and an arrow, pointing up while open; the open list in the overlay, joined to the field: one outline around both in the open field's outline colour, and that outline once more where they meet; the highlighted entry in the accent look, a scrollbar when it scrolls | a click on the field opens the list; a click on an entry, or a press dragged to one and released, chooses it; a click elsewhere or on the field closes it. While open: Up, Down, Home, End move the highlight, Enter chooses, Escape closes, the wheel scrolls. It shows `maxVisible` entries at most, fewer if there is less room | Index; an integer parameter is bound as one |
 | TextInput (WP 3.11) | label above; a field with the text, or the muted `placeholder` while it is empty; a steady cursor while focused, the outline in the accent colour; dots where text is hidden: while editing, at the left once it has scrolled and at the right if text follows; afterwards it is shown from its start, with dots at the right | a click takes the focus and puts the cursor there; typing, Left, Right, Home, End, Backspace, Delete, Ctrl+V; Enter or Escape gives the focus up. Text wider than the field scrolls with the cursor. At most `maxLength` characters (code points, not bytes) | Text; written on every change (`final` false), once more with `final` true when the editing ends (`Widget::focusLost`) |
+| Paragraph (WP 3.13) | a heading, a body and a footer, each optional and each a part of its own text type; the body, static text, is quieter than the values of widgets and set apart from its heading: its colour and its size lie between the heading's and the footer's, nearer the footer (0.65 of the way), unless a theme sets them; all three wrap to the widget's width, line breaks start new lines, and empty ones take no room; `align` places all three; `Separator` lines between them if a theme shows them, in a gap that is there either way | none: it does not react to the pointer | none: static. As wide as its longest line, at most a panel of the layout's width (it wraps instead), and at least its longest word; as high as its wrapped texts at the width it gets |
 
 The displays only show their values, so by default they hear of changes at most every 125 ms (D51); a graph asks for every change. A graph's value axis is fixed where `min` and `max` say so and otherwise follows the samples in its window: from zero (`GraphBase::Zero`) or around their average (`GraphBase::Average`), on a logarithmic axis in whole powers of ten. Its window is the last `samples` samples, or all there are (up to 1024). The x-axis counts samples back from the newest (`GraphX::Count`) or seconds (`GraphX::Time`, with `secondsPerSample`); a graph of points takes it from the points.
 

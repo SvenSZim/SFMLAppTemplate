@@ -353,9 +353,10 @@ struct Graph {
 };
 
 struct ParagraphOptions {
-    std::string heading; ///< Shown as a heading. Empty: no heading.
-    std::string text;    ///< Shown as body text, wrapped to the panel's width. Empty: no body.
-    std::string footer;  ///< Shown below in muted text, wrapped. Empty: no footer.
+    std::string heading;       ///< Shown as a heading, wrapped. Empty: no heading.
+    std::string text;          ///< Shown as body text, wrapped to the panel's width. Empty: no body.
+    std::string footer;        ///< Shown below in muted text, wrapped. Empty: no footer.
+    Align align = Align::Left; ///< How all three are placed in each line.
 };
 
 /// Text in a panel: a heading, a body and a footer, each optional. With only a heading it is a
@@ -365,22 +366,27 @@ struct ParagraphOptions {
 ///     Paragraph("Help", {.text = "Drag to move the view. Scroll to zoom."})
 ///     Paragraph("About", {.heading = "Ants", .text = "...", .footer = "v1.5"})
 ///
-/// Each of the three is a part of its own text type, so a theme styles them separately.
-/// The body can be bound; it then shows the bound text instead of `text`. Read-only. Kind: Text.
-/// Unlike other widgets, the name is not shown anywhere.
+/// Each of the three is a part of its own text type, so a theme styles them separately. All
+/// three wrap to the widget's width, and a line break in a text starts a new line; texts that are
+/// empty take no room. A theme can show lines between them (`Separator`).
+///
+/// A paragraph is static: its texts are set in the setup and never change, so it takes no
+/// binding, and its size changes only with its width. Text that changes belongs in a widget made
+/// for it, whose size is fixed. Unlike other widgets, the name is not shown anywhere.
 struct Paragraph {
     static constexpr Kind kind{ "paragraph" };
     static constexpr Part Heading{ kind, "heading", Role::Heading };
+    /// Static text, so quieter than the values of widgets and set apart from the heading: unless
+    /// a theme sets them, its colour and size lie between the heading's and the footer's, nearer
+    /// the footer.
     static constexpr Part Body{ kind, "body", Role::Text };
     static constexpr Part Footer{ kind, "footer", Role::MutedText };
+    static constexpr Part Separator{ kind, "separator", Role::Line, Shown::No }; ///< Between the texts.
 
     std::string name;
     ParagraphOptions options;
-    std::optional<AnyBinding> binding;
 
     Paragraph(std::string name, ParagraphOptions options = {});
-    Paragraph(std::string name, Param<std::string>& text, ParagraphOptions options = {});
-    Paragraph(std::string name, TextBinding& text, ParagraphOptions options = {});
 
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
