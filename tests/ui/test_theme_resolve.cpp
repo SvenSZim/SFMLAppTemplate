@@ -197,7 +197,7 @@ TEST_CASE("text is derived from main1: light on dark, dark on light, and always 
                                         sf::Color(200, 205, 215),
                                         sf::Color(255, 255, 255) }) {
         theme.palette.mains[0] = background;
-        const sf::Color text = theme.resolve(TextDisplay::ValueText).color;
+        const sf::Color text = theme.resolve(ValueDisplay::ValueText).color;
         const sf::Color muted = theme.resolve(Paragraph::Footer).color;
 
         REQUIRE(contrast(text, background) >= 4.5f);
@@ -222,10 +222,10 @@ TEST_CASE("each text role has the size and font of its text type", "[ui][theme]"
     REQUIRE(heading.textSize == theme.typography.heading.size);
     REQUIRE(heading.font == theme.font.get()); // no own font: the default
 
-    REQUIRE(theme.resolve(TextDisplay::ValueText).textSize == theme.typography.text.size);
+    REQUIRE(theme.resolve(ValueDisplay::ValueText).textSize == theme.typography.text.size);
     REQUIRE(theme.resolve(Slider::Label).textSize == theme.typography.muted.size);
     REQUIRE(theme.resolve(Slider::Label).font == theme.font.get());
-    REQUIRE(title.color == theme.resolve(TextDisplay::ValueText).color);
+    REQUIRE(title.color == theme.resolve(ValueDisplay::ValueText).color);
 }
 
 TEST_CASE("a widget the theme has never heard of gets its look from its roles", "[ui][theme]") {
@@ -503,7 +503,7 @@ TEST_CASE("a panel is drawn in the three colours it chose", "[ui][theme]") {
 
     // A light background turns the text dark.
     const PanelColors light{ .main1 = 3, .main2 = 1, .accent = 2 };
-    const sf::Color text = theme.resolve(TextDisplay::ValueText, State::Normal, light).color;
+    const sf::Color text = theme.resolve(ValueDisplay::ValueText, State::Normal, light).color;
     REQUIRE(luminance(text) < 0.2f);
     REQUIRE(contrast(text, palette.mains[3]) >= 7.f);
 }
@@ -524,7 +524,7 @@ TEST_CASE(
         REQUIRE(between(heading.color.r, body.color.r, footer.color.r));
         REQUIRE(between(heading.color.g, body.color.g, footer.color.g));
         REQUIRE(between(heading.textSize, body.textSize, footer.textSize));
-        REQUIRE(body.textSize < theme.resolve(TextDisplay::ValueText).textSize); // smaller than values
+        REQUIRE(body.textSize < theme.resolve(ValueDisplay::ValueText).textSize); // smaller than values
 
         // It follows the heading and the footer as the theme sets them ...
         theme[Paragraph::Heading].color = sf::Color(200, 0, 0);

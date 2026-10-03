@@ -33,7 +33,7 @@ enum class ValueKind {
     Bool,   ///< on or off: switch
     Number, ///< a number: slider, progress bar
     Index,  ///< a position in a list of options: dropdown
-    Text,   ///< text: text input, text display
+    Text,   ///< text: text input, text display, value display
     Series, ///< a run of samples: graph
     Lines,  ///< a stream of text lines: log
 };

@@ -223,6 +223,6 @@ TEST_CASE("a log is bound to lines only, and needs to show at least one", "[ui][
     const auto log = Log("Events").create();
     REQUIRE(log->accepts(ValueKind::Lines));
     REQUIRE_FALSE(log->accepts(ValueKind::Series));
-    REQUIRE_FALSE(TextDisplay("T").create()->accepts(ValueKind::Lines));
+    REQUIRE_FALSE(ValueDisplay("T").create()->accepts(ValueKind::Lines));
     REQUIRE_THROWS_WITH(Log("Events", { .lines = 0 }).create(), ContainsSubstring("log \"Events\": it needs to show"));
 }

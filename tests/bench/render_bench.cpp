@@ -247,11 +247,11 @@ private:
             }
             case WidgetType::Value:
                 std::snprintf(number.data(), number.size(), "%.0f", static_cast<double>(value) * 10000.);
-                painter.text(labelRect, label, style(TextDisplay::Label));
+                painter.text(labelRect, label, style(ValueDisplay::Label));
                 painter.text(
                     FloatRect(labelWidth, 0.f, width - labelWidth, height),
                     number.data(),
-                    style(TextDisplay::ValueText),
+                    style(ValueDisplay::ValueText),
                     Align::Right
                 );
                 break;

@@ -43,8 +43,9 @@ add_library(atpl_ui STATIC
   widgets/progress_bar.cpp
   widgets/slider.cpp
   widgets/switch.cpp
-  widgets/text_input.cpp
   widgets/text_display.cpp
+  widgets/text_input.cpp
+  widgets/value_display.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 

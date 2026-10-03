@@ -303,7 +303,7 @@ public:
     virtual bool handleInput(const Event& /*event*/, InputContext& /*context*/) { return false; }
 
     /// Whether the widget answers to the pointer: is hovered, pressed and handed pointer input.
-    /// Widgets that only show something (a text display, a graph) say no; the pointer then
+    /// Widgets that only show something (a value display, a graph) say no; the pointer then
     /// passes over them as over the panel's background, and they never look hovered.
     [[nodiscard]] virtual bool reactsToPointer() const { return true; }
 

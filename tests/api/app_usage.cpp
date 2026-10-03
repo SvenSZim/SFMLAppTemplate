@@ -77,8 +77,8 @@ int main() {
                         Button("Step"),
                         Slider("Speed", simulation.controls.speed, {.min = 0.25, .max = 8.0}),
                         Switch("Unlimited", simulation.controls.unlimited),
-                        TextDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
-                        TextDisplay("Tick (ms)", simulation.controls.tickMilliseconds, {.format = "{:.2f}"}),
+                        ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
+                        ValueDisplay("Tick (ms)", simulation.controls.tickMilliseconds, {.format = "{:.2f}"}),
                     },
                 },
                 {
