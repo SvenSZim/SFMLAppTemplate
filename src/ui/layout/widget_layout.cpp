@@ -182,6 +182,7 @@ WidgetLayout grid(
         rowHeight = shared >= rowHeight ? shared : std::max(std::floor(shared), std::ceil(leastHeight));
     }
     result.contentHeight = sizes.padding.y * 2.f + rowCount * rowHeight + gaps;
+    result.rowHeight = rowHeight;
 
     // Whole pixels at every edge, so that neighbours line up.
     const auto topOf = [&](int row) {
@@ -332,6 +333,7 @@ WidgetLayout layoutWidgets(
                             : packed(slots, panelWidth, panel.columns, theme, sizes, measurer, availableHeight, rules);
     }
     panel.contentHeight = result.contentHeight;
+    panel.rowHeight = result.rowHeight;
     panel.widestAndHighest = result.widestAndHighest;
     return result;
 }
@@ -340,7 +342,18 @@ float contentOverflow(const model::Panel& panel, const Sizes& sizes) {
     if (!panel.shown || panel.isClosed()) {
         return 0.f;
     }
-    return std::max(panel.contentHeight - (panel.rect.height() - sizes.headerHeight), 0.f);
+    const float height = panel.opening.has_value() ? panel.openHeight : panel.rect.height();
+    return std::max(panel.contentHeight - (height - sizes.headerHeight), 0.f);
+}
+
+float scrollStep(const model::Store& store, const Sizes& sizes) {
+    float step = sizes.rowHeight;
+    for (const model::Panel& panel : store.panels()) {
+        if (panel.shown && panel.grid && panel.rowHeight > 0.f) {
+            step = std::min(step, panel.rowHeight);
+        }
+    }
+    return std::max(step, 1.f);
 }
 
 } // namespace atpl::layout

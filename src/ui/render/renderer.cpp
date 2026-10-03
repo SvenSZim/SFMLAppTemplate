@@ -127,22 +127,24 @@ void Renderer::drawBatch(sf::RenderTarget& target, const PanelBatch& batch, Fram
 
     drawLayer(target, batch.frame(), batch.frameTransform(), stats);
 
-    if (batch.content().empty()) {
-        return;
-    }
-    const auto clip = batch.clipInWindow();
-    if (!clip.has_value()) {
-        drawLayer(target, batch.content(), batch.contentTransform(), stats);
-        return;
+    if (!batch.content().empty()) {
+        const auto clip = batch.clipInWindow();
+        if (!clip.has_value()) {
+            drawLayer(target, batch.content(), batch.contentTransform(), stats);
+        } else {
+            // Clipped content: narrow what the target lets through, draw, and put it back.
+            const sf::View unclipped = target.getView();
+            sf::View clipped = unclipped;
+            clipped.setScissor(scissorFor(*clip, target.getSize()));
+            target.setView(clipped);
+            drawLayer(target, batch.content(), batch.contentTransform(), stats);
+            target.setView(unclipped);
+        }
     }
 
-    // Clipped content: narrow what the target lets through, draw, and put it back.
-    const sf::View unclipped = target.getView();
-    sf::View clipped = unclipped;
-    clipped.setScissor(scissorFor(*clip, target.getSize()));
-    target.setView(clipped);
-    drawLayer(target, batch.content(), batch.contentTransform(), stats);
-    target.setView(unclipped);
+    if (!batch.scrollbar().empty()) {
+        drawLayer(target, batch.scrollbar(), batch.scrollbarTransform(), stats); // above the content
+    }
 }
 
 void Renderer::drawLayer(

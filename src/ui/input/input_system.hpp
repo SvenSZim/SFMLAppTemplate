@@ -29,7 +29,10 @@ namespace atpl::input {
 /// - A press and everything up to its release go to the same place. A drag that starts on a
 ///   widget goes to that widget wherever the pointer goes, and is never forwarded; a drag that
 ///   starts outside the panels is forwarded even where it crosses one.
-/// - The wheel over a panel is the UI's, whether anything in the panel uses it or not.
+/// - The wheel over a panel is the UI's, whether anything in the panel uses it or not. In a panel
+///   whose content overflows it scrolls the content; in one that does not, it goes to the widget
+///   under the pointer. The scrollbar's thumb can be dragged; a press on its track moves the
+///   thumb there first.
 /// - Keys and text go to the widget with the keyboard focus, if there is one, and are forwarded
 ///   otherwise. A press anywhere but on the focused widget takes the focus away.
 /// - While a widget's overlay is open, pointer input goes to that widget. A press anywhere but
@@ -56,6 +59,10 @@ public:
     /// Closes the open overlay if its widget can no longer be used: it is hidden or disabled, or
     /// its panel is folded or hidden.
     void closeOverlayIfGone(model::Store& store);
+
+    /// Keeps every panel's scroll offset within what its content allows now. A panel that is not
+    /// shown, or folded, keeps its offset for when it comes back.
+    void clampScroll(model::Store& store, const Sizes& sizes);
 
     /// Forgets interaction state that may no longer be true: after the panels were laid out
     /// anew, a widget's place may have changed under a pointer that did not move.
@@ -91,6 +98,7 @@ private:
         std::optional<PanelId> panel;
         std::optional<WidgetId> widget; ///< Only widgets that are drawn, enabled and react to the pointer.
         bool header = false;            ///< The pointer is over the panel's header.
+        bool scrollbar = false;         ///< The pointer is over the panel's scrollbar.
     };
 
     [[nodiscard]] Hit hitTest(sf::Vector2f position) const;
@@ -100,6 +108,13 @@ private:
     void setHover(const Hit& hit);
     void setFocus(std::optional<WidgetId> widget);
     void setPressed(std::optional<WidgetId> widget);
+
+    /// Scrolls a panel's content to `offset`, kept within its range. What is under the pointer
+    /// is found again.
+    void scrollTo(PanelId panel, float offset);
+
+    /// Moves the dragged scrollbar's thumb so that it is grabbed where the pointer is.
+    void dragScrollbar();
 
     /// A context for a widget to act through.
     [[nodiscard]] InputContext contextFor(WidgetId widget);
@@ -132,6 +147,8 @@ private:
     std::optional<WidgetId> m_overlay; ///< The widget whose overlay is open.
     Owner m_owner = Owner::None;
     std::optional<PanelId> m_pressedHeader; ///< A press that began on this panel's header.
+    std::optional<PanelId> m_dragged;       ///< The panel whose scrollbar is being dragged.
+    float m_grab = 0.f;                     ///< Where the thumb was grabbed: from its top.
     bool m_folded = false;
     int m_buttonsDown = 0;
 };

@@ -55,7 +55,8 @@ void placeOverlays(
     const model::Panel& panel = store.panel(slot.panel);
     const MeasureContext context(slot.rect.width(), theme, slot.colors, sizes, measurer);
     const FloatRect anchor = slot.widget->overlayAnchor(context, slot.rect.size());
-    const sf::Vector2f origin = panel.rect.position() + sf::Vector2f(0.f, sizes.headerHeight) + slot.rect.position();
+    const sf::Vector2f origin =
+        panel.rect.position() + sf::Vector2f(0.f, sizes.headerHeight - panel.scroll) + slot.rect.position();
     slot.overlayAnchor = FloatRect(origin + anchor.position(), anchor.size());
     // Attached: right at the anchor, no gap between them.
     slot.overlayRect = placeOverlay(slot.overlayAnchor, window, sizes.margin, 0.f, [&](float maxHeight) {

@@ -8,6 +8,8 @@
 #include "ui/model/panel.hpp"
 #include "ui/model/store.hpp"
 
+#include <optional>
+
 namespace atpl::widgets {
 
 // The panel as an element of its own: what it draws around its widgets, and how it folds.
@@ -25,6 +27,35 @@ void paintPanelFrame(Painter& painter, const model::Panel& panel, const Theme& t
 
 /// The header of a panel of this size, in the panel's coordinates.
 [[nodiscard]] FloatRect headerRect(sf::Vector2f panelSize, const Sizes& sizes);
+
+/// Where a panel's widgets can be seen, in the panel's coordinates: below the header, and above
+/// a margin as high as the padding at the bottom, so that content cut off there ends before the
+/// panel's border. Widgets outside it are neither drawn nor found by the pointer.
+[[nodiscard]] FloatRect contentArea(sf::Vector2f panelSize, const Sizes& sizes);
+
+/// Where the scrollbar of a panel that scrolls is, in the panel's coordinates: in the padding at
+/// the right of its content area.
+struct ScrollbarPlace {
+    FloatRect track;         ///< What the thumb moves along.
+    FloatRect hitArea;       ///< Where the pointer finds it: the whole padding beside the track.
+    float thumbLength = 0.f; ///< As much of the track as the content area is of the content.
+    float range = 0.f;       ///< How far the content scrolls.
+
+    /// The top of the thumb at this scroll offset.
+    [[nodiscard]] float thumbTop(float scroll) const;
+
+    /// The scroll offset at which the thumb's top is at `top`, kept within the range.
+    [[nodiscard]] float scrollFor(float top) const;
+};
+
+/// The scrollbar of a panel whose content overflows by `overflow`; none if it does not.
+[[nodiscard]] std::optional<ScrollbarPlace> scrollbarOf(const model::Panel& panel, const Sizes& sizes, float overflow);
+
+/// Paints the thumb at the top of its track: the batch's scrollbar offset moves it down. Lighter
+/// under the pointer and while it is dragged.
+void paintScrollbar(
+    Painter& painter, const model::Panel& panel, const ScrollbarPlace& place, const Theme& theme, const Sizes& sizes
+);
 
 /// Folds the panel down to its header, or unfolds it. Starts from where it is, so a panel that
 /// is clicked again while it moves turns round. Returns whether anything changed.

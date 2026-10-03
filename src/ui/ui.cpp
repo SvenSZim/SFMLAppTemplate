@@ -36,6 +36,7 @@ struct UI::Impl {
         theme(std::move(setup.theme)),
         layout(std::move(setup.layout)),
         batches(store.panels().size()),
+        thumbs(store.panels().size(), 0.f),
         renderer(&textCache) {
         layout::prepare(store, grid, layout); // finds grid cells; refuses what cannot be laid out
         binding::attachAll(store);            // the bindings given in the setup; refuses wrong kinds
@@ -99,7 +100,8 @@ struct UI::Impl {
         }
         placementOutdated = false;
         layout::arrange(store, windowSize, grid, theme, sizes, &textMeasurer, layout);
-        input.forgetHover(store); // what is under the pointer may have changed; the next move says
+        input.clampScroll(store, sizes); // a panel may have less to scroll now
+        input.forgetHover(store);        // what is under the pointer may have changed; the next move says
 
         // The readout sits in the bottom-right corner (D43).
         const sf::Vector2f readout = profiler.batch().size();
@@ -120,19 +122,28 @@ struct UI::Impl {
             }
             batch.setPosition(panel.rect.position());
             batch.setSize(panel.rect.size());
-            // Widgets are cut off at the edge of the content area: below the header, inside the panel.
-            batch.setContentClip(FloatRect(
-                0.f, sizes.headerHeight, panel.rect.width(), std::max(panel.rect.height() - sizes.headerHeight, 0.f)
-            ));
-            if (std::exchange(panel.dirty, false)) {
-                batch.markDirty();
+            // Widgets are cut off at the edge of the content area: below the header, and before
+            // the panel's border at the bottom.
+            batch.setContentClip(widgets::contentArea(panel.rect.size(), sizes));
+            // Scrolling only moves what is there: the content up, the scrollbar's thumb down.
+            const auto bar = widgets::scrollbarOf(panel, sizes, layout::contentOverflow(panel, sizes));
+            batch.setScroll(panel.scroll);
+            batch.setScrollbarOffset(bar ? bar->thumbTop(panel.scroll) - bar->track.top() : 0.f);
+            const float thumb = bar ? bar->thumbLength : 0.f;
+            if (std::exchange(panel.dirty, false) || thumb != thumbs[i]) {
+                batch.markDirty(); // looks different, or the scrollbar came, went or changed length
             }
+            thumbs[i] = thumb;
 
             if (batch.isDirty()) {
                 const auto build = profiler.measure(render::Profiler::Section::Build);
                 const auto layers = batch.rebuild();
                 Painter frame(layers.frame, { 0.f, 0.f }, panel.rect.size(), &textMeasurer);
                 widgets::paintPanelFrame(frame, panel, theme, sizes);
+                if (bar.has_value()) {
+                    Painter scrollbar(layers.scrollbar, { 0.f, 0.f }, panel.rect.size(), &textMeasurer);
+                    widgets::paintScrollbar(scrollbar, panel, *bar, theme, sizes);
+                }
 
                 // Each widget paints itself at the place layout gave it. The content starts
                 // below the header.
@@ -191,6 +202,7 @@ struct UI::Impl {
     bool placementOutdated = true;
 
     std::vector<render::PanelBatch> batches;    // one per panel, in id order
+    std::vector<float> thumbs;                  // the scrollbar thumb each was painted with, 0 for none
     std::vector<PanelId> stacking;              // the panels from the bottom to the top
     std::vector<render::PanelBatch*> drawOrder; // the same, as the renderer is given them
     render::PanelBatch overlay;                 // above every panel: an open dropdown list

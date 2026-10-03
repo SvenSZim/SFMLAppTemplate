@@ -147,7 +147,7 @@ src/ui/
 
 The model is one `Store`, built once from the `UISetup`. Nothing is added or removed afterwards.
 
-- **Panel**: name (unique, Q8), title, placement, columns, its three colours, collapsed, visible and hovered state (P7), its widgets, one dirty flag; and from layout its rectangle, the height of its content, and whether it is shown. `visible` is what the application wants; `shown` is whether the panel is actually on screen.
+- **Panel**: name (unique, Q8), title, placement, columns, its three colours, collapsed, visible and hovered state (P7), its widgets, one dirty flag; from input its scroll offset and whether its scrollbar is hovered or dragged; and from layout its rectangle, the height of its content (and of a grid's rows), and whether it is shown. `visible` is what the application wants; `shown` is whether the panel is actually on screen.
 - **Widget slot**: what the framework keeps for every widget, whatever its type.
 
   | Field | Written by |
@@ -299,6 +299,15 @@ What happens when things do not fit. Rules for a start; to be revisited if they 
 
 Scrolling changes only an offset and a clip rectangle of the panel's batch; the geometry is not rebuilt (cache level 2 stays valid). The scroll offset is interaction state and belongs to `input/`; the content height and the visible height are layout outputs.
 
+How it works (WP 3.12, D55):
+- **Range**: from 0 to `layout::contentOverflow`, what the content is higher than the content area (the open height counts while a panel folds). `InputSystem::clampScroll` keeps every offset within it after layout; a panel that is not shown or folded keeps its offset for when it comes back.
+- **Wheel**: in a panel whose content overflows, the wheel scrolls the content and no widget gets it, so nothing in the panel is moved by accident while it passes under the pointer. In a panel that does not overflow, the wheel goes to the widget under the pointer. One notch is the same in every panel (`layout::scrollStep`): the layout's row height, or the lowest row of a grid on screen if that is lower.
+- **Scrollbar** (`Panel::Scrollbar`): a thin, fully rounded thumb in the padding at the right of the content area, shown only while the content overflows, so no widget is narrowed. It takes the title's colour under the pointer and while dragged. Its thumb is as much of the track as the content area is of the content. Dragging the thumb scrolls; a press beside it moves the thumb's middle there first.
+- **Content area** (`widgets::contentArea`): below the header, and above a margin as high as the padding at the bottom, so that content cut off there ends before the panel's border. Widgets are clipped to it.
+- **Hit-testing** takes the offset into account: a widget's place on screen is its place in the content, moved up by the offset; what is scrolled out of the content area is not there: under the header the header is, in the margin at the bottom nothing.
+- **Hover**: a scroll forgets which widget is hovered, and the next move finds it, as after layout. So a scroll repaints the panel at most once, to drop the hover, and never with every notch.
+- **Drawing**: the facade gives the batch the offset and the thumb's place every frame; the thumb is painted once at the top of its track into the batch's scrollbar layer and moved down it by an offset. The panel is painted again only when the thumb appears, disappears or changes length, or its look changes.
+
 ### 4.7 Views (Q3)
 
 The application's own rendering appears in views:
@@ -358,10 +367,11 @@ Options that cannot work (max not above min, a negative step, a logarithmic axis
 - `UI::handleInput()` waits at most for the first event of a pass (`frame::nextEvent`) and takes the rest as they are (`frame::pendingEvent`), so a stream of pointer moves cannot hold up the frame.
 
 How `input/input_system` does it (WP 3.5):
-- **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn, enabled and reacts to the pointer (`Widget::reactsToPointer`; the display widgets do not, WP 3.10), so a widget that only shows never looks hovered.
+- **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, its header, its scrollbar, or the widget under it (scrolled, 4.6b) that is drawn, enabled and reacts to the pointer (`Widget::reactsToPointer`; the display widgets do not, WP 3.10), so a widget that only shows never looks hovered.
 - **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.
 - **Hover, pressed, focused, overlay open** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
 - **Focus**: a widget takes it through its context. A press anywhere but on the focused widget takes it away. Keys and text go to the focused widget; without one they are forwarded. A widget that loses it, however that happens, hears of it (`Widget::focusLost`).
+- **Wheel and scrollbar**: see 4.6b (WP 3.12).
 - **Overlay**: while one is open, moves, presses and the wheel go to its widget; a press on neither the widget nor the overlay closes it and is used up (WP 3.11).
 - **Pointer location**: the view under the pointer is a view widget when the pointer is over one, the background view when it is over no panel, and none over the rest of a panel.
 - **Widget reports**: `press()` raises `ButtonPressed`, `changeValue()` raises `ValueChanged` (writing the bound value comes with bindings, WP 3.8), `markDirty()` marks the panel.
@@ -377,7 +387,7 @@ widget.paint() ──► Painter ──► draw list ──► PanelBatch (one v
 - `shapes`: tessellation of boxes (fill or gradient, outline with gap, corner radius, shadow), lines, polylines and areas under a curve. All shapes become triangles so that a panel is one draw call.
 - `draw_list`: what one panel draws: its triangles and its text runs. Reused from rebuild to rebuild without allocating.
 - `painter` (the public `Painter`): moves a widget's own coordinates to its place in the panel and hands shapes to `shapes` and text to the draw list. `text_measurer` is the interface it measures text through, so everything above it is testable without a font.
-- `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2). It has two layers: the frame (background, header, scrollbar) and the content (the widgets). Moving the panel and scrolling the content only change how the batch is placed when drawn; nothing is rebuilt. Scrolled content is clipped to the content area (D28).
+- `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2). It has three layers: the frame (background, header), the content (the widgets) and the scrollbar (the thumb, drawn above the content). Moving the panel and scrolling the content only change how the batch is placed when drawn: the content's offset and the thumb's; nothing is rebuilt. Scrolled content is clipped to the content area (D28).
 - `text_layout`: fitting text into its room, independent of fonts: measuring a line, cutting it short with an ellipsis, wrapping at word boundaries.
 - `font_measurer`: measures text with the real fonts.
 - `text_cache`: draws a layer's text and keeps what it built (cache level 3). One SFML text object per text run, built when the run first appears and again only when it changes; a panel repainted with the same text builds nothing. One draw call per run (D37).
