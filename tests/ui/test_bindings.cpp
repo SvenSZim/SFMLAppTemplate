@@ -165,10 +165,10 @@ TEST_CASE("a binding of two functions notices changes by asking the getter", "[u
     REQUIRE(binding.kind() == ValueKind::Number);
     REQUIRE(std::get<double>(*binding.get()) == 10.0);
 
-    const Revision first = binding.revision();
-    REQUIRE(binding.revision() == first); // nothing changed
+    const Revision seen = binding.revision();
+    REQUIRE(binding.revision() == seen); // nothing changed
     config.speedKmh = 72.f;
-    REQUIRE(binding.revision() > first); // changed behind the binding's back: noticed
+    REQUIRE(binding.revision() > seen); // changed behind the binding's back: noticed
 
     binding.set(Value(5.0));
     REQUIRE(config.speedKmh == 18.f);
