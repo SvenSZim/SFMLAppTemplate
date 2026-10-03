@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure is in place, the public API is agreed, and the render pipeline, the widgets and input are built (Phases 0 to 3). The simulation layer is under way (Phase 4): `examples/starter` and `examples/showcase` run with their simulation on its own thread. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure is in place, the public API is agreed, and the render pipeline, the widgets and input, and the simulation layer are built (Phases 0 to 4): `examples/starter` and `examples/showcase` run with their simulation on its own thread, and the UI keeps its pace while the simulation is slow. Core utilities and polish follow (Phases 5 and 6). See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
@@ -45,7 +45,7 @@ Binaries are placed in `build/bin/`.
 - `build/bin/starter` is the smallest application written against the API, and the reference for how one reads: a simulation on its own thread, two panels, a main view to drag and zoom, and a minimap.
 - `build/bin/showcase` shows what the template offers: every built-in widget, bound to parameters and to a simulation of particles that runs on its own thread and is drawn in a main view (drag and zoom) and a minimap. `showcase --layout dashboard` chooses another layout theme (`overlay`, `dashboard`, `cards`, `compact`), `--cards` lets floating panels that do not fit overlap like cards, and `--profiler` shows what the UI costs.
 
-`build/bin/atpl_render_bench` measures what the UI's rendering costs on a scene of 100 widgets; the results for the reference machine are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md#55-targets-and-what-was-measured).
+`build/bin/atpl_render_bench` measures what the UI's rendering costs on a scene of 100 widgets, and `build/bin/atpl_responsiveness_bench` how the UI keeps its pace while every simulation tick takes a second; the results for the reference machine are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md#55-targets-and-what-was-measured).
 
 The build copies `resources/` to `build/bin/resources/`. Applications look for their resources next to the executable, not in the working directory, so they can be started from anywhere.
 

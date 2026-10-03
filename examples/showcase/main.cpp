@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <exception>
@@ -80,8 +81,10 @@ struct Params {
     Param<bool> trails = false;
     Param<DrawMode> drawMode = DrawMode::Filled;
     Param<std::string> runName;
+    Param<int> tickCost = 0; ///< Milliseconds of work in every tick: a slow simulation, on purpose.
 
     void reset() {
+        tickCost = 0;
         size = 8;
         gravity = true;
         trails = false;
@@ -123,6 +126,10 @@ private:
     static constexpr std::size_t trailLength = 16;
 
     void tick(float dt) override {
+        // A slow simulation, if asked for: this thread is busy, the UI's is not (Phase 4).
+        const auto busyUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_params.tickCost.get());
+        while (std::chrono::steady_clock::now() < busyUntil) {}
+
         m_time += dt;
         progress = std::fmod(m_time * 5.f, 100.f);
 
@@ -260,8 +267,11 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simu
                     // The controls on top, what it is doing below them, and the log of what happened.
                     at({ .column = 0, .row = 0 }, Switch("Paused", simulation.controls.paused)),
                     at({ .column = 1, .row = 0 }, Button("Step")),
-                    at({ .column = 0, .row = 1, .columnSpan = 2 }, TextDisplay("Status", report.status)),
-                    at({ .column = 0, .row = 2, .columnSpan = 2, .rowSpan = 3 }, Log("Events", report.events, {.lines = 4})),
+                    // Each tick can be made slow on purpose: the UI keeps its pace all the same.
+                    at({ .column = 0, .row = 1, .columnSpan = 2 },
+                       Slider("Tick cost", params.tickCost, {.min = 0.0, .max = 1000.0, .step = 10.0, .format = "{:.0f} ms"})),
+                    at({ .column = 0, .row = 2, .columnSpan = 2 }, TextDisplay("Status", report.status)),
+                    at({ .column = 0, .row = 3, .columnSpan = 2, .rowSpan = 3 }, Log("Events", report.events, {.lines = 4})),
                 },
             },
             // ... and these leave it to the layout theme: floating at the top left with
