@@ -76,8 +76,11 @@ jobs:
           -DATPL_WARNINGS_AS_ERRORS=ON
           -DATPL_SANITIZE=${{ matrix.sanitize }}
 
+      # As many compile jobs as the runner has cores, not more: without a number, `--parallel`
+      # means `make -j` without a limit, and compiling everything at once ran the ThreadSanitizer
+      # build out of memory (it was killed with exit code 143).
       - name: Build
-        run: cmake --build build --parallel
+        run: cmake --build build --parallel "$(nproc)"
 
       # ThreadSanitizer cannot start with the address randomisation of recent kernels.
       - name: Reduce address randomisation
