@@ -129,6 +129,15 @@ atpl_copy_resources(atpl_render_bench)
 add_test(NAME bench.render COMMAND atpl_render_bench --frames 20 --idle-ms 300)
 set_tests_properties(bench.render PROPERTIES LABELS display RESOURCE_LOCK display TIMEOUT 60)
 
+# Checks that the UI keeps its pace while every simulation tick takes long; see docs/PROJECT_PLAN.md
+# 5.5. As a test it runs for a few seconds only, and judges only that the UI kept going.
+add_executable(atpl_responsiveness_bench bench/responsiveness_bench.cpp)
+target_link_libraries(atpl_responsiveness_bench PRIVATE atpl::app)
+atpl_target_defaults(atpl_responsiveness_bench)
+atpl_copy_resources(atpl_responsiveness_bench)
+add_test(NAME bench.responsiveness COMMAND atpl_responsiveness_bench --seconds 3 --tick-ms 1000)
+set_tests_properties(bench.responsiveness PROPERTIES LABELS display RESOURCE_LOCK display TIMEOUT 60)
+
 # Every public header must compile when it is the only thing included, and the usage shown in
 # tests/api must keep compiling. Both are checked by building, not by running: this target is
 # part of every build and is never linked.
