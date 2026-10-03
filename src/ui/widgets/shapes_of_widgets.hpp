@@ -2,6 +2,9 @@
 
 #include "atpl/ui/layout.hpp"
 #include "atpl/ui/rect.hpp"
+#include "atpl/ui/widget.hpp"
+
+#include <SFML/System/Vector2.hpp>
 
 #include <algorithm>
 
@@ -26,5 +29,26 @@ inline constexpr float tallest = 1.25f;
 
 /// A width larger than any window: "as wide as it gets".
 inline constexpr float anyWidth = 100000.f;
+
+/// Space between a label and the field below it.
+inline constexpr float labelGap = 2.f;
+
+/// The field of a widget whose label is above it (text input, dropdown): the rest of its height.
+[[nodiscard]] inline FloatRect fieldBelow(sf::Vector2f size, float labelHeight) {
+    const float top = std::min(labelHeight + labelGap, size.y);
+    return { 0.f, top, size.x, size.y - top };
+}
+
+/// What a widget with a label above a field of one row asks for: `widest` is the size of the
+/// widest text it shows in the field. Squeezed, the field keeps some room around its text.
+[[nodiscard]] inline SizeRequest labelledField(const Sizes& sizes, sf::Vector2f label, sf::Vector2f widest) {
+    const float wanted = label.y + labelGap + sizes.rowHeight;
+    const float least = std::min(widest.y + 6.f, sizes.rowHeight);
+    return {
+        .min = { std::max(label.x, widest.x * 0.5f) + sizes.padding.x, label.y + labelGap + least },
+        .preferred = { std::max(label.x, widest.x) + sizes.padding.x * 2.f, wanted },
+        .max = sf::Vector2f(anyWidth, label.y + labelGap + sizes.rowHeight * tallest),
+    };
+}
 
 } // namespace atpl::widgets

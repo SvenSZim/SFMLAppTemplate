@@ -39,11 +39,15 @@ struct WidgetSlot {
     bool fits = true;    ///< Whether its room is at least as wide as the widget needs at least.
     bool visible = true; ///< Whether it is drawn: its panel is open, and it fits.
 
+    /// Where its open overlay is, in the window. Placed while `overlayOpen`; empty otherwise.
+    std::optional<FloatRect> overlayRect;
+
     // ----- Written by input -----
 
     bool hovered = false;
     bool pressed = false;
     bool focused = false;
+    bool overlayOpen = false;
 
     // ----- Written by the application through its handle -----
 
@@ -68,6 +72,9 @@ struct WidgetSlot {
     }
     if (slot.focused) {
         state = state | State::Focused;
+    }
+    if (slot.overlayOpen) {
+        state = state | State::Open;
     }
     if (!slot.enabled) {
         state = state | State::Disabled;

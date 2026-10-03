@@ -3,7 +3,8 @@
 //
 // It drives the UI by hand, which is what `App` will do for an application once it exists
 // (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
-// window's close button ends it.
+// window's close button ends it; while a text field or a dropdown list has the keys, Escape
+// first ends the typing or closes the list.
 //
 //   minimal [--layout overlay|dashboard|cards|compact] [--ticks] [--profiler] [--smoke-test]
 //
@@ -52,12 +53,17 @@ Layout layoutNamed(std::string_view name) {
     );
 }
 
+/// How the scene would be drawn: the entries of the "Draw" dropdown, in the same order.
+enum class DrawMode { Filled, Outlined, Points };
+
 /// What the controls change. In an application, the simulation would read these.
 struct Params {
     Param<float> speed = 1.f;
     Param<int> size = 8;
     Param<bool> gravity = true;
     Param<bool> trails = false;
+    Param<DrawMode> drawMode = DrawMode::Filled;
+    Param<std::string> runName;
     Param<bool> paused = false;
 
     void reset() {
@@ -65,6 +71,7 @@ struct Params {
         size = 8;
         gravity = true;
         trails = false;
+        drawMode = DrawMode::Filled;
     }
 };
 
@@ -116,6 +123,8 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                     Slider("Size", params.size, {.min = 1.0, .max = 32.0, .step = 1.0, .format = "{:.0f}"}),
                     Switch("Gravity", params.gravity),
                     Switch("Trails", params.trails),
+                    Dropdown("Draw", {"Filled", "Outlined", "Points"}, params.drawMode),
+                    TextInput("Run name", params.runName, {.placeholder = "untitled"}),
                     Button("Reset"),
                 },
             },

@@ -3,6 +3,7 @@
 #include "atpl/ui/event.hpp"
 #include "atpl/ui/id.hpp"
 #include "atpl/ui/layout.hpp"
+#include "atpl/ui/theme.hpp"
 
 #include "ui/model/store.hpp"
 
@@ -12,6 +13,10 @@
 #include <optional>
 #include <span>
 #include <vector>
+
+namespace atpl::render {
+class TextMeasurer;
+} // namespace atpl::render
 
 namespace atpl::input {
 
@@ -27,6 +32,8 @@ namespace atpl::input {
 /// - The wheel over a panel is the UI's, whether anything in the panel uses it or not.
 /// - Keys and text go to the widget with the keyboard focus, if there is one, and are forwarded
 ///   otherwise. A press anywhere but on the focused widget takes the focus away.
+/// - While a widget's overlay is open, pointer input goes to that widget. A press anywhere but
+///   on the widget or its overlay closes the overlay and is used up.
 /// - Window events are not handled here; the UI forwards them itself.
 ///
 /// What changes how a widget looks (hovered, pressed, focused) marks its panel dirty.
@@ -42,6 +49,14 @@ public:
         std::vector<Event>& events
     );
 
+    /// The theme and the text measurer widgets measure text with while handling input. Without
+    /// them, text measures as nothing. Both must outlive the input system.
+    void setLook(const Theme& theme, const render::TextMeasurer* measurer);
+
+    /// Closes the open overlay if its widget can no longer be used: it is hidden or disabled, or
+    /// its panel is folded or hidden.
+    void closeOverlayIfGone(model::Store& store);
+
     /// Forgets interaction state that may no longer be true: after the panels were laid out
     /// anew, a widget's place may have changed under a pointer that did not move.
     void forgetHover(model::Store& store);
@@ -50,6 +65,7 @@ public:
     [[nodiscard]] std::optional<WidgetId> pressed() const { return m_pressed; }
     [[nodiscard]] std::optional<WidgetId> focused() const { return m_focused; }
     [[nodiscard]] std::optional<WidgetId> captured() const { return m_captured; }
+    [[nodiscard]] std::optional<WidgetId> overlay() const { return m_overlay; }
 
     /// Whether a panel was folded or unfolded by a click on its header since the last call.
     /// Clears the mark.
@@ -64,6 +80,8 @@ public:
     void releaseFocus(WidgetId widget);
     void changeValue(WidgetId widget, Value value, bool final);
     void press(WidgetId widget);
+    void openOverlay(WidgetId widget);
+    void closeOverlay(WidgetId widget);
 
 private:
     /// Who a press, and everything up to its release, belongs to.
@@ -83,8 +101,15 @@ private:
     void setFocus(std::optional<WidgetId> widget);
     void setPressed(std::optional<WidgetId> widget);
 
+    /// A context for a widget to act through.
+    [[nodiscard]] InputContext contextFor(WidgetId widget);
+
     /// Hands an event to a widget, with a context for it.
     void deliver(WidgetId widget, const Event& event);
+
+    /// A press while an overlay is open: on its widget or the overlay it goes there, anywhere
+    /// else it closes the overlay and is used up.
+    void pressWithOverlay(const PointerPressed& press);
 
     void forward(Event event);
 
@@ -93,6 +118,8 @@ private:
     std::span<const PanelId> m_stacking;
     const Sizes* m_sizes = nullptr;
     std::vector<Event>* m_events = nullptr;
+    const Theme* m_theme = nullptr;
+    const render::TextMeasurer* m_measurer = nullptr;
 
     // The interaction state this class owns.
     sf::Vector2f m_pointer;
@@ -102,6 +129,7 @@ private:
     std::optional<WidgetId> m_pressed;
     std::optional<WidgetId> m_captured;
     std::optional<WidgetId> m_focused;
+    std::optional<WidgetId> m_overlay; ///< The widget whose overlay is open.
     Owner m_owner = Owner::None;
     std::optional<PanelId> m_pressedHeader; ///< A press that began on this panel's header.
     bool m_folded = false;

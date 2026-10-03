@@ -7,6 +7,7 @@
 #include "atpl/ui/theme.hpp"
 #include "atpl/ui/widget.hpp"
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <functional>
@@ -197,6 +198,12 @@ struct TextInputOptions {
 };
 
 /// A single line of editable text. Kind: Text.
+///
+/// A click puts the cursor there and takes the keyboard focus. While focused: typing, the arrow
+/// keys, Home, End, Backspace, Delete, and Ctrl+V to paste. Every change is reported at once
+/// (`final` false), as a dragged slider's; Enter, Escape or a click elsewhere end the editing and
+/// report it once more with `final` true. Text wider than the field scrolls with the cursor.
+// TODO(#43): selection, copying and cutting (Ctrl+A, Ctrl+C, Ctrl+X), and jumping by words.
 struct TextInput {
     static constexpr Kind kind{ "text_input" };
     static constexpr Part Field{ kind, "field", Role::Track };
@@ -213,17 +220,24 @@ struct TextInput {
     TextInput(std::string name, Param<std::string>& value, TextInputOptions options = {});
     TextInput(std::string name, TextBinding& value, TextInputOptions options = {});
 
+    /// Throws `SetupError` if `maxLength` is zero.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 
 struct DropdownOptions {
     std::string label;
-    std::size_t initial = 0; ///< Selected entry while nothing is bound.
+    std::size_t initial = 0;    ///< Selected entry while nothing is bound.
+    std::size_t maxVisible = 8; ///< Most entries the open list shows; more scroll. Fewer if the window is small.
 };
 
 /// A choice of one entry from a list. Kind: Index, the position of the selected entry.
 ///
 /// Bound to an enum, the enumerators must be numbered like the entries: the first entry is 0.
+///
+/// A click on the field opens the list above every panel: below the field, or above it if there
+/// is no room below. A click on an entry, or pressing on the field, dragging to an entry and
+/// releasing, chooses it. While open: Up and Down move the highlight, Enter chooses, Escape
+/// closes, the wheel scrolls a long list. A click anywhere else closes it and does nothing else.
 struct Dropdown {
     static constexpr Kind kind{ "dropdown" };
     static constexpr Part Field{ kind, "field", Role::Track };
@@ -233,6 +247,7 @@ struct Dropdown {
     static constexpr Part Entry{ kind, "entry", Role::Text };
     static constexpr Part Highlight{ kind, "highlight", Role::Accent };
     static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part Scrollbar{ kind, "scrollbar", Role::Line }; ///< Of a list that scrolls.
 
     std::string name;
     std::vector<std::string> entries;
@@ -245,8 +260,32 @@ struct Dropdown {
     Dropdown(std::string name, std::vector<std::string> entries, Param<T>& selected, DropdownOptions options = {});
     Dropdown(std::string name, std::vector<std::string> entries, IndexBinding& selected, DropdownOptions options = {});
 
+    /// Throws `SetupError` if there are no entries, `initial` is not one of them, or `maxVisible`
+    /// is zero.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
+
+template <typename T>
+    requires IndexValue<T> || std::integral<T>
+Dropdown::Dropdown(
+    std::string dropdownName,
+    std::vector<std::string> dropdownEntries,
+    Param<T>& selected,
+    DropdownOptions dropdownOptions
+) :
+    name(std::move(dropdownName)),
+    entries(std::move(dropdownEntries)),
+    options(std::move(dropdownOptions)) {
+    if constexpr (IndexValue<T>) {
+        binding = AnyBinding(selected);
+    } else {
+        // An integer parameter would be bound as a number; a dropdown works with positions.
+        binding = AnyBinding::ofIndex(
+            [&selected] { return static_cast<std::size_t>(std::max(selected.get(), T{ 0 })); },
+            [&selected](std::size_t index) { selected = static_cast<T>(index); }
+        );
+    }
+}
 
 /// Where a graph's value axis has its reference line.
 enum class GraphBase {

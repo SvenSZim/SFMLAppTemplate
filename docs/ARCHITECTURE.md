@@ -132,13 +132,14 @@ src/ui/
 ├─ binding/  any_binding.cpp  sync.hpp/.cpp
 ├─ layout/   layout.cpp  arrange.hpp/.cpp  panel_placement.hpp/.cpp  widget_layout.hpp/.cpp
 │            grid_packing.hpp/.cpp  packing.hpp/.cpp  cell.hpp/.cpp  rules.hpp/.cpp
-│            measure_context.cpp
+│            measure_context.cpp  overlay_placement.hpp/.cpp
 ├─ theme/    theme.cpp  presets.cpp
 ├─ render/   renderer.hpp/.cpp  draw_list.hpp/.cpp  shapes.hpp/.cpp  painter.cpp
 │            panel_batch.hpp/.cpp  text_measurer.hpp  text_renderer.hpp
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
 │            profiler.hpp/.cpp  frame_stats.hpp
-└─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
+└─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  number_format.hpp  utf8.hpp
+             button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
 
@@ -152,8 +153,8 @@ The model is one `Store`, built once from the `UISetup`. Nothing is added or rem
   | Field | Written by |
   |---|---|
   | name, panel, grid cell, colours, the widget object, its view | model (at setup) |
-  | rectangle (in the panel's content), visible | layout |
-  | hovered, pressed, focused | input |
+  | rectangle (in the panel's content), visible, where its open overlay is | layout |
+  | hovered, pressed, focused, overlay open | input |
   | enabled | app, through `WidgetHandle::setEnabled` |
   | binding, and the revision last seen | app, through `WidgetHandle::bind` or the descriptor; kept in step by `binding/` |
 
@@ -177,6 +178,10 @@ public:
     virtual void update(float dt, UpdateContext&);                 // animations
     virtual void paint(Painter&, const Style&) const = 0;          // emit shapes
     virtual bool reactsToPointer() const;                          // false: only shows, never hovered
+    virtual void focusLost(InputContext&);                         // a text input reports here
+
+    virtual sf::Vector2f overlaySize(const MeasureContext&, float maxHeight) const; // an open list
+    virtual void paintOverlay(Painter&, const Style&) const;
 
     virtual bool accepts(ValueKind) const;                         // what it can be bound to
     virtual bool editsValue() const;
@@ -190,11 +195,12 @@ Rules:
 - **Size.** A widget answers with the least it needs and, if it has one, the most it makes use of (`SizeRequest`, 4.6). It never decides its own size or place.
 - **Input.** `handleInput` gets the same `Event` types the application gets; the context converts pointer positions into the widget's own coordinates. Hovered, pressed, focused and disabled are kept by the UI and read through the context.
 - **Values.** A widget never sees what it is bound to. It keeps its own copy of its value; `binding/` hands it new values through `setValue`, and the widget reports the user's changes through `InputContext::changeValue(value, final)` or `press()`. An app-defined widget therefore contains no binding code. Graphs are the exception: they are handed their series source and read from it.
-- **Outside world.** A widget acts only through the context it is handed: `markDirty()`, `capturePointer()`, `requestFocus()`, `changeValue()`, `press()`.
+- **Outside world.** A widget acts only through the context it is handed: `markDirty()`, `capturePointer()`, `requestFocus()`, `changeValue()`, `press()`, `openOverlay()`.
+- **Overlay** (WP 3.11). A widget can have one thing drawn above every panel that reaches beyond its rectangle: a dropdown's list. `InputContext::openOverlay()` opens it and closes any other. While it is open the widget's state has `State::Open`, all pointer input goes to the widget, and `InputContext::overlay()` says where the overlay is in the widget's coordinates. A press anywhere but on the widget or its overlay closes it and is used up: it is not forwarded, and nothing under it sees it. The UI also closes it when the widget's panel folds or is hidden, or the widget is hidden or disabled.
 
 Adding a widget type means one file in `widgets/` and one descriptor in `widgets.hpp`. An application adds its own by implementing the interface and writing a descriptor; `tests/api/widget_usage.cpp` shows a complete one.
 
-Known gap: a dropdown's open list has to draw above other panels and take input outside the widget's rectangle. The interface gets a call for that with the dropdown itself (WP 3.11).
+Placing the overlay (`layout/overlay_placement`, D28): below the widget and as wide as it, `Sizes::gap.y / 2` away; above it if it does not fit below; if it fits neither way, on the side with more room, asked again with only that much (`overlaySize(context, maxHeight)`, so a list shows fewer entries), and kept inside the window. It never comes closer than the margin to the window's edges. The facade places and paints it in `draw()`, into one batch drawn after every panel (4.9): again when it opens, moves or changes size, or when its widget's panel is redrawn.
 
 ### 4.5 Bindings (P2, D10, P10)
 
@@ -334,6 +340,8 @@ One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and
 | TextDisplay (WP 3.10) | label at the left in the muted text, value at the right | none | any but a series, shown only: numbers in its `format`, on/off values as "on" and "off", choices as their number |
 | ProgressBar (WP 3.10) | label above, a bar below, filled in the accent look as far as the value is between `min` and `max` | none | Number, shown only |
 | Graph (WP 3.10) | label above with the newest value at the right (`Value`, hidden unless a theme shows it), a box below with the curve; the baseline at zero or at the average (`base`); optional parts a theme can show: `Shadow` (the area between curve and baseline), `Grid`, `Axis`, `AxisLabels` | none | Series or PointSeries, read by the graph itself when it paints |
+| Dropdown (WP 3.11) | label above; a field with the chosen entry and an arrow, pointing up while open; the open list in the overlay, the highlighted entry in the accent look, a scrollbar when it scrolls | a click on the field opens the list; a click on an entry, or a press dragged to one and released, chooses it; a click elsewhere or on the field closes it. While open: Up, Down, Home, End move the highlight, Enter chooses, Escape closes, the wheel scrolls. It shows `maxVisible` entries at most, fewer if there is less room | Index; an integer parameter is bound as one |
+| TextInput (WP 3.11) | label above; a field with the text, or the muted `placeholder` while it is empty; a steady cursor while focused, the outline in the accent colour | a click takes the focus and puts the cursor there; typing, Left, Right, Home, End, Backspace, Delete, Ctrl+V; Enter or Escape gives the focus up. Text wider than the field scrolls with the cursor. At most `maxLength` characters (code points, not bytes) | Text; written on every change (`final` false), once more with `final` true when the editing ends (`Widget::focusLost`) |
 
 The displays only show their values, so by default they hear of changes at most every 125 ms (D51); a graph asks for every change. A graph's value axis is fixed where `min` and `max` say so and otherwise follows the samples in its window: from zero (`GraphBase::Zero`) or around their average (`GraphBase::Average`), on a logarithmic axis in whole powers of ten. Its window is the last `samples` samples, or all there are (up to 1024). The x-axis counts samples back from the newest (`GraphX::Count`) or seconds (`GraphX::Time`, with `secondsPerSample`); a graph of points takes it from the points.
 
@@ -351,8 +359,9 @@ Options that cannot work (max not above min, a negative step, a logarithmic axis
 How `input/input_system` does it (WP 3.5):
 - **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn, enabled and reacts to the pointer (`Widget::reactsToPointer`; the display widgets do not, WP 3.10), so a widget that only shows never looks hovered.
 - **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.
-- **Hover, pressed, focused** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
-- **Focus**: a widget takes it through its context. A press anywhere but on the focused widget takes it away. Keys and text go to the focused widget; without one they are forwarded.
+- **Hover, pressed, focused, overlay open** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
+- **Focus**: a widget takes it through its context. A press anywhere but on the focused widget takes it away. Keys and text go to the focused widget; without one they are forwarded. A widget that loses it, however that happens, hears of it (`Widget::focusLost`).
+- **Overlay**: while one is open, moves, presses and the wheel go to its widget; a press on neither the widget nor the overlay closes it and is used up (WP 3.11).
 - **Pointer location**: the view under the pointer is a view widget when the pointer is over one, the background view when it is over no panel, and none over the rest of a panel.
 - **Widget reports**: `press()` raises `ButtonPressed`, `changeValue()` raises `ValueChanged` (writing the bound value comes with bindings, WP 3.8), `markDirty()` marks the panel.
 
