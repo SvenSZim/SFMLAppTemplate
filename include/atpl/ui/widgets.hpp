@@ -147,8 +147,15 @@ struct ProgressBar {
     ProgressBar(std::string name, Param<T>& value, ProgressBarOptions options = {});
     ProgressBar(std::string name, NumberBinding& value, ProgressBarOptions options = {});
 
+    /// Throws `SetupError` if `max` is not above `min`.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
+
+template <NumberValue T>
+ProgressBar::ProgressBar(std::string barName, Param<T>& value, ProgressBarOptions barOptions) :
+    name(std::move(barName)),
+    options(std::move(barOptions)),
+    binding(AnyBinding(value)) {}
 
 struct TextDisplayOptions {
     std::string label;
@@ -173,8 +180,15 @@ struct TextDisplay {
     TextDisplay(std::string name, TextBinding& value, TextDisplayOptions options = {});
     TextDisplay(std::string name, NumberBinding& value, TextDisplayOptions options = {});
 
+    /// Throws `SetupError` if `format` cannot show a number.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
+
+template <BindableValue T>
+TextDisplay::TextDisplay(std::string displayName, Param<T>& value, TextDisplayOptions displayOptions) :
+    name(std::move(displayName)),
+    options(std::move(displayOptions)),
+    binding(AnyBinding(value)) {}
 
 struct TextInputOptions {
     std::string label;
@@ -234,22 +248,55 @@ struct Dropdown {
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 
-struct GraphOptions {
-    std::string label;
-    std::size_t samples = 0;  ///< How many of the newest samples are shown. 0: all the source holds.
-    std::optional<float> min; ///< Lower end of the value axis. Empty: follows the data.
-    std::optional<float> max; ///< Upper end of the value axis. Empty: follows the data.
-    float height = 0.f;       ///< Height in pixels before GUI scaling. 0: the theme's default.
+/// Where a graph's value axis has its reference line.
+enum class GraphBase {
+    Zero,    ///< The axis starts at zero (or below, if values are negative): the line is at zero.
+    Average, ///< The average of the shown values is in the middle: the line is there.
 };
 
-/// A line graph of a run of samples. Read-only. Kind: Series.
+/// What the x-axis of a graph of samples counts.
+enum class GraphX {
+    Count, ///< Samples: the newest is 0, older ones are negative.
+    Time,  ///< Seconds, from `GraphOptions::secondsPerSample`: the newest is 0 s.
+};
+
+struct GraphOptions {
+    std::string label;
+    std::size_t samples = 0;  ///< How many of the newest samples the width shows. 0: as many as there are, up to 1024.
+    std::optional<float> min; ///< Lower end of the value axis. Empty: follows the data.
+    std::optional<float> max; ///< Upper end of the value axis. Empty: follows the data.
+    float height = 0.f;       ///< Preferred height in pixels at the reference window size. 0: about four rows.
+
+    GraphBase base = GraphBase::Zero;
+    bool logarithmic = false; ///< Values on a logarithmic scale. Values at or below 0 are drawn at the bottom.
+
+    /// For samples: what the x-axis counts. Points bring their own x values.
+    GraphX x = GraphX::Count;
+    float secondsPerSample = 1.f; ///< With `GraphX::Time`: the time between two samples.
+
+    std::string format = "{:.1f}"; ///< How values are shown: the current value and the axis labels.
+};
+
+/// A line graph of a run of samples, or of points whose x values come from the data.
+/// Read-only. Kind: Series.
+///
+/// What a graph shows beyond its curve is the theme's to decide, through optional parts:
+///
+///     theme[Graph::Shadow].shown = true;      // the area between curve and reference line, fading
+///     theme[Graph::Value].shown = true;       // the newest value at the top right
+///     theme[Graph::AxisLabels].shown = true;  // labels on both axes, worked out from the data
+///     theme[Graph::Grid].shown = true;        // a background grid
 struct Graph {
     static constexpr Kind kind{ "graph" };
     static constexpr Part Background{ kind, "background", Role::Track };
     static constexpr Part Curve{ kind, "curve", Role::Accent };
+    static constexpr Part Baseline{ kind, "baseline", Role::Line };
+    static constexpr Part Shadow{ kind, "shadow", Role::Accent, Shown::No };
     static constexpr Part Axis{ kind, "axis", Role::Line, Shown::No };
+    static constexpr Part AxisLabels{ kind, "axis_labels", Role::MutedText, Shown::No };
     static constexpr Part Grid{ kind, "grid", Role::Line, Shown::No };
     static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part Value{ kind, "value", Role::Text, Shown::No };
 
     std::string name;
     GraphOptions options;
@@ -257,8 +304,12 @@ struct Graph {
 
     Graph(std::string name, GraphOptions options = {});
     Graph(std::string name, Series& samples, GraphOptions options = {});
+    Graph(std::string name, PointSeries& points, GraphOptions options = {});
     Graph(std::string name, SeriesBinding& samples, GraphOptions options = {});
 
+    /// Throws `SetupError` for options that cannot work: `max` not above `min`, a logarithmic
+    /// axis with a `min` at or below zero, a time axis without time between samples, a `format`
+    /// that cannot show a number.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 

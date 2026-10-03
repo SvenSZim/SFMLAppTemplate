@@ -41,8 +41,11 @@ public:
         m_log(std::move(log)),
         m_react(std::move(react)) {}
 
+    bool reacts = true; ///< What `reactsToPointer` says.
+
     [[nodiscard]] SizeRequest measure(const MeasureContext&) const override { return { .min = { 0.f, 20.f } }; }
     void paint(Painter&, const Style&) const override {}
+    [[nodiscard]] bool reactsToPointer() const override { return reacts; }
 
     bool handleInput(const Event& event, InputContext& context) override {
         const auto at = [&](const PointerLocation& pointer) {
@@ -379,6 +382,18 @@ TEST_CASE("a disabled widget gets no input and is not hovered, but its panel sti
     REQUIRE(f.move(31.f, 105.f).empty());
     REQUIRE(f.off->received.empty());
     REQUIRE_FALSE(f.slot("Off").hovered);
+}
+
+TEST_CASE("a widget that only shows is passed over by the pointer, as the panel's background is", "[ui][input]") {
+    Fixture f;
+    static_cast<Recorder&>(*f.slot("Off").widget).reacts = false;
+
+    REQUIRE(f.click(30.f, 105.f).empty()); // the panel's: not forwarded
+    REQUIRE(f.move(31.f, 105.f).empty());
+    REQUIRE(f.off->received.empty());
+    REQUIRE_FALSE(f.slot("Off").hovered);
+    REQUIRE_FALSE(f.slot("Off").pressed);
+    REQUIRE(f.panel("Controls").hovered);
 }
 
 TEST_CASE("a widget that is not drawn gets no input", "[ui][input]") {

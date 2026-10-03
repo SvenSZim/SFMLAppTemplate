@@ -71,7 +71,7 @@ private:
 
     struct Hit {
         std::optional<PanelId> panel;
-        std::optional<WidgetId> widget; ///< Only widgets that are drawn and enabled.
+        std::optional<WidgetId> widget; ///< Only widgets that are drawn, enabled and react to the pointer.
         bool header = false;            ///< The pointer is over the panel's header.
     };
 
