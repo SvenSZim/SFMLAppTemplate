@@ -350,7 +350,10 @@ void InputSystem::handle(
         m_buttonsDown = 1;
         if (hit.applications()) {
             m_owner = Owner::Application;
-            setFocus(std::nullopt);
+            // A press on a view selects it: keys go there until a press anywhere else. The default
+            // view needs no selecting; it has the keys whenever no other view does.
+            const bool selects = hit.view && m_store->widget(*hit.widget).view != m_store->defaultView();
+            setFocus(selects ? hit.widget : std::nullopt);
             m_lastForwarded = m_pointer;
             forward(press);
             return;
@@ -479,10 +482,10 @@ void InputSystem::handle(
         const KeyPressed pressedKey{ key->code,
                                      modifiersOf(key->alt, key->control, key->shift, key->system),
                                      locate(m_pointer) };
-        if (m_focused.has_value()) {
+        if (m_focused.has_value() && !viewWithKeys().has_value()) {
             deliver(*m_focused, Event(pressedKey));
         } else {
-            forward(pressedKey);
+            forward(forView(pressedKey));
         }
         return;
     }
@@ -491,20 +494,20 @@ void InputSystem::handle(
         const KeyReleased releasedKey{ key->code,
                                        modifiersOf(key->alt, key->control, key->shift, key->system),
                                        locate(m_pointer) };
-        if (m_focused.has_value()) {
+        if (m_focused.has_value() && !viewWithKeys().has_value()) {
             deliver(*m_focused, Event(releasedKey));
         } else {
-            forward(releasedKey);
+            forward(forView(releasedKey));
         }
         return;
     }
 
     if (const auto* text = event.getIf<sf::Event::TextEntered>()) {
         const TextEntered entered{ text->unicode };
-        if (m_focused.has_value()) {
+        if (m_focused.has_value() && !viewWithKeys().has_value()) {
             deliver(*m_focused, Event(entered));
         } else {
-            forward(entered);
+            forward(forView(entered));
         }
         return;
     }
@@ -525,6 +528,24 @@ void InputSystem::closeOverlayIfGone(model::Store& store) {
     if (!slot.visible || !slot.enabled || !panel.shown || panel.collapsed) {
         closeOverlay(*m_overlay);
     }
+}
+
+std::optional<ViewId> InputSystem::viewWithKeys() const {
+    if (m_focused.has_value()) {
+        return m_store->widget(*m_focused).view; // a selected view, or a widget that takes keys itself
+    }
+    return std::nullopt;
+}
+
+template <typename KeyEvent>
+KeyEvent InputSystem::forView(KeyEvent event) const {
+    // The selected view; while none is, the default view.
+    const std::optional<ViewId> view = m_focused.has_value() ? viewWithKeys() : m_store->defaultView();
+    if (view.has_value()) {
+        event.view = view;
+        event.viewName = m_store->view(*view).name;
+    }
+    return event;
 }
 
 bool InputSystem::takeFolded() {

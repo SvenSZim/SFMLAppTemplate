@@ -1,11 +1,13 @@
-# The smallest application written against the template's API.
-#
-# Compiled, but not linked: the API is declared and not yet implemented. An object library is
-# built with every build, so the example cannot drift from the API. When the implementation is
-# there (Phase 4), this becomes a normal executable:
-#   add_executable(starter main.cpp)  +  atpl_copy_resources(starter)
-add_library(starter_api_check OBJECT
+# The smallest application written against the template's API: how an application is meant to read.
+add_executable(starter
   main.cpp
 )
-target_link_libraries(starter_api_check PRIVATE atpl::app)
-atpl_target_defaults(starter_api_check)
+target_link_libraries(starter PRIVATE atpl::app)
+atpl_target_defaults(starter)
+atpl_copy_resources(starter)
+
+# Opens a real window for a few frames, with its simulation running. Labelled "display".
+if(ATPL_BUILD_TESTS)
+  add_test(NAME example.starter COMMAND starter --smoke-test)
+  set_tests_properties(example.starter PROPERTIES LABELS display RESOURCE_LOCK display TIMEOUT 60)
+endif()

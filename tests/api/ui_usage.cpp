@@ -95,7 +95,7 @@ UISetup makeSetup(Params& params, Stats& stats, VolumeBinding& volume) {
                 // of three rows each. The graph says where it goes; the network view only says
                 // how large it is and gets the first place that holds it.
                 .widgets = {
-                    at({.column = 0, .row = 0}, ValueDisplay("Ticks/s", stats.ticksPerSecond, {.format = "{:.1f}"})),
+                    at({.column = 0, .row = 0}, ValueDisplay("Ticks per second", stats.ticksPerSecond, {.format = "{:.1f}"})),
                     at({.column = 1, .row = 0}, ProgressBar("Progress", stats.progress)),
                     at(
                         {.row = 1, .columnSpan = 2, .rowSpan = 3},
@@ -129,7 +129,7 @@ void link(UI& ui, Params& params, LegacyConfig& config) {
     );
 
     // Read-only, through one function.
-    ui.widget("Ticks/s").bind([&config] { return config.volume * 100.0; });
+    ui.widget("Ticks per second").bind([&config] { return config.volume * 100.0; });
 
     // Reading and setting a widget directly.
     const bool gravity = ui.widget("Gravity").get<bool>();

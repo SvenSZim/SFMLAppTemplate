@@ -116,6 +116,10 @@ Store::Store(const UISetup& setup) {
         }
     }
 
+    if (!setup.defaultView.empty()) {
+        m_defaultView = m_names.view(setup.defaultView); // refuses a name that is no view
+    }
+
     applyLayout(setup.layout);
     requireColors(setup.theme);
 }

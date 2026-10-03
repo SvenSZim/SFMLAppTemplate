@@ -7,6 +7,7 @@
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Mouse.hpp>
 
+#include <optional>
 #include <string>
 
 namespace atpl {
@@ -69,6 +70,18 @@ public:
     /// The part of the world this camera shows, in world coordinates, as of the last `apply`.
     /// For example to mark on a minimap what the main view sees.
     [[nodiscard]] FloatRect visibleArea() const;
+
+private:
+    /// Zooms by `factor` so that the world position under `inView` stays under it.
+    void zoomAround(sf::Vector2f inView, float factor);
+
+    std::string m_viewName;
+    CameraOptions m_options;
+    sf::Vector2f m_center;
+    float m_zoom = 1.f;
+    sf::Vector2f m_viewSize;          ///< As of the last `apply`.
+    std::optional<FloatRect> m_shown; ///< A `show` that waits for the view's size.
+    bool m_dragging = false;
 };
 
 } // namespace atpl

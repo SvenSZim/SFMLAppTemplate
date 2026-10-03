@@ -114,6 +114,7 @@ atpl_copy_resources(atpl_ui_display_tests)
 atpl_copy_resources(atpl_app_tests)
 atpl_add_display_tests(app
   app/display/test_app.cpp
+  app/display/test_camera.cpp
 )
 atpl_copy_resources(atpl_app_display_tests)
 

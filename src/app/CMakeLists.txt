@@ -2,6 +2,8 @@
 # The only layer that starts threads.
 add_library(atpl_app STATIC
   app.cpp
+  camera.cpp
+  minimap.cpp
   executable_path.cpp
   simulation_runner.cpp
   resources.cpp

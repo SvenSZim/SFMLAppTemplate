@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure is in place, the public API is agreed and declared, and the render pipeline is built and measured (Phases 0 to 2). Widgets, input and the simulation layer follow in Phases 3 and 4 and are under way; until then `examples/starter` shows how an application is written, and `examples/minimal` is what actually runs: panels with sliders, switches and buttons. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure is in place, the public API is agreed, and the render pipeline, the widgets and input are built (Phases 0 to 3). The simulation layer is under way (Phase 4): `examples/starter` and `examples/showcase` run with their simulation on its own thread. See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
@@ -41,7 +41,9 @@ ctest --test-dir build
 
 Some tests open a window for a moment or draw off-screen. On a machine without a display, leave them out with `ctest --test-dir build -LE display`.
 
-Binaries are placed in `build/bin/`. `build/bin/minimal` is the smallest example: a window with a few panels of sliders, switches and buttons bound to parameters, which are placed anew when the window is resized and fold when their header is clicked. `minimal --layout dashboard` chooses another layout theme (`overlay`, `dashboard`, `cards`, `compact`), and `minimal --profiler` shows what the UI costs.
+Binaries are placed in `build/bin/`.
+- `build/bin/starter` is the smallest application written against the API, and the reference for how one reads: a simulation on its own thread, two panels, a main view to drag and zoom, and a minimap.
+- `build/bin/showcase` shows what the template offers: every built-in widget, bound to parameters and to a simulation of particles that runs on its own thread and is drawn in a main view (drag and zoom) and a minimap. `showcase --layout dashboard` chooses another layout theme (`overlay`, `dashboard`, `cards`, `compact`), `--cards` lets floating panels that do not fit overlap like cards, and `--profiler` shows what the UI costs.
 
 `build/bin/atpl_render_bench` measures what the UI's rendering costs on a scene of 100 widgets; the results for the reference machine are in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md#55-targets-and-what-was-measured).
 

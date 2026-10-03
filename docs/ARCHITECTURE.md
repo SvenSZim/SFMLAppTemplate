@@ -55,8 +55,8 @@ SFMLAppTemplate/
 │  │  └─ widgets/
 │  └─ app/
 ├─ examples/
-│  ├─ minimal/                 a window with empty panels, driving the UI by hand; the smoke test
-│  ├─ starter/                 the smallest app written against the API; compiled, not yet linked
+│  ├─ starter/                 the smallest app written against the API: the reference; a smoke test
+│  ├─ showcase/                every widget, the layout themes, a threaded simulation in two views; a smoke test
 │  ├─ pathfinding/
 │  └─ particles/
 └─ tests/
@@ -328,6 +328,7 @@ How it is built (WP 4.4, D63):
 - **The view widget** (`View`): a height of its own (`ViewOptions::height`, scaled like other sizes, at least two rows), or none, and then dynamic: as high as its width and `aspectRatio` say, and in a grid cell all the height the other widgets leave. It draws nothing itself but an optional `Frame` a theme can show.
 - **Where a view is now** (`layout::placeOf`): its place from layout, moved up by its panel's scroll, and the part of it that can be seen, inside the panel's content area. Drawing, the pointer and `ViewHandle::rect()` use it.
 - **Drawing**: the renderer calls the UI before the first panel, for the background view, and after each panel, for the views inside it, so a view is above its panel and below the panels above it, the overlay and the readout. Each draw function gets the target with (0, 0) at the view's top-left corner and one unit a pixel (a `sf::View` whose viewport is the view's place) and a scissor for its visible part; the target's view is restored after it. A view without a draw function, or with nothing visible, costs nothing.
+- **Keys and selection** (WP 4.5, D65): a press on a view widget selects it. It takes the keyboard focus, its outline shows it (`View::Selection`, drawn by the UI above what the application draws into the view), and keys and text are forwarded for it (`KeyPressed::view`, `isFor`) until a press anywhere else, also when the pointer has left it. While no view is selected, keys go to the setup's default view (`UISetup::defaultView`, usually the main view, often the background), which never shows an outline and needs no selecting; without one they carry no view. A widget that takes keys itself (a text input) still gets them while it has the focus.
 - **Input**: over a view widget the pointer is as over no panel: presses, drags, moves and the wheel are forwarded with the view's name and the position in it, a drag that starts there stays the application's, and the wheel over a view goes to the application even in a panel that scrolls, so that a view can zoom. The view widget itself gets no input and is never hovered.
 
 ### 4.8 Events (P4, D11, D15, D29)
@@ -515,7 +516,8 @@ The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme
 |---|---|
 | `app.hpp` | `App`: creates and owns the window (`WindowSetup`), creates the UI, runs the main loop. `onEvent(handler)` delivers every UI event on the main thread (D11); `onUpdate(handler)` runs once per pass of the loop. `run()` or `run(simulation)`; `quit()`. |
 | `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
-| `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. |
+| `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. A drag with `dragButton` that starts in its view pans, wherever the pointer then goes; the wheel in its view zooms towards the pointer, between `minZoom` and `maxZoom`. `apply` keeps where the UI put the view and what of it can be seen, and only sets what the view shows; `show` works before the view's size is known and fits once it is (WP 4.5, D64). |
+| `minimap.hpp` | `Minimap`: optional helper for a view that always shows the whole world, marks what a main `Camera` sees, and steers it: in `Pan` mode a press centres the main view under the pointer and a drag keeps it there; in `Select` mode a dragged rectangle becomes what the main view shows (a click centres it); while the minimap's view is selected, the arrow keys move the main view by a share of what it shows. The main view's centre stays inside the world. The mode is set in its options and can change while it runs (WP 4.5, D65). |
 | `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name are added in WP 5.6. |
 
 ### 5.1 The simulation
@@ -627,7 +629,7 @@ int main() {
                 {.name = "Simulation", .placement = Anchor::TopLeft, .widgets = {
                     Switch("Pause", simulation.controls.paused),          // controls are parameters
                     Slider("Speed", simulation.controls.speed, {.min = 0.25, .max = 8}),
-                    ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond),
+                    ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond),
                 }},
                 {.name = "Particles", .placement = Anchor::TopRight, .widgets = {
                     Slider("Count", params.particleCount, {.min = 0, .max = 20000}),
