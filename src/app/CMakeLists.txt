@@ -3,6 +3,7 @@
 add_library(atpl_app STATIC
   app.cpp
   executable_path.cpp
+  simulation_runner.cpp
   resources.cpp
 )
 add_library(atpl::app ALIAS atpl_app)

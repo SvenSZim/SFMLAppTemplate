@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -84,9 +85,12 @@ private:
     // Called on the simulation thread.
     virtual void runnerStart() = 0;
     /// Handles the commands that are waiting; if there are none, waits for one up to `wait`.
-    virtual void runnerHandleCommands(std::chrono::milliseconds wait) = 0;
+    /// Returns how many were handled.
+    virtual std::size_t runnerHandleCommands(std::chrono::microseconds wait) = 0;
     virtual void runnerTick(float dt) = 0;
-    virtual void runnerPublish() = 0;
+    /// Writes and publishes the state if the main thread has taken the last one, or `always`.
+    /// Returns whether it did.
+    virtual bool runnerPublish(bool always) = 0;
 
     // Called on the main thread, once at the start of each pass of the application's loop.
     virtual void runnerShowNewestState() = 0;
@@ -151,30 +155,41 @@ protected:
 private:
     void runnerStart() final { start(); }
 
-    void runnerHandleCommands(std::chrono::milliseconds wait) final {
+    std::size_t runnerHandleCommands(std::chrono::microseconds wait) final {
         m_pending.clear();
-        if (wait > std::chrono::milliseconds::zero()) {
-            m_commands.waitDrain(m_pending, wait);
+        if (wait > std::chrono::microseconds::zero()) {
+            m_commands.waitDrain(m_pending, std::chrono::ceil<std::chrono::milliseconds>(wait));
         } else {
             m_commands.drain(m_pending);
         }
         for (const Command& command : m_pending) {
             onCommand(command);
         }
+        return m_pending.size();
     }
 
     void runnerTick(float dt) final { tick(dt); }
 
-    void runnerPublish() final {
+    bool runnerPublish(bool always) final {
+        // A state is written only once the main thread has taken the last one: never more often
+        // than it draws.
+        if (!m_taken.exchange(false, std::memory_order_acq_rel) && !always) {
+            return false;
+        }
         writeState(m_snapshot.writeBuffer());
         m_snapshot.publish();
+        return true;
     }
 
-    void runnerShowNewestState() final { m_shown = &m_snapshot.read(); }
+    void runnerShowNewestState() final {
+        m_shown = &m_snapshot.read();
+        m_taken.store(true, std::memory_order_release);
+    }
 
     Queue<Command> m_commands;
     Snapshot<State> m_snapshot;
     const State* m_shown = &m_snapshot.read(); // what state() returns; replaced once per pass
+    std::atomic<bool> m_taken{ true };         // the main thread has taken the last state
     std::vector<Command> m_pending;            // kept between ticks so handling commands does not allocate
 };
 

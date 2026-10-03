@@ -99,6 +99,7 @@ atpl_add_tests(ui
 )
 atpl_add_tests(app
   app/test_resources.cpp
+  app/test_simulation_runner.cpp
 )
 atpl_add_display_tests(ui
   ui/display/test_frame_loop.cpp
