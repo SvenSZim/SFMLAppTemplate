@@ -176,6 +176,7 @@ public:
     virtual bool handleInput(const Event&, InputContext&);         // true = used
     virtual void update(float dt, UpdateContext&);                 // animations
     virtual void paint(Painter&, const Style&) const = 0;          // emit shapes
+    virtual bool reactsToPointer() const;                          // false: only shows, never hovered
 
     virtual bool accepts(ValueKind) const;                         // what it can be bound to
     virtual bool editsValue() const;
@@ -330,8 +331,13 @@ One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and
 | Button (WP 3.9) | a face with its label in the middle | pressed on, released on: `press()`; a press dragged away does nothing | none; a bound `Param<bool>` is set on every press |
 | Switch (WP 3.9) | its label at the left, a pill at the right; on: the track in the accent look | a click flips it: `changeValue(on)` | Bool |
 | Slider (WP 3.9) | label at the top left, value at the top right in its `format`, the track below, filled up to the knob; `Ticks` hidden unless a theme shows them | a press on the track row moves it there and dragging follows (`final` false), the release reports `final` true; the wheel moves it a step or a hundredth of the range | Number, kept in `[min, max]` and on `step` |
+| TextDisplay (WP 3.10) | label at the left in the muted text, value at the right | none | any but a series, shown only: numbers in its `format`, on/off values as "on" and "off", choices as their number |
+| ProgressBar (WP 3.10) | label above, a bar below, filled in the accent look as far as the value is between `min` and `max` | none | Number, shown only |
+| Graph (WP 3.10) | label above with the newest value at the right (`Value`, hidden unless a theme shows it), a box below with the curve; the baseline at zero or at the average (`base`); optional parts a theme can show: `Shadow` (the area between curve and baseline), `Grid`, `Axis`, `AxisLabels` | none | Series or PointSeries, read by the graph itself when it paints |
 
-A slider's options that cannot work (max not above min, a negative step, a format that cannot show a number) throw `SetupError` when the UI is built.
+The displays only show their values, so by default they hear of changes at most every 125 ms (D51); a graph asks for every change. A graph's value axis is fixed where `min` and `max` say so and otherwise follows the samples in its window: from zero (`GraphBase::Zero`) or around their average (`GraphBase::Average`), on a logarithmic axis in whole powers of ten. Its window is the last `samples` samples, or all there are (up to 1024). The x-axis counts samples back from the newest (`GraphX::Count`) or seconds (`GraphX::Time`, with `secondsPerSample`); a graph of points takes it from the points.
+
+Options that cannot work (max not above min, a negative step, a logarithmic axis down to zero or below, no time between samples, a format that cannot show a number) throw `SetupError` when the UI is built.
 
 ### 4.8a The panel frame (WP 3.6)
 
@@ -343,7 +349,7 @@ A slider's options that cannot work (max not above min, a negative step, a forma
 - `UI::handleInput()` waits at most for the first event of a pass (`frame::nextEvent`) and takes the rest as they are (`frame::pendingEvent`), so a stream of pointer moves cannot hold up the frame.
 
 How `input/input_system` does it (WP 3.5):
-- **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn and enabled.
+- **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn, enabled and reacts to the pointer (`Widget::reactsToPointer`; the display widgets do not, WP 3.10), so a widget that only shows never looks hovered.
 - **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.
 - **Hover, pressed, focused** are written into the widget slots, and a change marks the panel dirty. A hover is forgotten when layout runs and found again with the next move.
 - **Focus**: a widget takes it through its context. A press anywhere but on the focused widget takes it away. Keys and text go to the focused widget; without one they are forwarded.

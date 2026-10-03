@@ -34,9 +34,12 @@ add_library(atpl_ui STATIC
   theme/theme.cpp
   ui.cpp
   widgets/button.cpp
+  widgets/graph.cpp
   widgets/panel_frame.cpp
+  widgets/progress_bar.cpp
   widgets/slider.cpp
   widgets/switch.cpp
+  widgets/text_display.cpp
 )
 add_library(atpl::ui ALIAS atpl_ui)
 

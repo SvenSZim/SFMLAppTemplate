@@ -292,6 +292,11 @@ public:
 
     // ----- Value -----
     //
+    /// Whether the widget answers to the pointer: is hovered, pressed and handed pointer input.
+    /// Widgets that only show something (a text display, a graph) say no; the pointer then
+    /// passes over them as over the panel's background, and they never look hovered.
+    [[nodiscard]] virtual bool reactsToPointer() const { return true; }
+
     // A widget never sees what it is bound to. It keeps its own copy of its value. The UI hands
     // it new values (`setValue`) and is told about the user's changes (`InputContext::changeValue`).
 

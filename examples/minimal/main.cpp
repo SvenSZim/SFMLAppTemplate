@@ -1,5 +1,5 @@
 // The smallest application that shows the UI: a window with a few panels of controls bound to
-// parameters.
+// parameters, and displays of a made-up simulation.
 //
 // It drives the UI by hand, which is what `App` will do for an application once it exists
 // (Phase 4): read input, update, draw; and nothing at all while nothing happens. Escape or the
@@ -14,11 +14,14 @@
 // automated checks.
 
 #include "atpl/app/resources.hpp"
+#include "atpl/core/series.hpp"
 #include "atpl/core/version.hpp"
 #include "atpl/ui/ui.hpp"
 
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/System/Clock.hpp>
 
+#include <cmath>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -30,46 +33,6 @@
 namespace {
 
 using namespace atpl;
-
-// A stand-in for the built-in widgets, which come later (WP 3.9): a box with a name. It is
-// written the way an application writes a widget of its own: a descriptor with its parts, and
-// the widget's behaviour; no positions, no colours.
-struct Placeholder {
-    static constexpr Kind kind{ "placeholder" };
-    static constexpr Part Box{ kind, "box", Role::Track };
-    static constexpr Part Name{ kind, "name", Role::MutedText };
-
-    std::string name;
-    float rows = 1.f; ///< How many rows high it would like to be.
-
-    [[nodiscard]] std::unique_ptr<Widget> create() const;
-};
-
-class PlaceholderWidget final : public Widget {
-public:
-    PlaceholderWidget(std::string name, float rows) :
-        m_name(std::move(name)),
-        m_rows(rows) {}
-
-    [[nodiscard]] SizeRequest measure(const MeasureContext& context) const override {
-        const float row = context.sizes().rowHeight;
-        return { .min = { 60.f, row * 0.75f * m_rows }, .preferred = { 160.f, row * m_rows } };
-    }
-
-    void paint(Painter& painter, const Style& style) const override {
-        const FloatRect all({ 0.f, 0.f }, painter.size());
-        painter.box(all, style.part(Placeholder::Box));
-        painter.text(all, m_name, style.part(Placeholder::Name), Align::Center);
-    }
-
-private:
-    std::string m_name;
-    float m_rows;
-};
-
-std::unique_ptr<Widget> Placeholder::create() const {
-    return std::make_unique<PlaceholderWidget>(name, rows);
-}
 
 Layout layoutNamed(std::string_view name) {
     if (name == "overlay") {
@@ -105,7 +68,27 @@ struct Params {
     }
 };
 
-UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool profiler, Params& params) {
+/// What a simulation would report, made up here: a run that loops, and a measurement on it.
+struct Stats {
+    static constexpr float ticksPerSecond = 20.f;
+
+    Param<float> rate = 0.f;     ///< Ticks in the last second.
+    Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
+    Series energy{ 200 };
+
+    float time = 0.f; ///< Simulated seconds.
+    int ticksThisSecond = 0;
+
+    void tick(const Params& params) {
+        time += params.speed.get() / ticksPerSecond;
+        progress = std::fmod(time * 5.f, 100.f);
+        const float wave = std::sin(time) + 0.3f * std::sin(time * 4.7f) + 0.1f * std::sin(time * 23.f);
+        energy.push((params.gravity.get() ? 2.f : 1.f) * static_cast<float>(params.size.get()) * (1.5f + wave));
+        ++ticksThisSecond;
+    }
+};
+
+UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool profiler, Params& params, Stats& stats) {
     UISetup setup{
         .layout = std::move(layout),
         .grid = {.columns = 4, .rows = 2},
@@ -138,8 +121,11 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
             },
             {
                 .name = "Statistics",
-                // Stand-ins until text displays and graphs exist (WP 3.10).
-                .widgets = { Placeholder{ "Ticks per second" }, Placeholder{ .name = "Graph", .rows = 3.f } },
+                .widgets = {
+                    TextDisplay("Ticks per second", stats.rate, {.format = "{:.0f}"}),
+                    ProgressBar("Progress", stats.progress, {.min = 0.0, .max = 100.0}),
+                    spanning({ .rows = 3 }, Graph("Energy", stats.energy)),
+                },
             },
         },
         .profiler = profiler,
@@ -178,13 +164,17 @@ int run(int argc, char* argv[]) {
     window.setVerticalSyncEnabled(true);
 
     Params params;
-    UISetup setup = describeUI(font, std::move(layout), profiler, params);
+    Stats stats;
+    UISetup setup = describeUI(font, std::move(layout), profiler, params, stats);
     if (ticks) {
         setup.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
     }
     UI ui(window, std::move(setup));
 
     int passesLeft = 5; // only counted in a smoke test
+    sf::Clock tickClock;
+    sf::Time untilTick;
+    sf::Clock rateClock;
     while (window.isOpen()) {
         ui.handleInput(); // sleeps while there is nothing to do
         for (const Event& event : ui.events()) {
@@ -194,6 +184,21 @@ int run(int argc, char* argv[]) {
             if (event.isButton("Reset")) {
                 params.reset(); // the sliders and switches follow by themselves
             }
+            if (event.isButton("Step") && params.paused.get()) {
+                stats.tick(params);
+            }
+        }
+        // The made-up simulation: a tick every 50 ms while it runs. The displays follow by
+        // themselves, as the controls do.
+        const sf::Time tickTime = sf::seconds(1.f / Stats::ticksPerSecond);
+        for (untilTick -= tickClock.restart(); untilTick <= sf::Time::Zero; untilTick += tickTime) {
+            if (!params.paused.get()) {
+                stats.tick(params);
+            }
+        }
+        if (rateClock.getElapsedTime().asSeconds() >= 1.f) {
+            rateClock.restart();
+            stats.rate = static_cast<float>(std::exchange(stats.ticksThisSecond, 0));
         }
         ui.update();
         ui.draw(); // draws only if something changed

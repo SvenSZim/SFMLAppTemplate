@@ -47,7 +47,7 @@ InputSystem::Hit InputSystem::hitTest(sf::Vector2f position) const {
         const std::uint32_t first = panel.firstWidget;
         for (std::uint32_t i = 0; i < panel.widgetCount; ++i) {
             const model::WidgetSlot& slot = m_store->widget(WidgetId{ first + i });
-            if (slot.visible && slot.enabled && slot.rect.contains(local)) {
+            if (slot.visible && slot.enabled && slot.widget->reactsToPointer() && slot.rect.contains(local)) {
                 hit.widget = WidgetId{ first + i };
                 break;
             }
