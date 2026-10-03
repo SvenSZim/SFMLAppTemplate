@@ -110,7 +110,7 @@ int run() {
                     .placement = Anchor::TopRight,
                     .widgets = {
                         Switch("Pause", simulation.controls.paused),
-                        TextDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
+                        ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
                     },
                 },
                 {

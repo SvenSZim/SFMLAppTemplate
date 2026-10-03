@@ -29,6 +29,7 @@
 #include <array>
 #include <cmath>
 #include <exception>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -89,7 +90,8 @@ struct Stats {
     Param<float> rate = 0.f;     ///< Ticks in the last second.
     Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
     Series energy{ 200 };
-    TextLog events{ 100 }; ///< What happened: any thread may write to it.
+    TextLog events{ 100 };     ///< What happened: any thread may write to it.
+    Param<std::string> status; ///< What it is doing, in words.
 
     float time = 0.f; ///< Simulated seconds.
     int ticksThisSecond = 0;
@@ -120,10 +122,11 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                 .columns = 2,
                 .width = 420.f,
                 .widgets = {
-                    // The controls on top, the log of what happened below them.
+                    // The controls on top, what it is doing below them, and the log of what happened.
                     at({ .column = 0, .row = 0 }, Switch("Paused", params.paused)),
                     at({ .column = 1, .row = 0 }, Button("Step")),
-                    at({ .column = 0, .row = 1, .columnSpan = 2, .rowSpan = 3 }, Log("Events", stats.events, {.lines = 4})),
+                    at({ .column = 0, .row = 1, .columnSpan = 2 }, TextDisplay("Status", stats.status)),
+                    at({ .column = 0, .row = 2, .columnSpan = 2, .rowSpan = 3 }, Log("Events", stats.events, {.lines = 4})),
                 },
             },
             // ... and these leave it to the layout theme: floating at the top left with
@@ -159,7 +162,7 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
             {
                 .name = "Statistics",
                 .widgets = {
-                    TextDisplay("Ticks per second", stats.rate, {.format = "{:.0f}"}),
+                    ValueDisplay("Ticks per second", stats.rate, {.format = "{:.0f}"}),
                     ProgressBar("Progress", stats.progress, {.min = 0.0, .max = 100.0}),
                     spanning({ .rows = 3 }, Graph("Energy", stats.energy)),
                 },
@@ -255,6 +258,8 @@ int run(int argc, char* argv[]) {
             rateClock.restart();
             stats.rate = static_cast<float>(std::exchange(stats.ticksThisSecond, 0));
         }
+        stats.status = params.paused.get() ? std::format("Paused at {:.1f} s", stats.time)
+                                           : std::format("Running, {:.1f} s simulated", stats.time);
         ui.update();
         ui.draw(); // draws only if something changed
 

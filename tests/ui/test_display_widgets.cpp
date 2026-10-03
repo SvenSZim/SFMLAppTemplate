@@ -104,11 +104,11 @@ Theme everythingOn() {
 
 } // namespace
 
-// ----- TextDisplay -----
+// ----- ValueDisplay -----
 
-TEST_CASE("a text display shows numbers in its format, and other kinds as text", "[ui][widgets][text_display]") {
+TEST_CASE("a value display shows numbers in its format, and other kinds as text", "[ui][widgets][value_display]") {
     const Theme theme;
-    const auto display = TextDisplay("Ticks", { .format = "{:.1f} /s" }).create();
+    const auto display = ValueDisplay("Ticks", { .format = "{:.1f} /s" }).create();
 
     display->setValue(Value(59.94));
     REQUIRE(shows(paint(*display, theme), "59.9 /s"));
@@ -122,8 +122,8 @@ TEST_CASE("a text display shows numbers in its format, and other kinds as text",
     REQUIRE(display->value() == Value(std::string("running")));
 }
 
-TEST_CASE("a text display accepts every kind but a series, and only shows", "[ui][widgets][text_display]") {
-    const auto display = TextDisplay("Value").create();
+TEST_CASE("a value display accepts every kind but a series, and only shows", "[ui][widgets][value_display]") {
+    const auto display = ValueDisplay("Value").create();
     REQUIRE(display->accepts(ValueKind::Number));
     REQUIRE(display->accepts(ValueKind::Text));
     REQUIRE(display->accepts(ValueKind::Bool));
@@ -134,11 +134,13 @@ TEST_CASE("a text display accepts every kind but a series, and only shows", "[ui
     REQUIRE(display->refreshInterval() == std::chrono::milliseconds(125)); // throttled
 }
 
-TEST_CASE("a text display starts with its initial text, and is bound like any widget", "[ui][widgets][text_display]") {
+TEST_CASE(
+    "a value display starts with its initial text, and is bound like any widget", "[ui][widgets][value_display]"
+) {
     Param<int> count = 42;
     UISetup setup;
     setup.panels = { { .name = "Stats",
-                       .widgets = { TextDisplay("Count", count), TextDisplay("Status", { .initial = "idle" }) } } };
+                       .widgets = { ValueDisplay("Count", count), ValueDisplay("Status", { .initial = "idle" }) } } };
     model::Store store{ setup };
     binding::attachAll(store);
     binding::sync(store, binding::Clock::now());
@@ -147,9 +149,9 @@ TEST_CASE("a text display starts with its initial text, and is bound like any wi
     REQUIRE(store.widget(store.names().widget("Status")).widget->value() == Value(std::string("idle")));
 }
 
-TEST_CASE("a text display refuses a format that cannot show a number", "[ui][widgets][text_display]") {
+TEST_CASE("a value display refuses a format that cannot show a number", "[ui][widgets][value_display]") {
     REQUIRE_THROWS_WITH(
-        TextDisplay("Ticks", { .format = "{:s}" }).create(), ContainsSubstring("text display \"Ticks\": format")
+        ValueDisplay("Ticks", { .format = "{:s}" }).create(), ContainsSubstring("value display \"Ticks\": format")
     );
 }
 

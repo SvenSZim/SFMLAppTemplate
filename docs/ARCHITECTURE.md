@@ -103,7 +103,7 @@ The exact utility list for the first version is Q5.
 | `setup.hpp` | `UISetup` (background view, grid, panels, profiler readout), `PanelSetup`. |
 | `placement.hpp` | `Anchor`, `GridCell`, `GridSpan`, `Placement` (D25, D44). Grid places are used for panels in the window and for widgets in a panel. |
 | `layout.hpp` | The layout theme (D44): `Layout` with its `Metrics`, `Scaling` and the defaults for placing panels and content; `PanelLayout`, what one panel does differently; `Sizes`, the sizes for the window as it is; `Alignment`, `Fit`, `SizeRule`; the presets in `layouts::`. |
-| `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
+| `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `ValueDisplay`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Log`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
 | `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Typography`; `Theme` and the built-in themes (P5, P11, D30). |
@@ -140,7 +140,7 @@ src/ui/
 │            text_layout.hpp/.cpp  font_measurer.hpp/.cpp  text_cache.hpp/.cpp
 │            profiler.hpp/.cpp  frame_stats.hpp
 └─ widgets/  panel_frame.hpp/.cpp  shapes_of_widgets.hpp  number_format.hpp  utf8.hpp  paragraph.cpp
-             button.cpp  switch.cpp  slider.cpp  text_display.cpp  progress_bar.cpp
+             button.cpp  switch.cpp  slider.cpp  value_display.cpp  progress_bar.cpp
              graph.cpp  dropdown.cpp  text_input.cpp  view.cpp
 ```
 
@@ -215,7 +215,8 @@ A widget type states the **kind of value** it works with, not a C++ type. It bin
 | Switch | bool | `Param<bool>` |
 | Slider | number | `Param<float>`, `Param<int>`, `Param<double>` |
 | Progress bar | number, read-only | `Param<float>` |
-| Text display | text, read-only | `Param<number>` plus a format, or `Param<std::string>` |
+| Value display | text, read-only | `Param<number>` plus a format, or `Param<std::string>` |
+| Text display | text, read-only | `Param<std::string>` |
 | Text input | text | `Param<std::string>` |
 | Dropdown | index into its options | `Param<int>` or `Param<AnyEnum>` |
 | Graph | series, read-only | `Series` |
@@ -352,7 +353,8 @@ One file per widget in `widgets/`, each a descriptor (public, `widgets.hpp`) and
 | Button (WP 3.9) | a face with its label in the middle | pressed on, released on: `press()`; a press dragged away does nothing | none; a bound `Param<bool>` is set on every press |
 | Switch (WP 3.9) | its label at the left, a pill at the right; on: the track in the accent look | a click flips it: `changeValue(on)` | Bool |
 | Slider (WP 3.9) | label at the top left, value at the top right in its `format`, the track below, filled up to the knob; `Ticks` hidden unless a theme shows them | a press on the track row moves it there and dragging follows (`final` false), the release reports `final` true; the wheel moves it a step or a hundredth of the range | Number, kept in `[min, max]` and on `step` |
-| TextDisplay (WP 3.10) | label at the left in the muted text, value at the right | none | any but a series, shown only: numbers in its `format`, on/off values as "on" and "off", choices as their number |
+| ValueDisplay (WP 3.10; called TextDisplay until WP 3.19) | label at the left in the muted text, value at the right | none | any but a series, shown only: numbers in its `format`, on/off values as "on" and "off", choices as their number |
+| TextDisplay (WP 3.19) | label above in the muted text, the text below as a block of `lines` lines; it wraps within them, line breaks start new lines, and what does not fit ends in an ellipsis on the last line; `align` places each line | none: it does not react to the pointer | Text, shown only (refresh as D51). Its height is fixed by `lines`, never by the text (D56) |
 | ProgressBar (WP 3.10) | label above, a bar below, filled in the accent look as far as the value is between `min` and `max` | none | Number, shown only |
 | Graph (WP 3.10) | label above with the newest value at the right (`Value`, hidden unless a theme shows it), a box below with the curve; the baseline at zero or at the average (`base`); optional parts a theme can show: `Shadow` (the area between curve and baseline), `Grid`, `Axis`, `AxisLabels` | none | Series or PointSeries, read by the graph itself when it paints |
 | Log (WP 3.18) | label above; a box with the newest lines, the newest at the bottom; a line too wide is cut with an ellipsis, never wrapped; optional `Time` (the time of day each line was pushed, hidden unless a theme shows it); a thin scrollbar thumb in the box's right inset when it holds more than it shows | the wheel (where its panel does not scroll, D55) and its scrollbar scroll it back; scrolled back it keeps showing the same lines while new ones come, and at the end it follows again | Lines (`TextLog`). Its height is fixed by `lines`, never by the text, so new lines never run layout (D56) |
@@ -608,7 +610,7 @@ int main() {
                 {.name = "Simulation", .placement = Anchor::TopLeft, .widgets = {
                     Switch("Pause", simulation.controls.paused),          // controls are parameters
                     Slider("Speed", simulation.controls.speed, {.min = 0.25, .max = 8}),
-                    TextDisplay("Ticks/s", simulation.controls.ticksPerSecond),
+                    ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond),
                 }},
                 {.name = "Particles", .placement = Anchor::TopRight, .widgets = {
                     Slider("Count", params.particleCount, {.min = 0, .max = 20000}),

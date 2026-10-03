@@ -158,7 +158,7 @@ ProgressBar::ProgressBar(std::string barName, Param<T>& value, ProgressBarOption
     options(std::move(barOptions)),
     binding(AnyBinding(value)) {}
 
-struct TextDisplayOptions {
+struct ValueDisplayOptions {
     std::string label;
     std::string format = "{}"; ///< How a bound number is shown, in `std::format` syntax.
     std::string initial;       ///< Text while nothing is bound.
@@ -166,27 +166,27 @@ struct TextDisplayOptions {
 
 /// A label with a value next to it. Read-only. Kind: Text; numbers, switches and enums are
 /// accepted too and shown as text.
-struct TextDisplay {
-    static constexpr Kind kind{ "text_display" };
+struct ValueDisplay {
+    static constexpr Kind kind{ "value_display" };
     static constexpr Part Label{ kind, "label", Role::MutedText };
     static constexpr Part ValueText{ kind, "value", Role::Text };
 
     std::string name;
-    TextDisplayOptions options;
+    ValueDisplayOptions options;
     std::optional<AnyBinding> binding;
 
-    TextDisplay(std::string name, TextDisplayOptions options = {});
+    ValueDisplay(std::string name, ValueDisplayOptions options = {});
     template <BindableValue T>
-    TextDisplay(std::string name, Param<T>& value, TextDisplayOptions options = {});
-    TextDisplay(std::string name, TextBinding& value, TextDisplayOptions options = {});
-    TextDisplay(std::string name, NumberBinding& value, TextDisplayOptions options = {});
+    ValueDisplay(std::string name, Param<T>& value, ValueDisplayOptions options = {});
+    ValueDisplay(std::string name, TextBinding& value, ValueDisplayOptions options = {});
+    ValueDisplay(std::string name, NumberBinding& value, ValueDisplayOptions options = {});
 
     /// Throws `SetupError` if `format` cannot show a number.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 
 template <BindableValue T>
-TextDisplay::TextDisplay(std::string displayName, Param<T>& value, TextDisplayOptions displayOptions) :
+ValueDisplay::ValueDisplay(std::string displayName, Param<T>& value, ValueDisplayOptions displayOptions) :
     name(std::move(displayName)),
     options(std::move(displayOptions)),
     binding(AnyBinding(value)) {}
@@ -349,6 +349,40 @@ struct Graph {
     /// Throws `SetupError` for options that cannot work: `max` not above `min`, a logarithmic
     /// axis with a `min` at or below zero, a time axis without time between samples, a `format`
     /// that cannot show a number.
+    [[nodiscard]] std::unique_ptr<Widget> create() const;
+};
+
+struct TextDisplayOptions {
+    std::string label;
+    std::size_t lines = 1;     ///< How many lines it shows: this fixes its height.
+    Align align = Align::Left; ///< How the text is placed in each line.
+    std::string initial;       ///< Shown while nothing is bound.
+};
+
+/// A piece of text that changes while the application runs: a status, the name of the current
+/// step, a short description. Kind: Text, shown only.
+///
+///     Param<std::string> status;
+///     TextDisplay("Status", status, {.lines = 2})
+///
+/// Its size is fixed by its options, never by the text: a new text never moves anything. The
+/// text wraps within its lines; line breaks in it start new lines; what does not fit ends in an
+/// ellipsis on the last line. Unlike `ValueDisplay` (a label with one short value beside it) it
+/// shows the text as a block below its label.
+struct TextDisplay {
+    static constexpr Kind kind{ "text_display" };
+    static constexpr Part Label{ kind, "label", Role::MutedText };
+    static constexpr Part Text{ kind, "text", Role::Text };
+
+    std::string name;
+    TextDisplayOptions options;
+    std::optional<AnyBinding> binding;
+
+    TextDisplay(std::string name, TextDisplayOptions options = {});
+    TextDisplay(std::string name, Param<std::string>& text, TextDisplayOptions options = {});
+    TextDisplay(std::string name, TextBinding& text, TextDisplayOptions options = {});
+
+    /// Throws `SetupError` if `lines` is zero.
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 

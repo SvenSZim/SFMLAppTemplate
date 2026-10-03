@@ -150,7 +150,7 @@ struct SizeRequest {
 - **Preferred**: the widget's normal, comfortable size, typically one row of the layout high. Bottom-up sizes are derived from it: a panel that is as large as its content is as large as its widgets prefer.
 - **Minimum**: the least the widget needs to be displayable at all, from its font size and its complexity. A slider needs room for its label, its track and its value; a graph needs room for a curve and its labels. A grid that is short of room squeezes its widgets down to this; below it the overflow rules of section 7 apply.
 - **Maximum**: the most a widget makes use of. A grid with room to spare lets its widgets grow up to this.
-- **Constant widgets** (button, switch, slider, progress bar, text display, text input, dropdown): all three, and the two ratio limits.
+- **Constant widgets** (button, switch, slider, progress bar, value display, text display, log, text input, dropdown): all three, and the two ratio limits.
 - **Dynamic widgets** (graph, view, paragraph): no maximum, by design. The ratios are optional (a view may ask to keep 16:9).
 
 All three are worked out from the layout's sizes for the window as it is, so they grow and shrink with the window like everything else.
