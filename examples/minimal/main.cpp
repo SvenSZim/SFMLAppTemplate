@@ -1,5 +1,6 @@
 // The smallest application that shows the UI: a window with a few panels of controls bound to
-// parameters, and displays of a made-up simulation that runs on a thread of its own.
+// parameters, and a made-up simulation of particles that runs on a thread of its own, drawn in a
+// main view and a minimap.
 //
 // It runs through `App`, which opens the window, loads the font, and runs the loop: input, the
 // application's update, the UI's update, a frame if anything changed; and nothing at all while
@@ -23,17 +24,26 @@
 #include "atpl/core/version.hpp"
 #include "atpl/ui/ui.hpp"
 
+#include <SFML/Graphics/CircleShape.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
+
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <exception>
 #include <format>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace {
 
@@ -79,35 +89,131 @@ struct Params {
 
 /// What the main thread needs from the simulation for one frame.
 struct Moment {
-    double time = 0.0; ///< Simulated seconds.
+    double time = 0.0;                             ///< Simulated seconds.
+    std::vector<sf::Vector2f> particles;           ///< Where they are, in world units.
+    std::vector<std::vector<sf::Vector2f>> trails; ///< Where each was lately, oldest first; empty without trails.
 };
 
-/// A made-up simulation on a thread of its own: a run that loops, and a measurement on it.
-/// 20 ticks per second of simulated time; the speed slider changes how fast that time passes.
-class MadeUp final : public Simulation<Moment> {
+/// The world is a square of this half width around the origin.
+constexpr float worldExtent = 100.f;
+
+/// A made-up simulation on a thread of its own: particles in a box, pulled to the centre while
+/// gravity is on. 20 ticks per second of simulated time; the speed slider changes how fast that
+/// time passes.
+class Particles final : public Simulation<Moment> {
 public:
-    explicit MadeUp(const Params& params) :
+    explicit Particles(const Params& params) :
         m_params(params) {
         controls.tickRate = 20.0;
     }
 
     // What it reports, for widgets to show. Thread-safe: it writes them, the UI reads them.
     Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
-    Series energy{ 200 };
+    Series energy{ 200 };        ///< Their kinetic energy.
 
 private:
+    struct Body {
+        sf::Vector2f position;
+        sf::Vector2f velocity;
+        std::vector<sf::Vector2f> trail;
+    };
+
+    static constexpr std::size_t trailLength = 16;
+
     void tick(float dt) override {
         m_time += dt;
         progress = std::fmod(m_time * 5.f, 100.f);
-        const float wave = std::sin(m_time) + 0.3f * std::sin(m_time * 4.7f) + 0.1f * std::sin(m_time * 23.f);
-        energy.push((m_params.gravity.get() ? 2.f : 1.f) * static_cast<float>(m_params.size.get()) * (1.5f + wave));
+
+        // As many as the size slider says: new ones start on a circle, moving round it.
+        const auto wanted = static_cast<std::size_t>(std::max(m_params.size.get(), 1));
+        while (m_bodies.size() < wanted) {
+            const float angle = static_cast<float>(m_bodies.size()) * 2.399963f; // the golden angle
+            const float radius = 30.f + 6.f * static_cast<float>(m_bodies.size() % 10);
+            const sf::Vector2f out(std::cos(angle), std::sin(angle));
+            m_bodies.push_back(
+                { .position = out * radius, .velocity = sf::Vector2f(-out.y, out.x) * 45.f, .trail = {} }
+            );
+        }
+        m_bodies.resize(wanted);
+
+        float kinetic = 0.f;
+        for (Body& body : m_bodies) {
+            if (m_params.gravity.get()) {
+                body.velocity -= body.position * (0.8f * dt); // pulled to the centre
+            }
+            body.position += body.velocity * dt;
+            // The walls of the box bounce them back.
+            if (std::abs(body.position.x) > worldExtent) {
+                body.position.x = std::copysign(worldExtent, body.position.x);
+                body.velocity.x = -body.velocity.x;
+            }
+            if (std::abs(body.position.y) > worldExtent) {
+                body.position.y = std::copysign(worldExtent, body.position.y);
+                body.velocity.y = -body.velocity.y;
+            }
+            body.trail.push_back(body.position);
+            if (body.trail.size() > trailLength) {
+                body.trail.erase(body.trail.begin());
+            }
+            kinetic += 0.5f * (body.velocity.x * body.velocity.x + body.velocity.y * body.velocity.y);
+        }
+        energy.push(kinetic / 1000.f);
     }
 
-    void writeState(Moment& moment) const override { moment.time = m_time; }
+    void writeState(Moment& moment) const override {
+        moment.time = m_time;
+        moment.particles.resize(m_bodies.size());
+        moment.trails.resize(m_params.trails.get() ? m_bodies.size() : 0);
+        for (std::size_t i = 0; i < m_bodies.size(); ++i) {
+            moment.particles[i] = m_bodies[i].position;
+            if (i < moment.trails.size()) {
+                moment.trails[i] = m_bodies[i].trail; // the buffers keep their memory
+            }
+        }
+    }
 
     const Params& m_params;
     float m_time = 0.f;
+    std::vector<Body> m_bodies;
 };
+
+/// Draws the world into a view of `size` pixels: the box fitted into it, the particles as the
+/// draw mode says, with their trails if there are any.
+void drawWorld(sf::RenderTarget& target, sf::Vector2f size, const Moment& world, DrawMode mode, const Theme& theme) {
+    const float scale = std::min(size.x, size.y) / (worldExtent * 2.2f);
+    const sf::Vector2f centre = size * 0.5f;
+    const auto toView = [&](sf::Vector2f point) { return centre + point * scale; };
+    const sf::Color ink = theme.resolve(Graph::Curve).color;
+    const sf::Color line = theme.resolve(Graph::Baseline).color;
+
+    sf::RectangleShape box(sf::Vector2f(worldExtent, worldExtent) * (2.f * scale));
+    box.setPosition(toView({ -worldExtent, -worldExtent }));
+    box.setFillColor(sf::Color::Transparent);
+    box.setOutlineColor(line);
+    box.setOutlineThickness(1.f);
+    target.draw(box);
+
+    for (const std::vector<sf::Vector2f>& trail : world.trails) {
+        sf::VertexArray strip(sf::PrimitiveType::LineStrip, trail.size());
+        for (std::size_t i = 0; i < trail.size(); ++i) {
+            sf::Color faded = ink;
+            faded.a = static_cast<std::uint8_t>(200 * (i + 1) / trail.size()); // oldest the faintest
+            strip[i] = sf::Vertex{ toView(trail[i]), faded };
+        }
+        target.draw(strip);
+    }
+
+    const float radius = mode == DrawMode::Points ? 1.5f : std::max(3.f * scale, 2.f);
+    sf::CircleShape dot(radius, 16);
+    dot.setOrigin({ radius, radius });
+    dot.setFillColor(mode == DrawMode::Outlined ? sf::Color::Transparent : ink);
+    dot.setOutlineColor(ink);
+    dot.setOutlineThickness(mode == DrawMode::Outlined ? 1.5f : 0.f);
+    for (const sf::Vector2f particle : world.particles) {
+        dot.setPosition(toView(particle));
+        target.draw(dot);
+    }
+}
 
 /// What the main thread reports.
 struct Report {
@@ -115,16 +221,28 @@ struct Report {
     Param<std::string> status; ///< What the simulation is doing, in words.
 };
 
-UISetup describeUI(Layout layout, bool profiler, Params& params, MadeUp& simulation, Report& report) {
+UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simulation, Report& report) {
+    // The minimap takes a cell of its own where the layout theme puts panels in the window's
+    // grid ("dashboard", "cards"); where panels float ("overlay", "compact"), it floats at the
+    // top right.
+    const std::optional<Placement> mapPlacement =
+        std::holds_alternative<GridSpan>(layout.placement) ? std::nullopt : std::optional<Placement>(Anchor::TopRight);
     UISetup setup{
         .layout = std::move(layout),
-        .grid = {.columns = 4, .rows = 2},
+        .grid = {.columns = 4, .rows = 3},
         .panels = {
             // These two say where they go ...
             {
                 .name = "Scene",
-                .placement = GridCell{.column = 0, .row = 0, .columnSpan = 3, .rowSpan = 2},
+                .placement = GridCell{.column = 0, .row = 0, .columnSpan = 3, .rowSpan = 3},
                 .collapsible = false,
+                .widgets = { View("world") }, // the main view: as large as the panel
+            },
+            {
+                .name = "Map", // listed before the others that take free cells: the first, at the top
+                .placement = mapPlacement,
+                .width = 200.f,
+                .widgets = { View("minimap", {.height = 150.f}) }, // the whole world, small
             },
             {
                 .name = "Playback",
@@ -204,7 +322,7 @@ int run(int argc, char* argv[]) {
     }
 
     Params params;
-    MadeUp simulation(params);
+    Particles simulation(params);
     Report report;
     UISetup ui = describeUI(std::move(layout), profiler, params, simulation, report);
     if (ticks) {
@@ -254,6 +372,14 @@ int run(int argc, char* argv[]) {
                 app.quit();
             }
         }
+    });
+
+    // The views: the main view and the minimap draw the same moment, the state of this pass.
+    app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
+        drawWorld(target, size, simulation.state(), params.drawMode.get(), app.ui().theme());
+    });
+    app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
+        drawWorld(target, size, simulation.state(), DrawMode::Points, app.ui().theme());
     });
 
     return app.run(simulation); // the simulation runs on its own thread until the app ends

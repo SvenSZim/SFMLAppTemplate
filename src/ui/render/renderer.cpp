@@ -27,9 +27,15 @@ sf::FloatRect scissorFor(const FloatRect& clip, sf::Vector2u targetSize) {
 FrameStats
 Renderer::draw(sf::RenderTarget& target, std::span<const PanelBatch* const> panels, const PanelBatch* overlay) {
     FrameStats stats;
-    for (const PanelBatch* batch : panels) {
-        if (batch != nullptr) {
-            drawBatch(target, *batch, stats);
+    if (m_viewPainter) {
+        m_viewPainter(target, std::nullopt);
+    }
+    for (std::size_t i = 0; i < panels.size(); ++i) {
+        if (panels[i] != nullptr) {
+            drawBatch(target, *panels[i], stats);
+            if (m_viewPainter && panels[i]->isVisible()) {
+                m_viewPainter(target, i);
+            }
         }
     }
     if (overlay != nullptr) {
@@ -80,10 +86,16 @@ std::optional<FrameStats> Renderer::present(
     {
         const Profiler::Scope submit(m_profiler, Profiler::Section::Submit);
         window.clear(background);
-        for (const PanelBatch* batch : panels) {
-            if (batch != nullptr) {
-                drawBatch(window, *batch, stats);
-                rebuilds += batch->rebuildCount();
+        if (m_viewPainter) {
+            m_viewPainter(window, std::nullopt); // the view behind the panels
+        }
+        for (std::size_t i = 0; i < panels.size(); ++i) {
+            if (panels[i] != nullptr) {
+                drawBatch(window, *panels[i], stats);
+                rebuilds += panels[i]->rebuildCount();
+                if (m_viewPainter && panels[i]->isVisible()) {
+                    m_viewPainter(window, i); // the views inside it, above it and below the next
+                }
             }
         }
         if (overlay != nullptr) {

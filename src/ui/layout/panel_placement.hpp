@@ -105,4 +105,14 @@ cardOrder(const model::Store& store, std::span<const PanelId> base, std::optiona
 /// empty rectangle. Run after the panels and their widgets are placed.
 void placeViews(model::Store& store, sf::Vector2f windowSize, const Sizes& sizes);
 
+/// Where a view is now, in window pixels.
+struct ViewPlace {
+    FloatRect rect;    ///< Its place: from layout, moved up by as much as its panel is scrolled.
+    FloatRect visible; ///< The part of it that can be seen: inside its panel's content area. Empty if none.
+};
+
+/// Where a view is now. A view widget scrolls with its panel's content, which layout does not
+/// see, so this is worked out when it is needed: for drawing, and for finding the pointer.
+[[nodiscard]] ViewPlace placeOf(const model::Store& store, ViewId view, const Sizes& sizes);
+
 } // namespace atpl::layout

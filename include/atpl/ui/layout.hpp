@@ -124,8 +124,6 @@ struct Sizes {
 ///
 /// A layout theme is a value: copy it, change it, hand it to the UI. Switching at runtime is
 /// `UI::setLayout`.
-///
-/// `stackOverflow` is stored but has no effect yet: the card stack is WP 3.14.
 struct Layout {
     Metrics metrics;
     Scaling scaling;

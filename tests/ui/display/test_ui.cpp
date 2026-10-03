@@ -1,8 +1,10 @@
 // These tests open a small window: they carry the CTest label "display".
 
 #include "atpl/ui/ui.hpp"
+#include "atpl/ui/widgets.hpp"
 
 #include <SFML/Graphics/Image.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Clock.hpp>
@@ -440,4 +442,98 @@ TEST_CASE("a view keeps the draw function the application gives it", "[ui][facad
 
     ui.view("world").onDraw([](sf::RenderTarget&, sf::Vector2f) {});
     REQUIRE(ui.draw()); // there is something new to show
+}
+
+// ----- Views -----
+
+namespace {
+
+/// A draw function that fills far more than the view with one colour, and marks its corner.
+ViewHandle::DrawFunction fillWith(sf::Color color, sf::Vector2f* sizeSeen = nullptr) {
+    return [color, sizeSeen](sf::RenderTarget& target, sf::Vector2f size) {
+        sf::RectangleShape everything({ 4000.f, 4000.f });
+        everything.setPosition({ -2000.f, -2000.f }); // spills over every edge: the view cuts it
+        everything.setFillColor(color);
+        target.draw(everything);
+        sf::RectangleShape corner({ 3.f, 3.f }); // at (0, 0): the view's top-left corner
+        corner.setFillColor(sf::Color::White);
+        target.draw(corner);
+        if (sizeSeen != nullptr) {
+            *sizeSeen = size;
+        }
+    };
+}
+
+} // namespace
+
+TEST_CASE("the background view is drawn behind the panels", "[ui][views][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.background = "world";
+    setup.grid = { .columns = 2, .rows = 1 };
+    setup.panels = { { .name = "Left", .placement = GridCell{ .column = 0 } } };
+    setup.theme.shape.radius = 0.f;
+    UI ui(f.window, std::move(setup));
+    const sf::Color blue(20, 40, 200);
+    ui.view("world").onDraw(fillWith(blue));
+
+    ui.update();
+    REQUIRE(ui.draw());
+    const sf::Image picture = f.picture();
+    REQUIRE(picture.getPixel({ 480u, 200u }) == blue); // the empty right half
+    REQUIRE(
+        picture.getPixel(sf::Vector2u(ui.panel("Left").rect().center())) == ui.theme().resolve(Panel::Background).color
+    ); // the panel covers it
+    REQUIRE(picture.getPixel({ 1u, 1u }) == sf::Color::White);
+    REQUIRE(ui.view("world").rect() == FloatRect(0.f, 0.f, 640.f, 400.f));
+}
+
+TEST_CASE(
+    "a view widget is drawn at its place, in its own coordinates, and nothing outside it", "[ui][views][display]"
+) {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "Map", .placement = Anchor::TopLeft, .widgets = { View("map", { .height = 80.f }) } } };
+    setup.theme.shape.radius = 0.f;
+    UI ui(f.window, std::move(setup));
+    const sf::Color green(30, 180, 60);
+    sf::Vector2f sizeSeen;
+    ui.view("map").onDraw(fillWith(green, &sizeSeen));
+
+    ui.update();
+    REQUIRE(ui.draw());
+    const sf::Image picture = f.picture();
+    const FloatRect view = ui.view("map").rect();
+    const Sizes sizes = ui.sizes(); // 80 pixels at the reference window size, scaled; at least two rows
+    REQUIRE(view.height() == std::max(80.f * sizes.scale.y, sizes.rowHeight * 2.f));
+    REQUIRE(sizeSeen == view.size());
+    REQUIRE(picture.getPixel(sf::Vector2u(view.center())) == green);
+    REQUIRE(picture.getPixel(sf::Vector2u(view.position() + sf::Vector2f(1.f, 1.f))) == sf::Color::White);
+
+    // Around it: the panel, untouched.
+    const sf::Color panel = ui.theme().resolve(Panel::Background).color;
+    REQUIRE(picture.getPixel(sf::Vector2u(view.position() - sf::Vector2f(2.f, 2.f))) == panel);
+    REQUIRE(picture.getPixel(sf::Vector2u(sf::Vector2f(view.right() + 2.f, view.center().y))) == panel);
+    REQUIRE(picture.getPixel(sf::Vector2u(sf::Vector2f(view.center().x, view.bottom() + 2.f))) == panel);
+}
+
+TEST_CASE("a view without a draw function, and one whose panel is folded, draw nothing", "[ui][views][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "Map", .placement = Anchor::TopLeft, .widgets = { View("map", { .height = 80.f }) } } };
+    UI ui(f.window, std::move(setup));
+    ui.update();
+    REQUIRE_NOTHROW(ui.draw()); // nothing set: nothing called
+
+    int calls = 0;
+    ui.view("map").onDraw([&calls](sf::RenderTarget&, sf::Vector2f) { ++calls; });
+    ui.update();
+    ui.draw();
+    REQUIRE(calls == 1);
+    ui.panel("Map").setCollapsed(true);
+    Fixture::settle(ui); // the fold takes a moment
+    const int folded = calls;
+    ui.requestRedraw();
+    Fixture::frame(ui);
+    REQUIRE(calls == folded);
 }

@@ -103,7 +103,8 @@ public:
     /// to show, it says so with `UI::requestRedraw()`.
     ViewHandle& onDraw(DrawFunction draw);
 
-    /// The view's rectangle in window pixels, as of the last layout.
+    /// The view's rectangle in window pixels, where it is now: a view widget moves with its
+    /// panel when the panel is scrolled.
     [[nodiscard]] FloatRect rect() const;
 
 private:
