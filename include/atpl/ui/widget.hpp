@@ -379,6 +379,10 @@ public:
     /// nothing is bound. The widget reads when the source's revision changes, in `update`.
     virtual void setSeries(const SeriesBinding* /*source*/) {}
 
+    /// For widgets that accept `ValueKind::Lines`: where to read lines from, or null when nothing
+    /// is bound. The widget reads when it paints.
+    virtual void setLines(const LinesBinding* /*source*/) {}
+
     /// How often at most the widget is handed a new value of its binding, or told that its series
     /// changed. A bound value that changes every tick would otherwise repaint the panel every
     /// frame; a change in between is not lost, it arrives with the next hand-over.

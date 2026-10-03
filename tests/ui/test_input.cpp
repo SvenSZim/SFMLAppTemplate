@@ -28,7 +28,7 @@ Sizes sizes() {
 }
 
 /// What a widget received, and what it does in return.
-struct Log {
+struct Received {
     std::vector<std::string> received; ///< "pressed 10,5", "moved 30,5", "key", ...
 };
 
@@ -37,7 +37,7 @@ using Reaction = std::function<void(const Event&, InputContext&)>;
 /// A widget that writes down everything it gets, and reacts as the test says.
 class Recorder final : public Widget {
 public:
-    Recorder(std::shared_ptr<Log> log, Reaction react) :
+    Recorder(std::shared_ptr<Received> log, Reaction react) :
         m_log(std::move(log)),
         m_react(std::move(react)) {}
 
@@ -72,13 +72,13 @@ public:
     }
 
 private:
-    std::shared_ptr<Log> m_log;
+    std::shared_ptr<Received> m_log;
     Reaction m_react;
 };
 
 struct Recording {
     std::string name;
-    std::shared_ptr<Log> log;
+    std::shared_ptr<Received> log;
     Reaction react;
     [[nodiscard]] std::unique_ptr<Widget> create() const { return std::make_unique<Recorder>(log, react); }
 };
@@ -86,7 +86,7 @@ struct Recording {
 struct Region {
     static constexpr bool isView = true;
     std::string name;
-    std::shared_ptr<Log> log;
+    std::shared_ptr<Received> log;
     [[nodiscard]] std::unique_ptr<Widget> create() const { return std::make_unique<Recorder>(log, nullptr); }
 };
 
@@ -108,10 +108,10 @@ Reaction onPress(std::function<void(InputContext&)> action) {
 ///
 /// Everything at x = 300 is outside any panel: there the background view is.
 struct Fixture {
-    std::shared_ptr<Log> button = std::make_shared<Log>();
-    std::shared_ptr<Log> field = std::make_shared<Log>();
-    std::shared_ptr<Log> off = std::make_shared<Log>();
-    std::shared_ptr<Log> minimap = std::make_shared<Log>();
+    std::shared_ptr<Received> button = std::make_shared<Received>();
+    std::shared_ptr<Received> field = std::make_shared<Received>();
+    std::shared_ptr<Received> off = std::make_shared<Received>();
+    std::shared_ptr<Received> minimap = std::make_shared<Received>();
     Reaction buttonReaction;
     Reaction fieldReaction = onPress([](InputContext& context) { context.requestFocus(); });
 
@@ -405,8 +405,8 @@ TEST_CASE("a widget that is not drawn gets no input", "[ui][input]") {
 
 TEST_CASE("the topmost panel gets the pointer", "[ui][input]") {
     // A panel floating over a grid panel: the grid fills the whole window here.
-    auto log = std::make_shared<Log>();
-    auto below = std::make_shared<Log>();
+    auto log = std::make_shared<Received>();
+    auto below = std::make_shared<Received>();
     UISetup setup;
     setup.panels = {
         { .name = "Grid", .placement = GridCell{}, .widgets = { Recording{ "Under", below, nullptr } } },

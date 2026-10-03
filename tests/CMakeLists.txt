@@ -58,6 +58,7 @@ atpl_add_tests(core
   core/test_interpolated.cpp
   core/test_param.cpp
   core/test_series.cpp
+  core/test_text_log.cpp
   core/test_version.cpp
 )
 atpl_add_tests(ui
@@ -73,6 +74,7 @@ atpl_add_tests(ui
   ui/test_input.cpp
   ui/test_grid_packing.cpp
   ui/test_layout_theme.cpp
+  ui/test_log.cpp
   ui/test_model.cpp
   ui/test_name_index.cpp
   ui/test_packing.cpp

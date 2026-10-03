@@ -39,7 +39,9 @@ public:
     }
 
     [[nodiscard]] bool reactsToPointer() const override { return false; }
-    [[nodiscard]] bool accepts(ValueKind kind) const override { return kind != ValueKind::Series; }
+    [[nodiscard]] bool accepts(ValueKind kind) const override {
+        return kind != ValueKind::Series && kind != ValueKind::Lines;
+    }
     [[nodiscard]] std::optional<Value> value() const override { return Value(m_text); }
 
     void setValue(const Value& value) override {

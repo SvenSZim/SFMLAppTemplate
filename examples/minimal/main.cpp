@@ -19,12 +19,14 @@
 
 #include "atpl/app/resources.hpp"
 #include "atpl/core/series.hpp"
+#include "atpl/core/text_log.hpp"
 #include "atpl/core/version.hpp"
 #include "atpl/ui/ui.hpp"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Clock.hpp>
 
+#include <array>
 #include <cmath>
 #include <exception>
 #include <iostream>
@@ -33,6 +35,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -58,6 +61,7 @@ Layout layoutNamed(std::string_view name) {
 
 /// How the scene would be drawn: the entries of the "Draw" dropdown, in the same order.
 enum class DrawMode { Filled, Outlined, Points };
+constexpr std::array<const char*, 3> drawModeNames{ "Filled", "Outlined", "Points" };
 
 /// What the controls change. In an application, the simulation would read these.
 struct Params {
@@ -85,6 +89,7 @@ struct Stats {
     Param<float> rate = 0.f;     ///< Ticks in the last second.
     Param<float> progress = 0.f; ///< How far the run is, 0 to 100.
     Series energy{ 200 };
+    TextLog events{ 100 }; ///< What happened: any thread may write to it.
 
     float time = 0.f; ///< Simulated seconds.
     int ticksThisSecond = 0;
@@ -114,7 +119,12 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                 .placement = Anchor::Bottom,
                 .columns = 2,
                 .width = 420.f,
-                .widgets = { Switch("Paused", params.paused), Button("Step") },
+                .widgets = {
+                    // The controls on top, the log of what happened below them.
+                    at({ .column = 0, .row = 0 }, Switch("Paused", params.paused)),
+                    at({ .column = 1, .row = 0 }, Button("Step")),
+                    at({ .column = 0, .row = 1, .columnSpan = 2, .rowSpan = 3 }, Log("Events", stats.events, {.lines = 4})),
+                },
             },
             // ... and these leave it to the layout theme: floating at the top left with
             // "overlay", in the free cells of the window's grid with "dashboard".
@@ -126,7 +136,7 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                     Slider("Size", params.size, {.min = 1.0, .max = 32.0, .step = 1.0, .format = "{:.0f}"}),
                     Switch("Gravity", params.gravity),
                     Switch("Trails", params.trails),
-                    Dropdown("Draw", {"Filled", "Outlined", "Points"}, params.drawMode),
+                    Dropdown("Draw", {drawModeNames.begin(), drawModeNames.end()}, params.drawMode),
                     TextInput("Run name", params.runName, {.placeholder = "untitled"}),
                     Button("Reset"),
                 },
@@ -204,6 +214,7 @@ int run(int argc, char* argv[]) {
     UI ui(window, std::move(setup));
 
     int passesLeft = 5; // only counted in a smoke test
+    stats.events.push("Started");
     sf::Clock tickClock;
     sf::Time untilTick;
     sf::Clock rateClock;
@@ -215,9 +226,21 @@ int run(int argc, char* argv[]) {
             }
             if (event.isButton("Reset")) {
                 params.reset(); // the sliders and switches follow by themselves
+                stats.events.push("Reset");
             }
             if (event.isButton("Step") && params.paused.get()) {
                 stats.tick(params);
+                stats.events.push("Step");
+            }
+            // What the user changed, in the log: the run name once it is entered.
+            if (const auto* changed = event.getIf<ValueChanged>(); changed != nullptr && changed->final) {
+                if (changed->name == "Paused") {
+                    stats.events.push(params.paused.get() ? "Paused" : "Running");
+                } else if (changed->name == "Draw") {
+                    stats.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
+                } else if (changed->name == "Run name") {
+                    stats.events.push("Run name: " + params.runName.get());
+                }
             }
         }
         // The made-up simulation: a tick every 50 ms while it runs. The displays follow by
