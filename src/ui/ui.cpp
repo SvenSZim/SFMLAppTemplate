@@ -1,5 +1,7 @@
 #include "atpl/ui/ui.hpp"
 
+#include "atpl/ui/widgets.hpp"
+
 #include "ui/binding/sync.hpp"
 #include "ui/frame_loop.hpp"
 #include "ui/input/input_system.hpp"
@@ -16,10 +18,12 @@
 #include "ui/render/text_cache.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <SFML/System/Clock.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -255,6 +259,19 @@ struct UI::Impl {
         const sf::View previous = target.getView();
         target.setView(camera);
         view.draw(target, place.rect.size());
+
+        // A view the user selected says so with its outline, above what was drawn into it.
+        if (view.widget.has_value() && store.widget(*view.widget).focused) {
+            const model::WidgetSlot& slot = store.widget(*view.widget);
+            const float thickness = std::max(std::round(2.f * sizes.text), 1.f);
+            sf::RectangleShape outline(place.rect.size() - sf::Vector2f(thickness, thickness) * 2.f);
+            outline.setPosition({ thickness, thickness });
+            outline.setFillColor(sf::Color::Transparent);
+            outline.setOutlineColor(theme.resolve(View::Selection, State::Normal, slot.colors, sizes.text).color);
+            outline.setOutlineThickness(thickness);
+            target.setView(camera); // the draw function may have changed it
+            target.draw(outline);
+        }
         target.setView(previous); // whatever the draw function did to it
     }
 

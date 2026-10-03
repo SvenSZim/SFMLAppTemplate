@@ -1,13 +1,13 @@
-// The smallest application that shows the UI: a window with a few panels of controls bound to
-// parameters, and a made-up simulation of particles that runs on a thread of its own, drawn in a
-// main view and a minimap.
+// A tour of what the template offers: every built-in widget, bound to parameters and to a
+// made-up simulation of particles that runs on a thread of its own, drawn in a main view you can
+// drag and zoom and in a minimap. For how a small application is written, see examples/starter.
 //
 // It runs through `App`, which opens the window, loads the font, and runs the loop: input, the
 // application's update, the UI's update, a frame if anything changed; and nothing at all while
 // nothing happens. Escape or the window's close button ends it; while a text field or a dropdown
 // list has the keys, Escape first ends the typing or closes the list.
 //
-//   minimal [--layout overlay|dashboard|cards|compact] [--cards] [--ticks] [--profiler] [--smoke-test]
+//   showcase [--layout overlay|dashboard|cards|compact] [--cards] [--ticks] [--profiler] [--smoke-test]
 //
 // --layout chooses the layout theme: where panels go that do not say so, and how large things
 // are. Everything grows and shrinks with the window, within the layout theme's limits.
@@ -19,6 +19,8 @@
 // automated checks.
 
 #include "atpl/app/app.hpp"
+#include "atpl/app/camera.hpp"
+#include "atpl/app/minimap.hpp"
 #include "atpl/core/series.hpp"
 #include "atpl/core/text_log.hpp"
 #include "atpl/core/version.hpp"
@@ -177,20 +179,22 @@ private:
     std::vector<Body> m_bodies;
 };
 
-/// Draws the world into a view of `size` pixels: the box fitted into it, the particles as the
-/// draw mode says, with their trails if there are any.
-void drawWorld(sf::RenderTarget& target, sf::Vector2f size, const Moment& world, DrawMode mode, const Theme& theme) {
-    const float scale = std::min(size.x, size.y) / (worldExtent * 2.2f);
-    const sf::Vector2f centre = size * 0.5f;
-    const auto toView = [&](sf::Vector2f point) { return centre + point * scale; };
+/// The part of the world a view shows to see all of it: the box and a little room around it.
+constexpr sf::Vector2f worldCorner(-worldExtent * 1.1f, -worldExtent * 1.1f);
+constexpr sf::Vector2f worldSize(worldExtent * 2.2f, worldExtent * 2.2f);
+
+/// Draws the world in world units, for a view whose camera is applied: the box, the particles as
+/// the draw mode says, and their trails if there are any. `pixel` is how many world units one
+/// pixel is, so that lines and points keep their thickness whatever the zoom.
+void drawWorld(sf::RenderTarget& target, const Moment& world, DrawMode mode, const Theme& theme, float pixel) {
     const sf::Color ink = theme.resolve(Graph::Curve).color;
     const sf::Color line = theme.resolve(Graph::Baseline).color;
 
-    sf::RectangleShape box(sf::Vector2f(worldExtent, worldExtent) * (2.f * scale));
-    box.setPosition(toView({ -worldExtent, -worldExtent }));
+    sf::RectangleShape box(sf::Vector2f(worldExtent, worldExtent) * 2.f);
+    box.setPosition({ -worldExtent, -worldExtent });
     box.setFillColor(sf::Color::Transparent);
     box.setOutlineColor(line);
-    box.setOutlineThickness(1.f);
+    box.setOutlineThickness(pixel);
     target.draw(box);
 
     for (const std::vector<sf::Vector2f>& trail : world.trails) {
@@ -198,19 +202,19 @@ void drawWorld(sf::RenderTarget& target, sf::Vector2f size, const Moment& world,
         for (std::size_t i = 0; i < trail.size(); ++i) {
             sf::Color faded = ink;
             faded.a = static_cast<std::uint8_t>(200 * (i + 1) / trail.size()); // oldest the faintest
-            strip[i] = sf::Vertex{ toView(trail[i]), faded };
+            strip[i] = sf::Vertex{ trail[i], faded };
         }
         target.draw(strip);
     }
 
-    const float radius = mode == DrawMode::Points ? 1.5f : std::max(3.f * scale, 2.f);
+    const float radius = mode == DrawMode::Points ? 1.5f * pixel : std::max(3.f, 2.f * pixel);
     sf::CircleShape dot(radius, 16);
     dot.setOrigin({ radius, radius });
     dot.setFillColor(mode == DrawMode::Outlined ? sf::Color::Transparent : ink);
     dot.setOutlineColor(ink);
-    dot.setOutlineThickness(mode == DrawMode::Outlined ? 1.5f : 0.f);
+    dot.setOutlineThickness(mode == DrawMode::Outlined ? 1.5f * pixel : 0.f);
     for (const sf::Vector2f particle : world.particles) {
-        dot.setPosition(toView(particle));
+        dot.setPosition(particle);
         target.draw(dot);
     }
 }
@@ -242,7 +246,10 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simu
                 .name = "Map", // listed before the others that take free cells: the first, at the top
                 .placement = mapPlacement,
                 .width = 200.f,
-                .widgets = { View("minimap", {.height = 150.f}) }, // the whole world, small
+                .widgets = {
+                    View("minimap", {.height = 150.f}), // the whole world, small
+                    Switch("Select area"),              // drag a rectangle instead of moving the view
+                },
             },
             {
                 .name = "Playback",
@@ -298,6 +305,7 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simu
         },
         .profiler = profiler,
     };
+    setup.defaultView = "world"; // keys go to the main view unless another one was clicked
     return setup;
 }
 
@@ -330,8 +338,14 @@ int run(int argc, char* argv[]) {
     }
     // The window, the UI with the font from the resources, and the loop. Closing the window
     // ends it.
-    App app({ .window = { .title = "atpl minimal " + std::string(versionString()) }, .ui = std::move(ui) });
+    App app({ .window = { .title = "atpl showcase " + std::string(versionString()) }, .ui = std::move(ui) });
     report.events.push("Started");
+
+    // The main view can be dragged and zoomed; the minimap always shows the whole world and
+    // steers the main view. Both are optional helpers: without them, a view is in pixels.
+    Camera camera("world");
+    Minimap minimap("minimap", camera, FloatRect(worldCorner, worldSize));
+    camera.show(worldCorner, worldSize);
 
     // What the user does: called once per event, on the main thread. The simulation hears of it
     // through its controls and parameters.
@@ -342,7 +356,20 @@ int run(int argc, char* argv[]) {
         if (event.isButton("Reset")) {
             params.reset(); // the sliders and switches follow by themselves
             simulation.controls.speed = 1.0;
+            camera.show(worldCorner, worldSize);
+            app.ui().requestRedraw();
             report.events.push("Reset");
+        }
+        if (const ValueChanged* mode = event.changeOf("Select area"); mode != nullptr && mode->final) {
+            minimap.setMode(std::get<bool>(mode->value) ? MinimapMode::Select : MinimapMode::Pan);
+        }
+        // The minimap moves the main view (a press, a drag, a selection, the arrow keys while it
+        // is selected); a drag or the wheel in the main view moves or zooms it. Both hear every
+        // event.
+        const bool mapMoved = minimap.handle(event);
+        const bool viewMoved = camera.handle(event);
+        if (mapMoved || viewMoved) {
+            app.ui().requestRedraw();
         }
         if (event.isButton("Step") && simulation.controls.paused.get()) {
             simulation.controls.step(); // one tick, on the simulation's thread
@@ -376,10 +403,14 @@ int run(int argc, char* argv[]) {
 
     // The views: the main view and the minimap draw the same moment, the state of this pass.
     app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
-        drawWorld(target, size, simulation.state(), params.drawMode.get(), app.ui().theme());
+        camera.apply(target, size);
+        drawWorld(target, simulation.state(), params.drawMode.get(), app.ui().theme(), 1.f / camera.zoom());
     });
     app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
-        drawWorld(target, size, simulation.state(), DrawMode::Points, app.ui().theme());
+        minimap.apply(target, size);
+        const float pixel = minimap.world().width() / size.x; // about one pixel, in world units
+        drawWorld(target, simulation.state(), DrawMode::Points, app.ui().theme(), pixel);
+        minimap.drawMarks(target, app.ui().theme().resolve(Graph::Curve).color); // what the main view sees
     });
 
     return app.run(simulation); // the simulation runs on its own thread until the app ends

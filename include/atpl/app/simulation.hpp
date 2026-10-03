@@ -32,7 +32,7 @@ class SimulationRunner; // drives a simulation on its own thread; internal
 ///
 ///     Switch("Pause", simulation.controls.paused)
 ///     Slider("Speed", simulation.controls.speed, {.min = 0.25, .max = 8.0})
-///     ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"})
+///     ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond, {.format = "{:.0f}"})
 class SimulationControls {
 public:
     // Steering. Written by the application or by widgets, from any thread.

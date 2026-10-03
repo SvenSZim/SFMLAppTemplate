@@ -62,6 +62,9 @@ public:
 
     [[nodiscard]] std::optional<ViewId> backgroundView() const { return m_backgroundView; }
 
+    /// The view keys go to while no view is selected (`UISetup::defaultView`), if any.
+    [[nodiscard]] std::optional<ViewId> defaultView() const { return m_defaultView; }
+
     /// The panels from the bottom to the top: those in the window's grid first, then the
     /// floating ones, each in the order of the setup. This is the order they are drawn in, and,
     /// the other way round, the order the pointer finds them in.
@@ -89,6 +92,7 @@ private:
     std::vector<WidgetSlot> m_widgets;
     std::vector<View> m_views;
     std::optional<ViewId> m_backgroundView;
+    std::optional<ViewId> m_defaultView;
     NameIndex m_names;
 };
 

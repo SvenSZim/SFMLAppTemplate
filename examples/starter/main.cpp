@@ -1,20 +1,23 @@
 // The smallest application written against the template's API: a simulation on its own thread,
-// two panels, a main view with pan and zoom, and a minimap.
+// two panels, a main view with pan and zoom, and a minimap. It is the reference for how an
+// application is meant to read; examples/showcase shows everything else the template offers.
 //
-// For now this file is only compiled, not linked: the API it uses is declared (Phase 1) but not
-// yet implemented (Phases 2 to 4). It is the reference for how an application is meant to read,
-// and it becomes a runnable example when the implementation is there. Until then, the runnable
-// example is examples/minimal.
+//   starter [--smoke-test]
+//
+// Drag the view to move it, use the wheel to zoom, click or drag on the minimap to look there;
+// once the minimap was clicked, the arrow keys move the view. Space pauses, Escape quits. --smoke-test draws a few
+// frames and exits, for automated checks.
 
 #include "atpl/app/app.hpp"
 #include "atpl/app/camera.hpp"
+#include "atpl/app/minimap.hpp"
 
 #include <SFML/Graphics/CircleShape.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
 
 #include <cmath>
 #include <exception>
 #include <iostream>
+#include <string_view>
 
 using namespace atpl;
 
@@ -83,17 +86,19 @@ void drawWorld(sf::RenderTarget& target, const World& world) {
 
 // ----- The application -----
 
-int run() {
+int run(bool smokeTest) {
     Params params;
     Orbit simulation(params);
 
+    // The main view's camera, and a minimap that steers it. Both are optional helpers.
     Camera camera("world");
-    Camera mapCamera("minimap");
+    Minimap minimap("minimap", camera, { { -240.f, -240.f }, { 480.f, 480.f } });
 
     App app({
         .window = {.title = "atpl starter"},
         .ui = {
-            .background = "world", // the simulation fills the window, behind the panels
+            .background = "world",  // the simulation fills the window, behind the panels
+            .defaultView = "world", // keys go to it, unless the minimap was clicked
             .panels = {
                 {
                     .name = "Orbit",
@@ -110,7 +115,7 @@ int run() {
                     .placement = Anchor::TopRight,
                     .widgets = {
                         Switch("Pause", simulation.controls.paused),
-                        ValueDisplay("Ticks/s", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
+                        ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond, {.format = "{:.0f}"}),
                     },
                 },
                 {
@@ -135,17 +140,10 @@ int run() {
     app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
         const World& world = simulation.state();
         const float extent = world.orbitRadius * 1.2f;
-        mapCamera.show({ -extent, -extent }, { 2.f * extent, 2.f * extent });
-        mapCamera.apply(target, size);
+        minimap.setWorld({ { -extent, -extent }, { 2.f * extent, 2.f * extent } }); // the orbit's size can change
+        minimap.apply(target, size);
         drawWorld(target, world);
-
-        const FloatRect visible = camera.visibleArea();
-        sf::RectangleShape frame(visible.size());
-        frame.setPosition(visible.position());
-        frame.setFillColor(sf::Color::Transparent);
-        frame.setOutlineColor(sf::Color::White);
-        frame.setOutlineThickness(world.orbitRadius * 0.02f);
-        target.draw(frame);
+        minimap.drawMarks(target, sf::Color::White);
     });
 
     // Events: the application decides what the simulation hears about.
@@ -160,24 +158,32 @@ int run() {
             app.quit();
         }
 
-        // A click on the minimap moves the main view there.
-        if (const auto* press = event.getIf<PointerPressed>(); press != nullptr && press->pointer.isIn("minimap")) {
-            camera.setCenter(mapCamera.toWorld(press->pointer.inView));
-            app.ui().requestRedraw();
-        }
-
-        // Drag and wheel in the main view move and zoom it.
-        if (camera.handle(event)) {
+        // The minimap moves the main view: a press or a drag on it, or the arrow keys once it
+        // was clicked. A drag or the wheel in the main view moves or zooms it. Both hear every event.
+        const bool mapMoved = minimap.handle(event);
+        const bool viewMoved = camera.handle(event);
+        if (mapMoved || viewMoved) {
             app.ui().requestRedraw();
         }
     });
 
+    // Only for automated checks: a few frames, then the end.
+    int passesLeft = 5;
+    if (smokeTest) {
+        app.onUpdate([&](float) {
+            app.ui().requestRedraw();
+            if (--passesLeft == 0) {
+                app.quit();
+            }
+        });
+    }
+
     return app.run(simulation);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
-        return run();
+        return run(argc > 1 && std::string_view(argv[1]) == "--smoke-test");
     } catch (const std::exception& error) {
         // A missing resource, a mistake in the UI setup, or a failure in the simulation.
         std::cerr << "error: " << error.what() << '\n';

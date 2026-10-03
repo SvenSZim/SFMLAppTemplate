@@ -473,6 +473,8 @@ struct ViewOptions {
 struct View {
     static constexpr Kind kind{ "view" };
     static constexpr Part Frame{ kind, "frame", Role::Line, Shown::No };
+    /// The outline of a view the user selected by clicking it: keys go to it (`UISetup::defaultView`).
+    static constexpr Part Selection{ kind, "selection", Role::Accent };
 
     /// Marks the descriptor as one of a view: the UI then keeps a view of this name for it.
     static constexpr bool isView = true;

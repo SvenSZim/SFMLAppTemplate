@@ -1,3 +1,5 @@
+#include "atpl/ui/error.hpp"
+
 #include "ui/input/input_system.hpp"
 #include "ui/layout/arrange.hpp"
 
@@ -618,4 +620,108 @@ TEST_CASE("the shorthands of an event answer only for their own kind", "[ui][inp
 
     const Event released(KeyReleased{ sf::Keyboard::Key::Escape, {}, {} });
     REQUIRE_FALSE(released.isKey(sf::Keyboard::Key::Escape)); // a press is asked for
+}
+
+// ----- Keys for views -----
+
+namespace {
+
+/// A background view, a view widget and a text field; keys go to `defaultView` while no view
+/// is selected.
+struct Views {
+    std::shared_ptr<Received> map = std::make_shared<Received>();
+    std::shared_ptr<Received> field = std::make_shared<Received>();
+    Store store;
+    std::vector<PanelId> stacking;
+    InputSystem input;
+    std::vector<Event> events;
+
+    explicit Views(std::string defaultView) :
+        store(setupWith(std::move(defaultView), map, field)) {
+        layout::prepare(store, { .columns = 2, .rows = 1 });
+        layout::arrange(store, { 800.f, 600.f }, { .columns = 2, .rows = 1 }, Theme(), sizes());
+        stacking = store.stackingOrder();
+    }
+
+    static UISetup setupWith(std::string defaultView, std::shared_ptr<Received> map, std::shared_ptr<Received> field) {
+        UISetup setup;
+        setup.background = "world";
+        setup.defaultView = std::move(defaultView);
+        setup.grid = { .columns = 2, .rows = 1 };
+        setup.panels = {
+            { .name = "Controls",
+              .placement = Anchor::TopLeft,
+              .widgets = { Recording{
+                  "Field", std::move(field), onPress([](InputContext& context) { context.requestFocus(); }) } } },
+            { .name = "Scene",
+              .placement = GridCell{ .column = 1 },
+              .widgets = { Region{ "minimap", std::move(map) } } },
+        };
+        return setup;
+    }
+
+    std::vector<Event> send(const sf::Event& event) {
+        events.clear();
+        input.handle(event, store, stacking, sizes(), events);
+        return events;
+    }
+    void click(float x, float y) {
+        send(sf::Event::MouseButtonPressed{ sf::Mouse::Button::Left, { static_cast<int>(x), static_cast<int>(y) } });
+        send(sf::Event::MouseButtonReleased{ sf::Mouse::Button::Left, { static_cast<int>(x), static_cast<int>(y) } });
+    }
+    std::vector<Event> key() {
+        return send(
+            sf::Event::KeyPressed{ .code = sf::Keyboard::Key::Up,
+                                   .scancode = sf::Keyboard::Scan::Up,
+                                   .alt = false,
+                                   .control = false,
+                                   .shift = false,
+                                   .system = false }
+        );
+    }
+    model::WidgetSlot& slot(std::string_view name) { return store.widget(store.names().widget(name)); }
+};
+
+} // namespace
+
+TEST_CASE("without a default view, keys carry no view until one is selected", "[ui][input][views]") {
+    Views v("");
+    const auto keys = v.key();
+    REQUIRE(keys.size() == 1);
+    REQUIRE_FALSE(keys[0].getIf<KeyPressed>()->view.has_value());
+
+    v.click(600.f, 300.f);              // the minimap
+    REQUIRE(v.slot("minimap").focused); // selected: it shows its outline
+    REQUIRE(v.key()[0].getIf<KeyPressed>()->isFor("minimap"));
+}
+
+TEST_CASE("keys go to the default view while no view is selected, and to a selected one", "[ui][input][views]") {
+    Views v("world");
+    REQUIRE(v.key()[0].getIf<KeyPressed>()->isFor("world"));
+
+    v.click(600.f, 300.f);                         // select the minimap
+    v.send(sf::Event::MouseMoved{ { 300, 300 } }); // the pointer leaves it: it keeps the keys
+    REQUIRE(v.key()[0].getIf<KeyPressed>()->isFor("minimap"));
+    const auto text = v.send(sf::Event::TextEntered{ U'a' });
+    REQUIRE(text[0].getIf<TextEntered>()->isFor("minimap"));
+
+    v.click(300.f, 300.f); // anywhere else: back to the default
+    REQUIRE_FALSE(v.slot("minimap").focused);
+    REQUIRE(v.key()[0].getIf<KeyPressed>()->isFor("world"));
+}
+
+TEST_CASE("the default view needs no selecting, and a widget that takes keys still gets them", "[ui][input][views]") {
+    Views minimapByDefault("minimap");
+    minimapByDefault.click(600.f, 300.f);
+    REQUIRE_FALSE(minimapByDefault.slot("minimap").focused); // no outline: it has the keys anyway
+    REQUIRE(minimapByDefault.key()[0].getIf<KeyPressed>()->isFor("minimap"));
+
+    Views v("world");
+    v.click(30.f, 55.f);      // the field takes the focus
+    REQUIRE(v.key().empty()); // the field's, not forwarded
+    REQUIRE_FALSE(v.field->received.empty());
+}
+
+TEST_CASE("a default view must be a view of the setup", "[ui][input][views]") {
+    REQUIRE_THROWS_AS(Views("nowhere"), SetupError);
 }

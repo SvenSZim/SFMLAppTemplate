@@ -121,21 +121,38 @@ struct Scrolled {
     PointerLocation pointer;
 };
 
+// Keys and text that no widget takes are forwarded for a view: the one the user selected by
+// clicking it, or, while none is selected, the setup's default view (`UISetup::defaultView`).
+// Without either, they carry no view.
+
 struct KeyPressed {
     sf::Keyboard::Key key;
     Modifiers modifiers;
-    PointerLocation pointer; ///< Where the pointer was at that moment.
+    PointerLocation pointer;                   ///< Where the pointer was at that moment.
+    std::optional<ViewId> view = std::nullopt; ///< The view the key is for, if any.
+    std::string_view viewName = {};            ///< That view's name, or empty.
+
+    /// Whether the key is for the view with this name.
+    [[nodiscard]] bool isFor(std::string_view name) const { return view.has_value() && viewName == name; }
 };
 
 struct KeyReleased {
     sf::Keyboard::Key key;
     Modifiers modifiers;
     PointerLocation pointer;
+    std::optional<ViewId> view = std::nullopt;
+    std::string_view viewName = {};
+
+    [[nodiscard]] bool isFor(std::string_view name) const { return view.has_value() && viewName == name; }
 };
 
 /// A character was typed. Use this for text, and key events for keys as buttons.
 struct TextEntered {
     char32_t character;
+    std::optional<ViewId> view = std::nullopt; ///< The view the text is for, if any.
+    std::string_view viewName = {};
+
+    [[nodiscard]] bool isFor(std::string_view name) const { return view.has_value() && viewName == name; }
 };
 
 /// The user asked to close the window. The UI does not close it; the application decides.

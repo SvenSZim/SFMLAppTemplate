@@ -34,14 +34,14 @@ public:
         return { .min = { least, least }, .preferred = { context.width(), std::max(context.width() / aspect, least) } };
     }
 
+    // The frame, if the theme shows one. The outline of a selected view is drawn by the UI above
+    // what the application draws into the view, so that it cannot be covered.
     void paint(Painter& painter, const Style& style) const override {
-        painter.box(FloatRect({ 0.f, 0.f }, painter.size()), [&] {
-            PartStyle frame = style.part(View::Frame); // hidden unless a theme shows it
-            frame.border = frame.color;
-            frame.borderThickness = std::max(frame.thickness, 1.f);
-            frame.color = sf::Color::Transparent;
-            return frame;
-        }());
+        PartStyle frame = style.part(View::Frame);
+        frame.border = frame.color;
+        frame.borderThickness = std::max(frame.thickness, 1.f);
+        frame.color = sf::Color::Transparent;
+        painter.box(FloatRect({ 0.f, 0.f }, painter.size()), frame);
     }
 
 private:

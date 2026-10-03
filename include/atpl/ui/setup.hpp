@@ -147,6 +147,12 @@ struct UISetup {
     /// Empty: no background view. Draw into it through `UI::view(name)`.
     std::string background;
 
+    /// The view that keys go to while no view is selected: usually the main view, often the
+    /// background. A click on another view selects it (its outline shows it) and keys go there,
+    /// until a press anywhere else. Empty: keys go to a view only while it is selected, and
+    /// are otherwise forwarded without one. Must name a view of this setup.
+    std::string defaultView;
+
     GridSetup grid;
     std::vector<PanelSetup> panels;
 

@@ -37,6 +37,9 @@ namespace atpl::input {
 ///   thumb there first.
 /// - Keys and text go to the widget with the keyboard focus, if there is one, and are forwarded
 ///   otherwise. A press anywhere but on the focused widget takes the focus away.
+/// - A press on a view widget selects it: it takes the focus, and keys and text are forwarded for
+///   it until a press anywhere else. While no view is selected they are forwarded for the default
+///   view, if there is one (WP 4.5).
 /// - While a widget's overlay is open, pointer input goes to that widget. A press anywhere but
 ///   on the widget or its overlay closes the overlay and is used up.
 /// - Window events are not handled here; the UI forwards them itself.
@@ -128,6 +131,13 @@ private:
 
     /// Moves the dragged scrollbar's thumb so that it is grabbed where the pointer is.
     void dragScrollbar();
+
+    /// The view that has the keys because the user selected it, if the focus is on one.
+    [[nodiscard]] std::optional<ViewId> viewWithKeys() const;
+
+    /// A key or text event as it is forwarded: for the selected view, or else the default view.
+    template <typename KeyEvent>
+    [[nodiscard]] KeyEvent forView(KeyEvent event) const;
 
     /// A context for a widget to act through.
     [[nodiscard]] InputContext contextFor(WidgetId widget);
