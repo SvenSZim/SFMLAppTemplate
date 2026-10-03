@@ -51,6 +51,10 @@ public:
     [[nodiscard]] std::optional<WidgetId> focused() const { return m_focused; }
     [[nodiscard]] std::optional<WidgetId> captured() const { return m_captured; }
 
+    /// Whether a panel was folded or unfolded by a click on its header since the last call.
+    /// Clears the mark.
+    [[nodiscard]] bool takeFolded();
+
     // ----- What a widget does through its context -----
 
     void markDirty(WidgetId widget);
@@ -68,6 +72,7 @@ private:
     struct Hit {
         std::optional<PanelId> panel;
         std::optional<WidgetId> widget; ///< Only widgets that are drawn and enabled.
+        bool header = false;            ///< The pointer is over the panel's header.
     };
 
     [[nodiscard]] Hit hitTest(sf::Vector2f position) const;
@@ -98,6 +103,8 @@ private:
     std::optional<WidgetId> m_captured;
     std::optional<WidgetId> m_focused;
     Owner m_owner = Owner::None;
+    std::optional<PanelId> m_pressedHeader; ///< A press that began on this panel's header.
+    bool m_folded = false;
     int m_buttonsDown = 0;
 };
 

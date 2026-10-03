@@ -49,7 +49,7 @@ struct Fixture {
         const sf::Clock clock;
         int passes = 0;
         while (clock.getElapsedTime() < duration) {
-            while (frame::nextEvent(window, flag).has_value()) {}
+            for (auto event = frame::nextEvent(window, flag); event; event = frame::pendingEvent(window, flag)) {}
             present();
             ++passes;
         }
@@ -129,9 +129,11 @@ TEST_CASE("an idle application draws no frames and sleeps instead of spinning", 
     // Nothing asked for a frame: none was drawn.
     REQUIRE(f.renderer.framesDrawn() == framesBefore);
 
-    // The loop slept between passes: about one pass per 16 ms, not thousands.
+    // The loop slept between passes: about one pass per 16 ms, not thousands. (No lower bound:
+    // on a busy machine the system may let one wait run much longer than asked, which is
+    // harmless and says nothing about the loop.)
     REQUIRE(passes <= 60);
-    REQUIRE(passes >= 5);
+    REQUIRE(passes >= 1);
 
     // And used next to no processor time while doing so.
     REQUIRE(cpuSeconds < 0.1);

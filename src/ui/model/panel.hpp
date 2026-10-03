@@ -46,9 +46,20 @@ struct Panel {
 
     // ----- Written by input, and by the application through its handle -----
 
-    bool collapsed = false;
-    bool visible = true; ///< What the application wants; whether it fits is `shown`.
+    bool collapsed = false; ///< Folded down to its header, or on the way there.
+    bool visible = true;    ///< What the application wants; whether it fits is `shown`.
     bool hovered = false;
+    bool headerHovered = false; ///< The pointer is over the header.
+
+    /// While the panel folds or unfolds: how far open it is, from 0 (folded) to 1 (open).
+    /// Empty when it is at rest. Advanced by the panel's animation.
+    std::optional<float> opening;
+
+    /// How far open the panel is: 0 when folded, 1 when open, in between while it moves.
+    [[nodiscard]] float openness() const { return opening.value_or(collapsed ? 0.f : 1.f); }
+
+    /// Whether only the header is left: nothing of the content shows.
+    [[nodiscard]] bool isClosed() const { return openness() <= 0.f; }
 
     // ----- Written by layout -----
 
@@ -69,6 +80,10 @@ struct Panel {
     /// The largest minimum width and height of a single widget of the panel. A panel whose
     /// content area is smaller than either is not drawn.
     sf::Vector2f widestAndHighest;
+
+    /// The height the panel has when it is open. While it folds or unfolds, its content is laid
+    /// out for this height and cut off at the panel's edge, so that nothing inside moves.
+    float openHeight = 0.f;
 
     /// Set when the panel had a place but is too small for its widgets: it is left out, and the
     /// others are placed without it.

@@ -32,9 +32,13 @@ void preparePanels(model::Store& store, GridSetup grid);
 /// that its widgets can be laid out first: their height decides the panel's.
 [[nodiscard]] float panelWidth(const model::Panel& panel, sf::Vector2f windowSize, GridSetup grid, const Sizes& sizes);
 
-/// The height a panel wants: its header if it is collapsed; otherwise what layout worked out
-/// (`Panel::wantedHeight`), or its header and its content.
+/// The height a panel wants: its header if it is folded; open, what layout worked out
+/// (`Panel::wantedHeight`), or its header and its content; in between while it folds.
 [[nodiscard]] float wantedHeight(const model::Panel& panel, const Sizes& sizes);
+
+/// How much of the panel's open height it has, from 0 to 1: its openness, eased so that
+/// folding starts and ends gently.
+[[nodiscard]] float openShare(const model::Panel& panel);
 
 /// Gives every panel its rectangle and says whether it is shown.
 ///

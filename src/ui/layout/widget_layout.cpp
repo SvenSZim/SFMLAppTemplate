@@ -337,7 +337,7 @@ WidgetLayout layoutWidgets(
 }
 
 float contentOverflow(const model::Panel& panel, const Sizes& sizes) {
-    if (!panel.shown || panel.collapsed) {
+    if (!panel.shown || panel.isClosed()) {
         return 0.f;
     }
     return std::max(panel.contentHeight - (panel.rect.height() - sizes.headerHeight), 0.f);

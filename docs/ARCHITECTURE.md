@@ -313,6 +313,15 @@ What the UI keeps for itself, and what it forwards:
 - A press and everything up to its release go to the same place. A drag that starts in a view keeps being forwarded when it crosses a panel; a drag that starts on a widget is never forwarded. Input is never cut off in the middle of an interaction.
 - Window events are always forwarded. A close request is only reported; the application decides.
 
+### 4.8a The panel frame (WP 3.6)
+
+`widgets/panel_frame` is the panel as an element of its own:
+- **Parts** (`Panel::...` in setup.hpp): `Background` (with the outline and shadow), `Header` (an area behind the title, not shown unless a theme wants it), `Title`, `Arrow` (the chevron of a collapsible panel), `Underline` (a line below the header, not shown unless a theme wants it), `Scrollbar`.
+- **Folding**: a click on the header of a collapsible panel folds it to its header, the next unfolds it (`input/` sees the click; `PanelHandle::setCollapsed` does the same). It takes `Layout::foldSeconds` (default 0.18 s), eased at both ends. While it moves, `Panel::opening` says how far open it is, layout gives it a height in between, the panels after it in a stack follow, and its content keeps the place it has in the open panel and is cut off at the panel's edge (the batch's content clip). A panel is never left out for being too small while it moves.
+- **The arrow** points down while the panel is open and to the right while it is folded, turning on the way. Under the pointer it takes the title's colour. A theme can hide it.
+- `UI::update()` moves folding panels on by the time since the last update and keeps frames coming while one moves; at rest nothing is drawn.
+- `UI::handleInput()` waits at most for the first event of a pass (`frame::nextEvent`) and takes the rest as they are (`frame::pendingEvent`), so a stream of pointer moves cannot hold up the frame.
+
 How `input/input_system` does it (WP 3.5):
 - **Hit-testing**: panels from the top down, in the stacking order (`Store::stackingOrder`: the window's grid panels at the bottom, floating panels above them, each in setup order; the renderer draws in the same order). In the topmost panel under the pointer, the widget under it that is drawn and enabled.
 - **Owner of a press**: when a button goes down, the press belongs to the UI (over a panel) or to the application (anywhere else) until the last button is up. While the UI owns it, pointer input goes to the pressed widget, or to the one that captured the pointer; while the application owns it, everything is forwarded, over panels too.

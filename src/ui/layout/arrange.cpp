@@ -130,7 +130,7 @@ void arrange(
         if (sizedByContent[i]) {
             panel.wantedHeight = sizes.headerHeight + panel.contentHeight;
         }
-        if (floating[i] && rules[i].height == SizeRule::Equal && !panel.collapsed) {
+        if (floating[i] && rules[i].height == SizeRule::Equal && !panel.isClosed()) {
             highest = std::max(highest, panel.wantedHeight);
         }
     }
@@ -153,14 +153,15 @@ void arrange(
         bool leftOut = false;
         for (std::size_t i = 0; i < count; ++i) {
             model::Panel& panel = panels[i];
-            if (!panel.shown || panel.collapsed) {
+            if (!panel.shown || panel.isClosed()) {
                 continue;
             }
-            const sf::Vector2f content(
-                panel.rect.width() - sizes.padding.x * 2.f, panel.rect.height() - sizes.headerHeight
-            );
+            // While it folds or unfolds, the content keeps the place it has in the open panel.
+            const float height = panel.opening.has_value() ? panel.openHeight : panel.rect.height();
+            const sf::Vector2f content(panel.rect.width() - sizes.padding.x * 2.f, height - sizes.headerHeight);
             layoutWidgets(store, idOf(i), panel.rect.width(), theme, sizes, measurer, content.y, rules[i], cellFor(i));
-            if (content.x < panel.widestAndHighest.x || content.y < panel.widestAndHighest.y) {
+            if (!panel.opening.has_value() &&
+                (content.x < panel.widestAndHighest.x || content.y < panel.widestAndHighest.y)) {
                 panel.tooSmall = true;
                 leftOut = true;
             }
@@ -173,7 +174,7 @@ void arrange(
     // What is drawn: the widgets of open panels that fit their room.
     for (std::size_t i = 0; i < count; ++i) {
         const model::Panel& panel = panels[i];
-        const bool open = panel.shown && !panel.collapsed;
+        const bool open = panel.shown && !panel.isClosed();
         for (model::WidgetSlot& slot : store.widgetsOf(idOf(i))) {
             slot.visible = open && slot.fits;
         }

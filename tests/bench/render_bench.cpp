@@ -397,7 +397,7 @@ int main(int argc, char** argv) {
     const sf::Clock idleClock;
     int idlePasses = 0;
     while (idleClock.getElapsedTime() < sf::milliseconds(options.idleMilliseconds)) {
-        while (frame::nextEvent(window, flag).has_value()) {}
+        for (auto event = frame::nextEvent(window, flag); event; event = frame::pendingEvent(window, flag)) {}
         scene.build(profiler);
         static_cast<void>(renderer.present(window, background, flag, scene.panels()));
         ++idlePasses;
