@@ -272,6 +272,9 @@ public:
     /// The size `text` would have in this style.
     [[nodiscard]] sf::Vector2f textSize(std::string_view text, const PartStyle& style) const;
 
+    /// The height `text` would have in this style, wrapped to `width`.
+    [[nodiscard]] float wrappedTextHeight(std::string_view text, const PartStyle& style, float width) const;
+
 private:
     render::DrawList* m_list;
     sf::Vector2f m_origin;

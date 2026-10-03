@@ -129,6 +129,21 @@ UISetup describeUI(std::shared_ptr<const sf::Font> font, Layout layout, bool pro
                 },
             },
             {
+                .name = "About",
+                .placement = Anchor::Top,
+                .widgets = {
+                    Paragraph("Title", {.heading = "A made-up simulation"}), // a section heading
+                    Paragraph("Help", {.text = "Drag the sliders and flip the switches; the statistics follow.\nPause it, "
+                                               "and Step moves it on by one tick."}),
+                    Paragraph(
+                        "Panels",
+                        {.heading = "Panels",
+                         .text = "Click a header to fold a panel. A panel too low for its widgets scrolls.",
+                         .footer = "Escape quits."}
+                    ),
+                },
+            },
+            {
                 .name = "Statistics",
                 .widgets = {
                     TextDisplay("Ticks per second", stats.rate, {.format = "{:.0f}"}),

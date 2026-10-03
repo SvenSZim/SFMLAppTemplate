@@ -47,4 +47,8 @@ sf::Vector2f Painter::textSize(std::string_view text, const PartStyle& style) co
     return m_measurer != nullptr ? m_measurer->measure(text, style.font, style.textSize) : sf::Vector2f{};
 }
 
+float Painter::wrappedTextHeight(std::string_view text, const PartStyle& style, float width) const {
+    return m_measurer != nullptr ? m_measurer->wrappedHeight(text, style.font, style.textSize, width) : 0.f;
+}
+
 } // namespace atpl
