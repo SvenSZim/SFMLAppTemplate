@@ -23,6 +23,7 @@
 #include "atpl/app/minimap.hpp"
 #include "atpl/core/series.hpp"
 #include "atpl/core/text_log.hpp"
+#include "atpl/core/timing.hpp"
 #include "atpl/core/version.hpp"
 #include "atpl/ui/ui.hpp"
 
@@ -95,6 +96,7 @@ struct Params {
 /// What the main thread needs from the simulation for one frame.
 struct Moment {
     double time = 0.0;                             ///< Simulated seconds.
+    double tickMilliseconds = 0.0;                 ///< How long a tick took, on average over the last second.
     std::vector<sf::Vector2f> particles;           ///< Where they are, in world units.
     std::vector<std::vector<sf::Vector2f>> trails; ///< Where each was lately, oldest first; empty without trails.
 };
@@ -126,6 +128,8 @@ private:
     static constexpr std::size_t trailLength = 16;
 
     void tick(float dt) override {
+        const ScopedTimer timer(m_tickTimes); // the whole tick, slow or not
+
         // A slow simulation, if asked for: this thread is busy, the UI's is not (Phase 4).
         const auto busyUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_params.tickCost.get());
         while (std::chrono::steady_clock::now() < busyUntil) {}
@@ -171,6 +175,7 @@ private:
 
     void writeState(Moment& moment) const override {
         moment.time = m_time;
+        moment.tickMilliseconds = m_tickTimes.average();
         moment.particles.resize(m_bodies.size());
         moment.trails.resize(m_params.trails.get() ? m_bodies.size() : 0);
         for (std::size_t i = 0; i < m_bodies.size(); ++i) {
@@ -184,6 +189,7 @@ private:
     const Params& m_params;
     float m_time = 0.f;
     std::vector<Body> m_bodies;
+    RunningAverage m_tickTimes{ 20 }; ///< The last second of ticks, at 20 ticks per second.
 };
 
 /// The part of the world a view shows to see all of it: the box and a little room around it.
@@ -400,9 +406,10 @@ int run(int argc, char* argv[]) {
     // Once per pass, on the main thread: the status from the state of this pass.
     int passesLeft = 5; // only counted in a smoke test
     app.onUpdate([&](float) {
-        const double time = simulation.state().time;
-        report.status = simulation.controls.paused.get() ? std::format("Paused at {:.1f} s", time)
-                                                         : std::format("Running, {:.1f} s simulated", time);
+        const Moment& moment = simulation.state();
+        report.status = simulation.controls.paused.get()
+                            ? std::format("Paused at {:.1f} s, {:.2f} ms a tick", moment.time, moment.tickMilliseconds)
+                            : std::format("Running, {:.1f} s, {:.2f} ms a tick", moment.time, moment.tickMilliseconds);
         if (smokeTest) {
             app.ui().requestRedraw();
             if (--passesLeft == 0) {
