@@ -7,6 +7,7 @@
 #include "ui/layout/arrange.hpp"
 #include "ui/render/draw_list.hpp"
 #include "ui/render/text_measurer.hpp"
+#include "ui/widgets/animation.hpp"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -92,12 +93,20 @@ struct Harness {
 
     [[nodiscard]] Widget& widget(std::string_view name) { return *store.widget(store.names().widget(name)).widget; }
 
-    /// Paints a widget as the UI would, and returns what it drew.
+    /// Lets every transition finish, as it would after a moment in the UI. The first update puts
+    /// a widget at rest where its value is; the second ends whatever was still moving.
+    void settle() {
+        widgets::animateWidgets(store, 1.f, theme, sizes);
+        widgets::animateWidgets(store, 1.f, theme, sizes);
+    }
+
+    /// Paints a widget as the UI would once it has settled, and returns what it drew.
     [[nodiscard]] render::DrawList paint(std::string_view name) {
+        settle();
         const model::WidgetSlot& slot = store.widget(store.names().widget(name));
         render::DrawList list;
         Painter painter(list, { 0.f, 0.f }, slot.rect.size(), &measurer);
-        slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), sizes));
+        slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), sizes, slot.blend));
         return list;
     }
 };

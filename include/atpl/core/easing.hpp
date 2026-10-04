@@ -11,6 +11,9 @@ namespace atpl {
 [[nodiscard]] float easeOutBack(float t);
 [[nodiscard]] float easeInBack(float t);
 [[nodiscard]] float easeOutElastic(float t);
+/// Slow at both ends, fast in the middle (3t^2 - 2t^3). The same curve forwards and backwards,
+/// so a movement that turns back halfway does not jump.
+[[nodiscard]] float smoothStep(float t);
 
 /// How an animated value moves from its start to its target.
 enum class TransitionFunction {

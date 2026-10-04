@@ -38,6 +38,7 @@ add_library(atpl_ui STATIC
   widgets/dropdown.cpp
   widgets/graph.cpp
   widgets/log.cpp
+  widgets/animation.cpp
   widgets/panel_frame.cpp
   widgets/paragraph.cpp
   widgets/progress_bar.cpp

@@ -196,12 +196,39 @@ private:
 /// What a widget can do while time passes.
 class UpdateContext {
 public:
+    /// Made by the UI for each widget it updates. `dirty` is set when the widget says it looks
+    /// different.
+    UpdateContext(State state, const Sizes& sizes, const Motion& motion, bool& dirty);
+
     [[nodiscard]] State state() const;
     [[nodiscard]] const Sizes& sizes() const;
+
+    /// How long the theme's transitions take: a widget's own animations follow them.
+    [[nodiscard]] const Motion& motion() const;
 
     /// Says that the widget looks different now. Call it for every step of an animation; while
     /// nothing calls it, nothing is redrawn.
     void markDirty();
+
+private:
+    State m_state;
+    const Sizes* m_sizes;
+    const Motion* m_motion;
+    bool* m_dirty;
+};
+
+/// How far a widget is into each state that eases in and out: 0 not at all, 1 fully. The UI
+/// moves these towards the widget's state over the theme's `Motion` times, and the style mixes
+/// the looks of the states by them.
+struct StateBlend {
+    float hovered = 0.f;
+    float pressed = 0.f;
+    float focused = 0.f;
+
+    /// Fully in the states `state` has, not at all in the others: no transition under way.
+    [[nodiscard]] static StateBlend of(State state);
+
+    [[nodiscard]] friend bool operator==(const StateBlend&, const StateBlend&) = default;
 };
 
 /// How text is placed inside the rectangle it is given. Vertically it is always centred.
@@ -210,15 +237,23 @@ enum class Align { Left, Center, Right };
 /// The resolved look of a widget's parts, handed to `Widget::paint`.
 class Style {
 public:
-    /// Made by the UI for each widget it paints. `sizes` must outlive the style.
+    /// Made by the UI for each widget it paints. `sizes` must outlive the style. `blend` says how
+    /// far hover, press and focus have faded in; without it, they are fully in or out as `state`
+    /// says.
     Style(const Theme& theme, PanelColors colors, State state, const Sizes& sizes);
+    Style(const Theme& theme, PanelColors colors, State state, const Sizes& sizes, StateBlend blend);
 
-    /// The style of one of the widget's parts in the widget's current state.
+    /// The style of one of the widget's parts in the widget's current state. While hover, press
+    /// or focus is fading in or out, it lies between the looks of the states.
     [[nodiscard]] PartStyle part(const Part& part) const;
 
     /// The same with further state added for this part only, for example `State::Active` for the
     /// track of a switch that is on.
     [[nodiscard]] PartStyle part(const Part& part, State additional) const;
+
+    /// Between the part without and with `additional`: `amount` 0 is without, 1 with. For a
+    /// widget's own transitions, such as a switch's track turning to its "on" look.
+    [[nodiscard]] PartStyle part(const Part& part, State additional, float amount) const;
 
     /// The widget's current state.
     [[nodiscard]] State state() const;
@@ -231,6 +266,7 @@ private:
     PanelColors m_colors;
     State m_state;
     const Sizes* m_sizes;
+    StateBlend m_blend;
 };
 
 /// What a widget draws with. Coordinates are the widget's own: (0, 0) is its top-left corner.

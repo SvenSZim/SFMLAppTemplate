@@ -1,3 +1,4 @@
+#include "atpl/core/easing.hpp"
 #include "atpl/ui/error.hpp"
 #include "atpl/ui/widget.hpp"
 #include "atpl/ui/widgets.hpp"
@@ -98,6 +99,18 @@ public:
     }
 
     void focusLost(InputContext& context) override { context.closeOverlay(); }
+
+    // The arrow turns over while the list opens or closes, at an even pace eased in painting.
+    void update(float dt, UpdateContext& context) override {
+        const float target = has(context.state(), State::Open) ? 1.f : 0.f;
+        if (m_opening == target) {
+            return;
+        }
+        const float toggle = context.motion().toggle;
+        const float step = toggle > 0.f ? dt / toggle : 1.f;
+        m_opening = m_opening < target ? std::min(m_opening + step, target) : std::max(m_opening - step, target);
+        context.markDirty();
+    }
 
     void paint(Painter& painter, const Style& style) const override {
         const sf::Vector2f size = painter.size();
@@ -214,10 +227,11 @@ private:
 
         const PartStyle arrow = style.part(Dropdown::Arrow);
         if (arrow.shown) {
-            // A chevron pointing down, or up while the list is open.
+            // A chevron pointing down, or up while the list is open; on the way it flattens and
+            // turns over.
             const sf::Vector2f centre(field.right() - arrowRoom * 0.5f, field.top() + field.height() * 0.5f);
             const float arm = std::max(field.height() * 0.14f, 2.f);
-            const float direction = has(style.state(), State::Open) ? -1.f : 1.f;
+            const float direction = 1.f - 2.f * smoothStep(m_opening);
             const sf::Vector2f tip(centre.x, centre.y + arm * 0.5f * direction);
             painter.line({ tip.x - arm, tip.y - arm * direction }, tip, arrow);
             painter.line(tip, { tip.x + arm, tip.y - arm * direction }, arrow);
@@ -327,6 +341,7 @@ private:
     std::size_t m_selected;
     std::size_t m_highlight = 0;
     mutable std::size_t m_first = 0; ///< The first entry the open list shows.
+    float m_opening = 0.f;           ///< How far the arrow has turned: 0 closed, 1 open.
 };
 
 } // namespace
