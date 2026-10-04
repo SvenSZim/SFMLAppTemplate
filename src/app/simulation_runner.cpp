@@ -151,7 +151,9 @@ void SimulationRunner::run() {
                         tickOnce(dt);
                         owed -= dt;
                         if (Seconds(Clock::now() - catchingUpSince).count() >= mostBehind) {
-                            owed = std::min(owed, dt); // the rest could not be done
+                            // The rest could not be done; nor is the time spent on it owed again.
+                            owed = std::min(owed, dt);
+                            last = Clock::now();
                             break;
                         }
                     }

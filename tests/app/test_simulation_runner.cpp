@@ -142,11 +142,17 @@ TEST_CASE("a simulation too slow for its rate drops what it could not do", "[app
     runner.start();
     std::this_thread::sleep_for(600ms);
     simulation.slow = false;
+    const auto since = std::chrono::steady_clock::now();
     const int before = simulation.ticks;
     std::this_thread::sleep_for(100ms);
+    const int after = simulation.ticks;
+    const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - since);
     runner.stop();
-    // Catching up on everything would take some 600 ticks; at most 0.25 s of it is kept.
-    REQUIRE(simulation.ticks - before < 450);
+    // Catching up on everything would take some 600 ticks more. What it may still do: what is
+    // due while the test waits (a tick a millisecond; sleeps take longer on some systems), and
+    // at most 0.25 s it was behind; nothing more.
+    INFO("waited " << waited.count() << " ms");
+    REQUIRE(after - before < static_cast<int>(waited.count()) + 251 + 50);
 }
 
 TEST_CASE("catching up never keeps a slow simulation from hearing that it is paused", "[app][simulation]") {
