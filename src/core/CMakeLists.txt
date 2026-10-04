@@ -1,9 +1,11 @@
 # atpl_core: threading, parameters, timing, utilities.
 # Standard library only. This target must never link SFML.
+# It starts threads only in the thread pool, which the application creates.
 add_library(atpl_core STATIC
   easing.cpp
   series.cpp
   text_log.cpp
+  thread_pool.cpp
   version.cpp
 )
 add_library(atpl::core ALIAS atpl_core)
@@ -17,4 +19,6 @@ target_compile_definitions(atpl_core PRIVATE
   ATPL_VERSION_MINOR=${PROJECT_VERSION_MINOR}
   ATPL_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
+find_package(Threads REQUIRED)
+target_link_libraries(atpl_core PUBLIC Threads::Threads)
 atpl_target_defaults(atpl_core)

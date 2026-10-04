@@ -61,6 +61,7 @@ atpl_add_tests(core
   core/test_series.cpp
   core/test_snapshot.cpp
   core/test_text_log.cpp
+  core/test_thread_pool.cpp
   core/test_version.cpp
 )
 atpl_add_tests(ui

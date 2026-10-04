@@ -28,7 +28,7 @@ your application
 Rules:
 - `core` never includes SFML. It can be used and tested on any thread without a window.
 - `ui` never includes `app`. It knows nothing about simulations or threads other than `Param<T>`.
-- `app` is the only layer that starts threads.
+- `app` is the only layer that starts threads, apart from the `ThreadPool` in `core`, which the application creates and owns. `ui` starts none.
 - The window is created and owned by `app`; the UI is handed a reference (D26). Inside `ui`, only two source files touch `sf::RenderWindow`: `ui/ui.cpp` and `ui/render/renderer.cpp`. Everything else in `ui` is plain data in, plain data out, and testable without a display.
 
 ## 2. Directory layout
@@ -80,7 +80,7 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | `text_log.hpp` | `TextLog`: thread-safe log of text lines with fixed capacity, each with the time it was pushed, and a count of all lines ever pushed. The data source for log widgets; a short lock per push or read (WP 3.18, D58) | new |
 | `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11). One lock around a deque; `waitDrain` sleeps on a condition variable that every push signals (WP 4.1) | new |
 | `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3). A triple buffer: the writer and the reader each own one buffer, and hand the third over with one atomic exchange (acquire-release) that also says whether it holds an unread state (WP 4.1) | new |
-| `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |
+| `thread_pool.hpp` | `ThreadPool`: `parallelFor(count, fn)` cuts a loop into contiguous parts, one per worker and one for the calling thread, which works too; by default two workers fewer than hardware threads, so one core stays free (P8). The parts depend only on the count, the workers and a minimum part size, so `fn(start, end, part)` can keep per-part data and get the same result every run. Idle workers sleep; a loop inside a part runs on its thread; calls from several threads take turns; the first exception is thrown again on the caller (WP 5.2, D68) | new |
 | `random.hpp` | Random numbers: one seedable generator per thread, helpers for ranges and unit vectors; deterministic for a fixed seed and thread count (D67) | new |
 | `timing.hpp` | Stopwatch, cooldown (fires every N seconds), scoped timer that writes into a `Series`, running average (D67) | new |
 | `easing.hpp` | Easing functions | from `ui/utils/functions` |
