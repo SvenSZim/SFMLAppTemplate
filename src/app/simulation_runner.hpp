@@ -16,8 +16,9 @@ namespace atpl::app {
 /// publish a state if the main thread has taken the last one, and ask for a frame.
 /// - Ticks have a fixed size, `1 / tickRate` seconds of simulated time. They are due as real time
 ///   passes, `speed` times as fast; `unlimited` runs them back to back.
-/// - A simulation that falls more than 0.25 s of real time behind drops what it could not do:
-///   it slows down instead of freezing the application.
+/// - A simulation that falls more than 0.25 s of real time behind drops what it could not do,
+///   and a pass never spends more than 0.25 s catching up: it slows down instead of freezing,
+///   and pausing, steps and commands are heard after one more tick at most.
 /// - Paused, it only handles commands and runs the ticks asked for with `step`; `step` while
 ///   running is ignored.
 /// - A state is written at most once per frame the main thread takes, and once more when the

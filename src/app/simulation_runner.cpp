@@ -15,7 +15,8 @@ using Seconds = std::chrono::duration<double>;
 /// effect.
 constexpr std::chrono::microseconds longestWait = std::chrono::milliseconds(20);
 
-/// How far a simulation may fall behind real time before it drops what it could not do.
+/// How far a simulation may fall behind real time before it drops what it could not do, and how
+/// long a pass may spend catching up.
 constexpr double mostBehind = 0.25;
 
 } // namespace
@@ -140,11 +141,21 @@ void SimulationRunner::run() {
                     const Clock::time_point now = Clock::now();
                     owed += Seconds(now - last).count() * speed;
                     last = now;
-                    // Too far behind: what could not be done is dropped.
+                    // Too far behind: what could not be done is dropped. Catching up never takes
+                    // longer than that either: with slow ticks, a pass that has ticked for 0.25 s
+                    // drops the rest, so the simulation slows down instead of freezing, and
+                    // commands and pausing are heard after one more tick at most.
                     owed = std::min(owed, mostBehind * speed + dt);
+                    const Clock::time_point catchingUpSince = Clock::now();
                     while (owed >= dt && !stopping()) {
                         tickOnce(dt);
                         owed -= dt;
+                        if (Seconds(Clock::now() - catchingUpSince).count() >= mostBehind) {
+                            // The rest could not be done; nor is the time spent on it owed again.
+                            owed = std::min(owed, dt);
+                            last = Clock::now();
+                            break;
+                        }
                     }
                 }
                 publish(false);
