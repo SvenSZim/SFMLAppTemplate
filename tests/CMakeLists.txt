@@ -102,6 +102,7 @@ atpl_add_tests(ui
   ui/test_window_events.cpp
 )
 atpl_add_tests(app
+  app/test_quad_batch.cpp
   app/test_resources.cpp
   app/test_simulation_runner.cpp
 )
@@ -119,6 +120,7 @@ atpl_copy_resources(atpl_app_tests)
 atpl_add_display_tests(app
   app/display/test_app.cpp
   app/display/test_camera.cpp
+  app/display/test_quad_batch.cpp
 )
 atpl_copy_resources(atpl_app_display_tests)
 

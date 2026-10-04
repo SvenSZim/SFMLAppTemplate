@@ -4,7 +4,7 @@ A template for SFML applications that show a simulation or an algorithm at work:
 
 It provides a light, polished UI that is described in a few lines, linked to the application's data without glue code, and never slows the simulation down, plus the utilities such applications usually need.
 
-> **Status: rework in progress.** The structure is in place, the public API is agreed, and the render pipeline, the widgets and input, and the simulation layer are built (Phases 0 to 4): `examples/starter` and `examples/showcase` run with their simulation on its own thread, and the UI keeps its pace while the simulation is slow. Core utilities and polish follow (Phases 5 and 6). See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
+> **Status: rework in progress.** The structure is in place, the public API is agreed, and the render pipeline, the widgets and input, the simulation layer and the core utilities are built (Phases 0 to 5): `examples/starter` and `examples/showcase` run with their simulation on its own thread, the UI keeps its pace while the simulation is slow, and the showcase spreads heat over a grid on all cores and draws it in one call. Polish and packaging follow (Phases 6 and 7). See the [project board](https://github.com/users/SvenSZim/projects/3) for progress.
 
 ## Goals
 
