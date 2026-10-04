@@ -85,7 +85,7 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | `timing.hpp` | `Stopwatch` (steady clock, seconds or milliseconds, `restart`); `Cooldown`: fires every N seconds of the time it is given (`advance(dt)` returns how many periods ended; left-over time carries over; `progress()` for a bar), so it follows simulated time in a tick and the wall clock in a frame; `RunningAverage`: the average of the newest N values, its sum computed afresh once per window; `ScopedTimer`: the milliseconds of a scope into a `Series` or a `RunningAverage`. The fixed timestep stays in the simulation runner (WP 5.4, D70) | new |
 | `easing.hpp` | Easing functions | from `ui/utils/functions` |
 | `interpolated.hpp` | Animated value with easing | from `ui/utils/interpolated` |
-| `grid.hpp` | 2D grid: bounds-checked access, neighbour iteration, row ranges for `parallelFor` (D67) | new |
+| `grid.hpp` | `Grid<T>`: cells row after row in one block, `int` coordinates or any point with `x` and `y`; `grid(x, y)` unchecked (asserted in debug builds), `at` checked, `contains`, `wrapped` for joined edges; `cells()`, `row(y)` and `rows(first, end)` as spans, the last for a `parallelFor` over the height; `forEachNeighbour` with four or eight neighbours, skipping or wrapping at the border; `fill`, `resize`, deep copies and a `swap` that costs nothing, for reading one grid and writing another. Every `T` is stored as itself, `bool` too (WP 5.5, D71) | new |
 
 The utility list for the first version is fixed by D67. Utilities that need SFML (textures by name, the quad batch) are in `app` (section 5).
 

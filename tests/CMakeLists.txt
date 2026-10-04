@@ -55,6 +55,7 @@ endfunction()
 
 atpl_add_tests(core
   core/test_easing.cpp
+  core/test_grid.cpp
   core/test_interpolated.cpp
   core/test_param.cpp
   core/test_queue.cpp
