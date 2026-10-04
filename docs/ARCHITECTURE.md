@@ -38,7 +38,8 @@ SFMLAppTemplate/
 ├─ CMakeLists.txt
 ├─ cmake/                      warnings, resource copy
 ├─ docs/                       PROJECT_PLAN.md, ARCHITECTURE.md
-├─ resources/fonts/
+├─ tools/                      format.sh, make_particle_texture.py
+├─ resources/                fonts/, textures/ (copied next to the executables)
 ├─ include/atpl/                PUBLIC headers: everything an application may include
 │  ├─ core/
 │  ├─ ui/
@@ -518,8 +519,8 @@ The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme
 | `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
 | `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. A drag with `dragButton` that starts in its view pans, wherever the pointer then goes; the wheel in its view zooms towards the pointer, between `minZoom` and `maxZoom`. `apply` keeps where the UI put the view and what of it can be seen, and only sets what the view shows; `show` works before the view's size is known and fits once it is (WP 4.5, D64). |
 | `minimap.hpp` | `Minimap`: optional helper for a view that always shows the whole world, marks what a main `Camera` sees, and steers it: in `Pan` mode a press centres the main view under the pointer and a drag keeps it there; in `Select` mode a dragged rectangle becomes what the main view shows (a click centres it); while the minimap's view is selected, the arrow keys move the main view by a share of what it shows. The main view's centre stays inside the world. The mode is set in its options and can change while it runs (WP 4.5, D65). |
-| `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name, loaded once and shared, are added in WP 5.6 (D67). |
-| `quad_batch.hpp` | Quad batch: many sprites or cells drawn in one call, for the application's views (WP 5.6, D67). |
+| `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable; `ResourceError` when something is missing or unusable. `font(name)` and `texture(name, options)` load a file on first use and hand out the same object afterwards, valid as long as the `Resources` (copies share them); the name is the path relative to the resource directory, and a texture keeps the options (smooth, repeated) of its first call. `loadFont` and `loadTexture` load a fresh copy. Main thread only (WP 5.6, D73). |
+| `quad_batch.hpp` | `QuadBatch`: many rectangles, plain or textured, in one vertex array and drawn in one call, for the application's views. Quads are added (a rectangle, a texture rectangle, or one turned around its centre), changed in place (`set`, `setColor`, corner colours for gradients), or laid out once and recoloured every frame, as for grid cells. One texture per batch; two triangles per quad. After `resize`, different threads may set different quads (WP 5.6, D73). |
 
 ### 5.1 The simulation
 

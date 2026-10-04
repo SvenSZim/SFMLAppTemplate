@@ -56,4 +56,35 @@ sf::Font Resources::loadFont(const std::filesystem::path& relative) const {
     return font;
 }
 
+sf::Texture Resources::loadTexture(const std::filesystem::path& relative, TextureOptions options) const {
+    const std::filesystem::path full = path(relative);
+
+    sf::Texture texture;
+    if (!texture.loadFromFile(full)) {
+        throw ResourceError("Not a usable image: " + full.string());
+    }
+    texture.setSmooth(options.smooth);
+    texture.setRepeated(options.repeated);
+    return texture;
+}
+
+// The name is used as given ("textures/a.png"), made into the platform's form, so that the same
+// name with other separators finds the same entry.
+
+const sf::Font& Resources::font(const std::filesystem::path& relative) const {
+    std::unique_ptr<sf::Font>& entry = m_cache->fonts[std::filesystem::path(relative).make_preferred()];
+    if (!entry) {
+        entry = std::make_unique<sf::Font>(loadFont(relative)); // a failure leaves it empty
+    }
+    return *entry;
+}
+
+const sf::Texture& Resources::texture(const std::filesystem::path& relative, TextureOptions options) const {
+    std::unique_ptr<sf::Texture>& entry = m_cache->textures[std::filesystem::path(relative).make_preferred()];
+    if (!entry) {
+        entry = std::make_unique<sf::Texture>(loadTexture(relative, options));
+    }
+    return *entry;
+}
+
 } // namespace atpl

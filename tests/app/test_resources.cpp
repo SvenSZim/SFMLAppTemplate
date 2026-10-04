@@ -130,3 +130,24 @@ TEST_CASE("the bundled font is found next to the executable and loads", "[app][r
 
     REQUIRE(font.getInfo().family == "Inconsolata");
 }
+
+TEST_CASE("a font asked for by name is loaded once and shared", "[app][resources]") {
+    const Resources resources = Resources::nextToExecutable();
+
+    const sf::Font& font = resources.font("fonts/default.ttf");
+    REQUIRE(font.getInfo().family == "Inconsolata");
+    REQUIRE(&resources.font("fonts/default.ttf") == &font);
+
+    const Resources copy = resources; // copies share what was loaded
+    REQUIRE(&copy.font("fonts/default.ttf") == &font);
+}
+
+TEST_CASE("a font that fails to load by name throws each time it is asked for", "[app][resources]") {
+    const TemporaryDirectory directory("notfont_cached");
+    directory.write("fonts/broken.ttf", "this is not a font");
+    const Resources resources(directory.path());
+
+    REQUIRE_THROWS_AS(resources.font("fonts/broken.ttf"), ResourceError);
+    REQUIRE_THROWS_AS(resources.font("fonts/broken.ttf"), ResourceError); // not cached as broken
+    REQUIRE_THROWS_AS(resources.font("fonts/missing.ttf"), ResourceError);
+}

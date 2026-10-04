@@ -62,7 +62,8 @@ concept GridPoint = requires(const V& v) {
 ///
 /// Every `T` is stored as itself, `bool` too (unlike `std::vector<bool>`, which packs bits), so
 /// every cell has an address and different cells may be written from different threads.
-/// `T` must be default-constructible and copyable.
+/// `T` must be default-constructible and copyable. Copying into a grid of the same size reuses
+/// its memory, so a grid copied into every published state allocates nothing after the first.
 ///
 /// Thread safety: like an array. Threads may read at once, and write different cells at once.
 template <typename T>
@@ -243,10 +244,15 @@ Grid<T>::Grid(const Grid& other) :
 
 template <typename T>
 Grid<T>& Grid<T>::operator=(const Grid& other) {
-    if (this != &other) {
-        Grid copy(other);
-        swap(*this, copy);
+    if (this == &other) {
+        return *this;
     }
+    if (m_width == other.m_width && m_height == other.m_height) {
+        std::copy(other.begin(), other.end(), begin()); // the same size: no new memory
+        return *this;
+    }
+    Grid copy(other);
+    swap(*this, copy);
     return *this;
 }
 

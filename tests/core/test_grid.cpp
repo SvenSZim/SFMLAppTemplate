@@ -178,6 +178,20 @@ TEST_CASE("copies are deep, moves and swaps hand the cells over", "[core][grid]"
     REQUIRE(fromEmpty.empty());
 }
 
+TEST_CASE("copying into a grid of the same size keeps its memory", "[core][grid]") {
+    const Grid<int> source(4, 3, 2);
+    Grid<int> target(4, 3, 0);
+    const int* memory = target.cells().data();
+    target = source;
+    REQUIRE(target.cells().data() == memory);
+    REQUIRE(target(3, 2) == 2);
+
+    Grid<int> other(2, 2);
+    other = source; // another size: new memory
+    REQUIRE(other.width() == 4);
+    REQUIRE(other(3, 2) == 2);
+}
+
 TEST_CASE("rows give the cells a part of a loop over the height covers", "[core][grid]") {
     Grid<int> grid(4, 5);
     std::iota(grid.begin(), grid.end(), 0);

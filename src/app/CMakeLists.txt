@@ -4,6 +4,7 @@ add_library(atpl_app STATIC
   app.cpp
   camera.cpp
   minimap.cpp
+  quad_batch.cpp
   executable_path.cpp
   simulation_runner.cpp
   resources.cpp
