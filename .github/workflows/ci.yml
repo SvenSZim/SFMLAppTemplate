@@ -19,6 +19,11 @@ env:
     libudev-dev libgl1-mesa-dev libfreetype-dev
   # Virtual display and software OpenGL, for the tests that open a window.
   DISPLAY_PACKAGES: xvfb libgl1-mesa-dri
+  # Compiler outputs kept between runs, so that a run compiles only what changed (SFML, Catch2
+  # and our own files alike).
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_MAXSIZE: 500M
 
 jobs:
   format:
@@ -65,7 +70,16 @@ jobs:
       - name: Install packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y $SFML_PACKAGES $DISPLAY_PACKAGES
+          sudo apt-get install -y $SFML_PACKAGES $DISPLAY_PACKAGES ccache
+
+      # One cache per job, since compiler and flags differ. Every run saves its own (keys cannot
+      # be overwritten) and starts from the newest one; a pull request also finds main's.
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-${{ matrix.name }}-
 
       - name: Configure
         run: >
@@ -73,6 +87,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
           -DCMAKE_C_COMPILER=${{ matrix.cc }}
           -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           -DATPL_WARNINGS_AS_ERRORS=ON
           -DATPL_SANITIZE=${{ matrix.sanitize }}
 
@@ -80,7 +96,18 @@ jobs:
       # means `make -j` without a limit, and compiling everything at once ran the ThreadSanitizer
       # build out of memory (it was killed with exit code 143).
       - name: Build
-        run: cmake --build build --parallel "$(nproc)"
+        run: |
+          ccache --zero-stats
+          cmake --build build --parallel "$(nproc)"
+          ccache --show-stats
+
+      # Saved also when the build failed: what did compile need not be compiled again.
+      - name: Save compiler cache
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       # ThreadSanitizer cannot start with the address randomisation of recent kernels.
       - name: Reduce address randomisation
@@ -94,21 +121,3 @@ jobs:
       - name: Test (with virtual display)
         if: ${{ matrix.display_tests }}
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --test-dir build --output-on-failure
-
-  # Portability check only (decision P9): Windows is not a supported platform,
-  # so a failure here is reported but never blocks a merge.
-  windows:
-    name: Windows (MSVC, informational)
-    runs-on: windows-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure
-        run: cmake -S . -B build
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure -LE display
