@@ -372,6 +372,21 @@ void UI::setLayout(Layout layout) {
     impl.looksChanged();
 }
 
+float UI::scale() const {
+    return m_impl->layout.metrics.scale;
+}
+
+void UI::setScale(float scale) {
+    Impl& impl = *m_impl;
+    const float kept = std::clamp(scale, minScale, maxScale);
+    if (kept == impl.layout.metrics.scale) {
+        return;
+    }
+    // Only sizes change: the panels keep their places in the window's grid and their order.
+    impl.layout.metrics.scale = kept;
+    impl.looksChanged();
+}
+
 const Sizes& UI::sizes() const {
     return m_impl->sizes;
 }

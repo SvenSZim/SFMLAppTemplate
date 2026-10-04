@@ -96,7 +96,7 @@ The utility list for the first version is fixed by D67. Utilities that need SFML
 
 | File | Content |
 |---|---|
-| `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `setProfilerVisible()`; `requestRedraw()` (any thread); events (WP 1.3). |
+| `ui.hpp` | `UI`: the facade. Built from a window reference and a `UISetup`. `widget(name)`, `view(name)`, `panel(name)`; the frame steps `handleInput()`, `update()`, `draw()`; `setProfilerVisible()`; `requestRedraw()` (any thread); events (WP 1.3). `scale()`, `setScale()`: the GUI scale at runtime, 0.5 to 4 (WP 6.3, D76). |
 | `event.hpp` | `Event` and the twelve event types (D29). |
 | `value.hpp` | `Value`: a widget's value of any kind, as carried by `ValueChanged`. |
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
@@ -518,7 +518,7 @@ The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme
 
 | File (`include/atpl/app/`) | Content |
 |---|---|
-| `app.hpp` | `App`: creates and owns the window (`WindowSetup`), creates the UI, runs the main loop. `onEvent(handler)` delivers every UI event on the main thread (D11); `onUpdate(handler)` runs once per pass of the loop. `run()` or `run(simulation)`; `quit()`. |
+| `app.hpp` | `App`: creates and owns the window (`WindowSetup`), creates the UI, runs the main loop. `onEvent(handler)` delivers every UI event on the main thread (D11); `onUpdate(handler)` runs once per pass of the loop. `run()` or `run(simulation)`; `quit()`. `AppSetup::scale`: a GUI scale, or `AutoScale{}` to choose it from the desktop's height (`autoScale`: height / 1080 in quarter steps, 1 to 3); the window's size and minimum size are multiplied by it, so a window keeps its size on the screen (WP 6.3, D76). |
 | `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
 | `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. A drag with `dragButton` that starts in its view pans, wherever the pointer then goes; the wheel in its view zooms towards the pointer, between `minZoom` and `maxZoom`. `apply` keeps where the UI put the view and what of it can be seen, and only sets what the view shows; `show` works before the view's size is known and fits once it is (WP 4.5, D64). |
 | `minimap.hpp` | `Minimap`: optional helper for a view that always shows the whole world, marks what a main `Camera` sees, and steers it: in `Pan` mode a press centres the main view under the pointer and a drag keeps it there; in `Select` mode a dragged rectangle becomes what the main view shows (a click centres it); while the minimap's view is selected, the arrow keys move the main view by a share of what it shows. The main view's centre stays inside the world. The mode is set in its options and can change while it runs (WP 4.5, D65). |

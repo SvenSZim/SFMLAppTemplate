@@ -63,6 +63,17 @@ public:
     /// that takes its place from the layout theme and finds no room in the window's grid.
     void setLayout(Layout layout);
 
+    /// The GUI scale: every size, text included, is multiplied by it, on top of the scaling with
+    /// the window. The layout theme's `metrics.scale`.
+    [[nodiscard]] float scale() const;
+
+    /// Changes the GUI scale, for example from a setting or a key. It is kept between
+    /// `minScale` and `maxScale`. Everything is laid out and drawn anew with the next frame.
+    void setScale(float scale);
+
+    static constexpr float minScale = 0.5f;
+    static constexpr float maxScale = 4.f;
+
     /// The layout's sizes for the window as it is now, in pixels.
     [[nodiscard]] const Sizes& sizes() const;
 

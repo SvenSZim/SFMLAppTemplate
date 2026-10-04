@@ -252,6 +252,32 @@ TEST_CASE("a widget that animates keeps frames coming until it has arrived, then
     REQUIRE_FALSE(Fixture::frame(ui));
 }
 
+TEST_CASE("the GUI scale can change while the UI runs, within its limits", "[ui][facade][display]") {
+    Fixture f;
+    UI ui(f.window, example());
+    ui.update();
+    REQUIRE(ui.draw());
+    Fixture::settle(ui);
+    const Sizes before = ui.sizes();
+    REQUIRE(ui.scale() == 1.f);
+
+    ui.setScale(2.f);
+    REQUIRE(ui.scale() == 2.f);
+    REQUIRE(ui.layout().metrics.scale == 2.f);
+    REQUIRE(ui.sizes().rowHeight == before.rowHeight * 2.f);
+    REQUIRE(ui.sizes().text == before.text * 2.f);
+    REQUIRE(Fixture::frame(ui)); // laid out and drawn anew
+
+    Fixture::settle(ui);
+    ui.setScale(2.f); // the same: nothing to do
+    REQUIRE_FALSE(ui.draw());
+
+    ui.setScale(100.f);
+    REQUIRE(ui.scale() == UI::maxScale);
+    ui.setScale(0.f);
+    REQUIRE(ui.scale() == UI::minScale);
+}
+
 TEST_CASE("hiding a panel moves the ones stacked after it", "[ui][facade][display]") {
     Fixture f;
     UI ui(f.window, example());
