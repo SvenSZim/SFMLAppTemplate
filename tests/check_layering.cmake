@@ -33,6 +33,11 @@ set(ui_dirs include/atpl/ui src/ui)
 forbid("core must not include SFML" "#[ \t]*include[ \t]*[<\"]SFML/" IN ${core_dirs})
 forbid("core must not include ui or app" "#[ \t]*include[ \t]*\"(atpl/)?(ui|app)/" IN ${core_dirs})
 
+# core starts threads only in the thread pool, which the application creates
+forbid("core starts threads only in the thread pool" "std::(thread|jthread|async)[^_a-zA-Z0-9:]" IN ${core_dirs}
+  ALLOW include/atpl/core/thread_pool.hpp src/core/thread_pool.cpp
+)
+
 # ui: nothing from app, no threads of its own
 forbid("ui must not include app" "#[ \t]*include[ \t]*\"(atpl/)?app/" IN ${ui_dirs})
 forbid("only app starts threads" "std::(thread|jthread|async)[^_a-zA-Z0-9]" IN ${ui_dirs})
