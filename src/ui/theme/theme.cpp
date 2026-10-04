@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <type_traits>
 
 namespace atpl {
@@ -306,6 +307,63 @@ const PartOverride* Theme::entry(const Part& part) const {
 bool Theme::supports(PanelColors colors) const {
     return colors.main1 < palette.mains.size() && colors.main2 < palette.mains.size() &&
            colors.accent < palette.accents.size();
+}
+
+namespace {
+
+sf::Color mixColor(sf::Color a, sf::Color b, float t) {
+    const auto channel = [t](std::uint8_t x, std::uint8_t y) {
+        return static_cast<std::uint8_t>(
+            std::lround(static_cast<float>(x) + (static_cast<float>(y) - static_cast<float>(x)) * t)
+        );
+    };
+    return { channel(a.r, b.r), channel(a.g, b.g), channel(a.b, b.b), channel(a.a, b.a) };
+}
+
+float mixFloat(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+
+/// The style made invisible: every colour transparent, the rest kept, so that fading to it
+/// changes nothing but how much shows.
+PartStyle transparentCopy(PartStyle style) {
+    style.color.a = 0;
+    style.gradientStart.a = 0;
+    style.border.a = 0;
+    style.shadow.color.a = 0;
+    return style;
+}
+
+} // namespace
+
+PartStyle mix(const PartStyle& from, const PartStyle& to, float t) {
+    t = std::clamp(t, 0.f, 1.f);
+    if (t <= 0.f) {
+        return from;
+    }
+    if (t >= 1.f) {
+        return to;
+    }
+    if (!from.shown && !to.shown) {
+        return to;
+    }
+    // A part shown at one end only fades in or out there.
+    const PartStyle a = from.shown ? from : transparentCopy(to);
+    const PartStyle b = to.shown ? to : transparentCopy(from);
+
+    PartStyle style = t < 0.5f ? a : b; // what does not move: the nearer end's
+    style.shown = true;
+    style.color = mixColor(a.color, b.color, t);
+    style.gradientStart = mixColor(a.gradientStart, b.gradientStart, t);
+    style.border = mixColor(a.border, b.border, t);
+    style.borderThickness = mixFloat(a.borderThickness, b.borderThickness, t);
+    style.borderGap = mixFloat(a.borderGap, b.borderGap, t);
+    style.radius = mixFloat(a.radius, b.radius, t);
+    style.shadow.offset = a.shadow.offset + (b.shadow.offset - a.shadow.offset) * t;
+    style.shadow.size = mixFloat(a.shadow.size, b.shadow.size, t);
+    style.shadow.color = mixColor(a.shadow.color, b.shadow.color, t);
+    style.thickness = mixFloat(a.thickness, b.thickness, t);
+    return style;
 }
 
 PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen, float scale) const {

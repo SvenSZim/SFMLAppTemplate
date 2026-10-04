@@ -231,6 +231,27 @@ TEST_CASE("a frame is drawn only when something changed", "[ui][facade][display]
     }
 }
 
+TEST_CASE("a widget that animates keeps frames coming until it has arrived, then none", "[ui][facade][display]") {
+    Fixture f;
+    UISetup setup;
+    setup.panels = { { .name = "Controls", .placement = Anchor::TopLeft, .widgets = { Switch("Heat") } } };
+    UI ui(f.window, std::move(setup));
+    ui.update();
+    REQUIRE(ui.draw());
+    Fixture::settle(ui);
+    REQUIRE_FALSE(ui.draw()); // at rest
+
+    ui.widget("Heat").setValue(true); // the knob slides over
+    int frames = 0;
+    const sf::Clock clock;
+    while (clock.getElapsedTime() < sf::seconds(1.f)) {
+        frames += Fixture::frame(ui) ? 1 : 0;
+    }
+    REQUIRE(frames >= 3);              // drawn while it moved ...
+    REQUIRE_FALSE(Fixture::frame(ui)); // ... and not once it had arrived
+    REQUIRE_FALSE(Fixture::frame(ui));
+}
+
 TEST_CASE("hiding a panel moves the ones stacked after it", "[ui][facade][display]") {
     Fixture f;
     UI ui(f.window, example());

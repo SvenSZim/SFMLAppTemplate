@@ -1,5 +1,6 @@
 #include "atpl/core/easing.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <numbers>
@@ -84,6 +85,11 @@ float getRatio(float t, TransitionFunction transition) {
             return easeOutElastic(t);
     }
     return t;
+}
+
+float smoothStep(float t) {
+    const float x = std::clamp(t, 0.f, 1.f);
+    return x * x * (3.f - 2.f * x);
 }
 
 } // namespace atpl

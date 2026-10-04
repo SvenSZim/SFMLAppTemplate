@@ -50,6 +50,11 @@ struct WidgetSlot {
     bool focused = false;
     bool overlayOpen = false;
 
+    // ----- Written by animation -----
+
+    /// How far hover, press and focus have faded in, moving towards what the flags above say.
+    StateBlend blend;
+
     // ----- Written by the application through its handle -----
 
     bool enabled = true;

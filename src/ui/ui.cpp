@@ -16,6 +16,7 @@
 #include "ui/render/profiler.hpp"
 #include "ui/render/renderer.hpp"
 #include "ui/render/text_cache.hpp"
+#include "ui/widgets/animation.hpp"
 #include "ui/widgets/panel_frame.hpp"
 
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -183,7 +184,7 @@ struct UI::Impl {
                         continue;
                     }
                     Painter painter(layers.content, slot.rect.position() + content, slot.rect.size(), &textMeasurer);
-                    slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), sizes));
+                    slot.widget->paint(painter, Style(theme, slot.colors, model::stateOf(slot), sizes, slot.blend));
                 }
             }
         }
@@ -217,7 +218,9 @@ struct UI::Impl {
             const auto layers = overlay.rebuild();
             Painter painter(layers.content, { 0.f, 0.f }, rect.size(), &textMeasurer);
             const FloatRect anchor(slot.overlayAnchor.position() - rect.position(), slot.overlayAnchor.size());
-            slot.widget->paintOverlay(painter, Style(theme, slot.colors, model::stateOf(slot), sizes), anchor);
+            slot.widget->paintOverlay(
+                painter, Style(theme, slot.colors, model::stateOf(slot), sizes, slot.blend), anchor
+            );
         }
     }
 
@@ -423,13 +426,21 @@ void UI::update() {
     // Panels that fold or unfold move on by the time since the last update; while one does,
     // frames keep coming.
     const float seconds = impl.clock.restart().asSeconds();
-    impl.animating = widgets::animatePanels(impl.store, std::min(seconds, 0.1f), impl.layout.foldSeconds);
-    if (impl.animating) {
+    const float step = std::min(seconds, 0.1f);
+    const bool folding = widgets::animatePanels(impl.store, step, impl.layout.foldSeconds);
+    if (folding) {
         impl.placementOutdated = true;
+    }
+    // Bound values that changed are handed to their widgets, before they animate: a widget then
+    // moves towards its new value in the same pass.
+    binding::sync(impl.store, binding::Clock::now());
+    // Widgets fade between their states and run their own animations; only their panels are
+    // painted again.
+    const bool widgetsMoving = widgets::animateWidgets(impl.store, step, impl.theme, impl.sizes);
+    impl.animating = folding || widgetsMoving;
+    if (impl.animating) {
         impl.flag.request();
     }
-    // Bound values that changed are handed to their widgets.
-    binding::sync(impl.store, binding::Clock::now());
     impl.placeIfOutdated();
     impl.orderCards(); // a stack may have begun or stopped overlapping
 }

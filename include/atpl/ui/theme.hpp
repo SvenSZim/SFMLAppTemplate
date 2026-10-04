@@ -174,6 +174,12 @@ struct PartStyle {
     const sf::Font* font = nullptr; ///< Font of text. Set by the theme; never null in a resolved style.
 };
 
+/// The style between two others: `t` 0 is `from`, 1 is `to`. Colours, outlines, corners, shadows
+/// and line thickness move in between. Text keeps the size and font of the nearer end, since it
+/// would have to be laid out again at every step. A part shown at only one end fades: at the
+/// other it counts as the shown one made transparent. For transitions between states.
+[[nodiscard]] PartStyle mix(const PartStyle& from, const PartStyle& to, float t);
+
 /// Settings for one part that replace what its role would give. Only the fields that are set
 /// have an effect; the rest still comes from the role and the tokens.
 ///
@@ -281,6 +287,17 @@ struct Typography {
     TextType muted{ .size = 12.f, .font = {} };   ///< Role::MutedText
 };
 
+/// How long the theme's transitions take, in seconds. 0: at once, without animation.
+///
+/// Hover, press and focus ease out: fast at first, settling softly, and a change of mind halfway
+/// turns back from where it is. Toggles (a switch's knob) ease in and out.
+struct Motion {
+    float hover = 0.12f;  ///< The pointer coming or going.
+    float press = 0.06f;  ///< A press beginning or ending.
+    float focus = 0.12f;  ///< The keyboard focus coming or going.
+    float toggle = 0.16f; ///< A value changing between two looks: a switch turning on or off.
+};
+
 // ----- Theme -----
 
 /// A complete look: tokens, plus entries for individual parts.
@@ -292,6 +309,7 @@ public:
     Palette palette;
     Shape shape;
     Typography typography;
+    Motion motion;
 
     /// The default font: used by every text type that does not name its own. Must be set before
     /// the theme is used; `App` sets the bundled font if the application sets none.

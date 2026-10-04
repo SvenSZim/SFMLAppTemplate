@@ -99,6 +99,7 @@ atpl_add_tests(ui
   ui/test_theme.cpp
   ui/test_theme_resolve.cpp
   ui/test_widget_layout.cpp
+  ui/test_animation.cpp
   ui/test_window_events.cpp
 )
 atpl_add_tests(app
