@@ -126,7 +126,7 @@ struct Moment {
 constexpr float worldExtent = 100.f;
 
 /// The ground is a grid of this many cells on each side, over the whole box.
-constexpr int heatCells = 100;
+constexpr int heatCells = 200;
 constexpr float heatCellSize = 2.f * worldExtent / static_cast<float>(heatCells);
 
 /// A made-up simulation on a thread of its own: particles in a box, pulled to the centre while
@@ -230,7 +230,7 @@ private:
                         },
                         Neighbourhood::Four
                     );
-                    m_nextHeat(x, y) = 0.97f * sum / static_cast<float>(count);
+                    m_nextHeat(x, y) = 0.985f * sum / static_cast<float>(count);
                 }
             }
         });
@@ -306,12 +306,12 @@ void drawWorld(
     const sf::Color line = theme.resolve(Graph::Baseline).color;
 
     if (!world.heat.empty()) {
-        // The theme's accent, the more opaque the warmer: ten thousand cells, one draw call.
+        // The theme's accent, the more opaque the warmer: forty thousand cells, one draw call.
         const sf::Color warm = theme.resolve(ProgressBar::Fill).color;
         const std::span<const float> cells = world.heat.cells();
         for (std::size_t i = 0; i < cells.size(); ++i) {
             sf::Color color = warm;
-            color.a = static_cast<std::uint8_t>(std::min(cells[i] * 2.f, 1.f) * 220.f);
+            color.a = static_cast<std::uint8_t>(std::min(cells[i] * 3.f, 1.f) * 220.f);
             batches.ground.setColor(i, color);
         }
         target.draw(batches.ground);
