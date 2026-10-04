@@ -9,12 +9,14 @@
 // nothing happens. Escape or the window's close button ends it; while a text field or a dropdown
 // list has the keys, Escape first ends the typing or closes the list.
 //
-//   showcase [--layout overlay|dashboard|cards|compact] [--theme moon|colorful] [--cards] [--ticks]
-//            [--profiler] [--smoke-test]
+//   showcase [--layout overlay|dashboard|cards|compact] [--theme moon|colorful] [--scale <factor>]
+//            [--cards] [--ticks] [--profiler] [--smoke-test]
 //
 // --layout chooses the layout theme: where panels go that do not say so, and how large things
 // are. Everything grows and shrinks with the window, within the layout theme's limits.
 // --theme chooses the look: colours, shapes, fonts.
+// --scale sets the GUI scale; without it, it is chosen from the desktop's resolution. Ctrl and
+// plus or minus change it while it runs, Ctrl and 0 sets it back.
 // --cards lets a stack of floating panels that does not fit into the window overlap like a stack
 // of cards instead of leaving panels out (not to be confused with the "cards" layout theme, whose
 // panels sit in the window's grid): make the window low to see it.
@@ -457,6 +459,7 @@ int run(int argc, char* argv[]) {
     bool cards = false;
     Layout layout = layouts::overlay();
     std::optional<Theme> theme;
+    std::variant<float, AutoScale> scale = AutoScale{};
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument = argv[i];
         smokeTest = smokeTest || argument == "--smoke-test";
@@ -468,6 +471,9 @@ int run(int argc, char* argv[]) {
         }
         if (argument == "--theme" && i + 1 < argc) {
             theme = themeNamed(argv[++i]);
+        }
+        if (argument == "--scale" && i + 1 < argc) {
+            scale = std::stof(argv[++i]);
         }
     }
     if (cards) {
@@ -486,7 +492,10 @@ int run(int argc, char* argv[]) {
     }
     // The window, the UI with the font from the resources, and the loop. Closing the window
     // ends it.
-    App app({ .window = { .title = "atpl showcase " + std::string(versionString()) }, .ui = std::move(ui) });
+    App app(
+        { .window = { .title = "atpl showcase " + std::string(versionString()) }, .ui = std::move(ui), .scale = scale }
+    );
+    const float startScale = app.ui().scale();
     report.events.push("Started");
 
     // The texture is loaded once, by name, and shared; the batches draw with it.
@@ -503,6 +512,22 @@ int run(int argc, char* argv[]) {
     app.onEvent([&](const Event& event) {
         if (event.isKey(sf::Keyboard::Key::Escape)) {
             app.quit();
+        }
+        // The GUI scale, in quarter steps: everything is laid out anew at the new size.
+        if (const auto* key = event.getIf<KeyPressed>(); key != nullptr && key->modifiers.control) {
+            float wanted = app.ui().scale();
+            if (key->key == sf::Keyboard::Key::Equal || key->key == sf::Keyboard::Key::Add) {
+                wanted += 0.25f;
+            } else if (key->key == sf::Keyboard::Key::Hyphen || key->key == sf::Keyboard::Key::Subtract) {
+                wanted -= 0.25f;
+            } else if (key->key == sf::Keyboard::Key::Num0 || key->key == sf::Keyboard::Key::Numpad0) {
+                wanted = startScale;
+            }
+            wanted = std::clamp(wanted, 0.5f, 3.f);
+            if (wanted != app.ui().scale()) {
+                app.ui().setScale(wanted);
+                report.events.push(std::format("Scale {:.2f}", wanted));
+            }
         }
         if (event.isButton("Reset")) {
             params.reset(); // the sliders and switches follow by themselves
@@ -556,11 +581,13 @@ int run(int argc, char* argv[]) {
     // The views: the main view and the minimap draw the same moment, the state of this pass.
     app.ui().view("world").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
         camera.apply(target, size);
-        drawWorld(target, simulation.state(), params.drawMode.get(), app.ui().theme(), 1.f / camera.zoom(), batches);
+        // `pixel` grows with the GUI scale, so dots and lines keep their size beside the UI.
+        const float pixel = app.ui().scale() / camera.zoom();
+        drawWorld(target, simulation.state(), params.drawMode.get(), app.ui().theme(), pixel, batches);
     });
     app.ui().view("minimap").onDraw([&](sf::RenderTarget& target, sf::Vector2f size) {
         minimap.apply(target, size);
-        const float pixel = minimap.world().width() / size.x; // about one pixel, in world units
+        const float pixel = minimap.world().width() / size.x * app.ui().scale(); // a scaled pixel, in world units
         drawWorld(target, simulation.state(), DrawMode::Points, app.ui().theme(), pixel, batches);
         minimap.drawMarks(target, app.ui().theme().resolve(Graph::Curve).color); // what the main view sees
     });

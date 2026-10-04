@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <variant>
 
 namespace atpl {
 
@@ -34,10 +35,23 @@ struct WindowSetup {
     bool vsync = true;
 };
 
+/// Asks `App` to choose the GUI scale from the desktop's resolution: see `autoScale`.
+struct AutoScale {};
+
+/// The GUI scale for a desktop of this size: its height in pixels divided by 1080, in steps of a
+/// quarter, from 1 to 3. So 1 on a Full HD screen, 1.25 on 1440p, 2 on 4K. SFML cannot tell a
+/// screen's pixel density; on a small screen of high resolution this guesses too small.
+[[nodiscard]] float autoScale(sf::Vector2u desktop);
+
 /// Everything needed to start an application.
 struct AppSetup {
     WindowSetup window;
     UISetup ui;
+
+    /// The GUI scale (see `UI::setScale`): a factor, or `AutoScale{}` to choose it from the
+    /// desktop. The window's `size` and `minimumSize` are multiplied by it too, so a window keeps
+    /// its size on the screen; the UI's own `layout.metrics.scale` is multiplied by it.
+    std::variant<float, AutoScale> scale = 1.f;
 
     /// Where the application's resources are. Empty: the `resources` directory next to the
     /// executable, where the build puts them.

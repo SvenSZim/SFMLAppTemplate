@@ -1,6 +1,8 @@
 #include "atpl/app/app.hpp"
 #include "atpl/ui/error.hpp"
 
+#include <SFML/Window/VideoMode.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
@@ -28,6 +30,27 @@ TEST_CASE("an app opens its window as set up, with the font from its resources",
     REQUIRE(app.window().getSize() == sf::Vector2u(400u, 300u));
     REQUIRE(app.ui().theme().font != nullptr); // loaded from resources/fonts/default.ttf
     REQUIRE(std::filesystem::exists(app.resources().path("fonts/default.ttf")));
+}
+
+TEST_CASE("a GUI scale enlarges the window and the UI's sizes alike", "[app][display]") {
+    AppSetup setup = small();
+    setup.window.minimumSize = { 200u, 150u };
+    setup.scale = 1.5f;
+    App app(std::move(setup));
+    REQUIRE(app.window().getSize() == sf::Vector2u(600u, 450u)); // the same size on the screen
+    REQUIRE(app.ui().scale() == 1.5f);
+
+    AppSetup plain = small();
+    App unscaled(std::move(plain));
+    REQUIRE(app.ui().sizes().rowHeight > unscaled.ui().sizes().rowHeight);
+}
+
+TEST_CASE("a GUI scale chosen from the desktop is one of the automatic steps", "[app][display]") {
+    AppSetup setup = small();
+    setup.scale = AutoScale{};
+    App app(std::move(setup));
+    const float scale = app.ui().scale();
+    REQUIRE(scale == autoScale(sf::VideoMode::getDesktopMode().size));
 }
 
 TEST_CASE("run ends with the code given to quit, and calls the update every pass", "[app][display]") {

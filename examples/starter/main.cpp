@@ -126,6 +126,7 @@ int run(bool smokeTest) {
                 },
             },
         },
+        .scale = AutoScale{}, // larger on a screen of high resolution
     });
 
     app.ui().widget("Clockwise").bind(params.clockwise);

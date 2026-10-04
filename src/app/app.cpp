@@ -8,10 +8,13 @@
 #include <SFML/Window/VideoMode.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <exception>
 #include <memory>
 #include <utility>
+#include <variant>
 
 namespace atpl {
 
@@ -47,7 +50,26 @@ void open(sf::RenderWindow& window, const WindowSetup& setup) {
     return setup;
 }
 
+/// The factor the setup asks for.
+[[nodiscard]] float scaleOf(const AppSetup& setup) {
+    if (std::holds_alternative<AutoScale>(setup.scale)) {
+        return autoScale(sf::Vector2u(sf::VideoMode::getDesktopMode().size));
+    }
+    return std::clamp(std::get<float>(setup.scale), UI::minScale, UI::maxScale);
+}
+
+/// `size` times the GUI scale, in whole pixels.
+[[nodiscard]] sf::Vector2u scaled(sf::Vector2u size, float scale) {
+    return { static_cast<unsigned int>(std::lround(static_cast<float>(size.x) * scale)),
+             static_cast<unsigned int>(std::lround(static_cast<float>(size.y) * scale)) };
+}
+
 } // namespace
+
+float autoScale(sf::Vector2u desktop) {
+    const float quarters = std::round(static_cast<float>(desktop.y) / 1080.f * 4.f);
+    return std::clamp(quarters / 4.f, 1.f, 3.f);
+}
 
 struct App::Impl {
     explicit Impl(AppSetup setup) :
@@ -55,6 +77,12 @@ struct App::Impl {
         quitOnClose(setup.quitOnClose) {
         // The font first: a missing resource is reported before a window appears.
         UISetup ui = withFont(std::move(setup.ui), resources, setup.font);
+        // The GUI scale: for the UI's sizes, and for the window, so that it keeps its size on the
+        // screen.
+        const float scale = scaleOf(setup);
+        ui.layout.metrics.scale *= scale;
+        setup.window.size = scaled(setup.window.size, scale);
+        setup.window.minimumSize = scaled(setup.window.minimumSize, scale);
         open(window, setup.window);
         interface = std::make_unique<UI>(window, std::move(ui));
     }

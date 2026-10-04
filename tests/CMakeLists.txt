@@ -104,6 +104,7 @@ atpl_add_tests(ui
 )
 atpl_add_tests(app
   app/test_quad_batch.cpp
+  app/test_scale.cpp
   app/test_resources.cpp
   app/test_simulation_runner.cpp
 )
