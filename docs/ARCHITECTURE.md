@@ -81,13 +81,13 @@ CMake targets: `atpl_core`, `atpl_ui`, `atpl_app` (aliases `atpl::core`, `atpl::
 | `queue.hpp` | `Queue<T>`: thread-safe, unbounded, ordered; a tick takes all waiting items at once with `drain`; used for app → simulation commands (D11). One lock around a deque; `waitDrain` sleeps on a condition variable that every push signals (WP 4.1) | new |
 | `snapshot.hpp` | `Snapshot<T>`: the latest complete state from one writer thread to one reader thread; three reused buffers, no copying, no blocking (P3). A triple buffer: the writer and the reader each own one buffer, and hand the third over with one atomic exchange (acquire-release) that also says whether it holds an unread state (WP 4.1) | new |
 | `thread_pool.hpp` | Thread pool with `parallelFor(count, fn)`; leaves one core free (P8) | new |
-| `random.hpp` | Random number generator, one instance per thread | new |
-| `timing.hpp` | Stopwatch, scoped timer, rate limiter, fixed-timestep accumulator | new |
+| `random.hpp` | Random numbers: one seedable generator per thread, helpers for ranges and unit vectors; deterministic for a fixed seed and thread count (D67) | new |
+| `timing.hpp` | Stopwatch, cooldown (fires every N seconds), scoped timer that writes into a `Series`, running average (D67) | new |
 | `easing.hpp` | Easing functions | from `ui/utils/functions` |
 | `interpolated.hpp` | Animated value with easing | from `ui/utils/interpolated` |
-| `grid.hpp` | 2D grid container | new, Phase 5 |
+| `grid.hpp` | 2D grid: bounds-checked access, neighbour iteration, row ranges for `parallelFor` (D67) | new |
 
-The exact utility list for the first version is Q5.
+The utility list for the first version is fixed by D67. Utilities that need SFML (textures by name, the quad batch) are in `app` (section 5).
 
 ## 4. `ui` — one owner per concern (D1)
 
@@ -518,7 +518,8 @@ The theme is part of `UISetup` and can be replaced at runtime with `UI::setTheme
 | `simulation.hpp` | `Simulation<State, Command>`: the base class of an application's simulation, and `SimulationControls` (P3). |
 | `camera.hpp` | `Camera`: optional pan and zoom for one view, driven by forwarded events (D15). `visibleArea()` tells what part of the world it shows, for example for a minimap. A drag with `dragButton` that starts in its view pans, wherever the pointer then goes; the wheel in its view zooms towards the pointer, between `minZoom` and `maxZoom`. `apply` keeps where the UI put the view and what of it can be seen, and only sets what the view shows; `show` works before the view's size is known and fits once it is (WP 4.5, D64). |
 | `minimap.hpp` | `Minimap`: optional helper for a view that always shows the whole world, marks what a main `Camera` sees, and steers it: in `Pan` mode a press centres the main view under the pointer and a drag keeps it there; in `Select` mode a dragged rectangle becomes what the main view shows (a click centres it); while the minimap's view is selected, the arrow keys move the main view by a share of what it shows. The main view's centre stays inside the world. The mode is set in its options and can change while it runs (WP 4.5, D65). |
-| `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name are added in WP 5.6. |
+| `resources.hpp` | `Resources`: finds files in the `resources` directory next to the executable and loads fonts; `ResourceError` when something is missing. Fonts and textures by name, loaded once and shared, are added in WP 5.6 (D67). |
+| `quad_batch.hpp` | Quad batch: many sprites or cells drawn in one call, for the application's views (WP 5.6, D67). |
 
 ### 5.1 The simulation
 
