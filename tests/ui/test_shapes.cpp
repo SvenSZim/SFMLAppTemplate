@@ -7,6 +7,8 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <set>
+#include <utility>
 #include <vector>
 
 using namespace atpl;
@@ -225,6 +227,56 @@ TEST_CASE("a vertical gradient runs from top to bottom", "[ui][shapes]") {
     }
 }
 
+TEST_CASE("a diagonal gradient runs from the top-left corner to the bottom-right", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color(200, 200, 200, 255));
+    style.gradient = Gradient::Diagonal;
+    style.gradientStart = sf::Color(0, 0, 0, 255);
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 100.f, 20.f), style);
+
+    for (const sf::Vertex& vertex : vertices) {
+        const sf::Vector2f p = vertex.position;
+        if (p == sf::Vector2f(0.f, 0.f)) {
+            REQUIRE(vertex.color == sf::Color(0, 0, 0, 255));
+        } else if (p == sf::Vector2f(100.f, 20.f)) {
+            REQUIRE(vertex.color == sf::Color(200, 200, 200, 255));
+        } else { // the other two corners: halfway
+            REQUIRE(vertex.color == sf::Color(100, 100, 100, 255));
+        }
+    }
+}
+
+TEST_CASE("an outline can fade along the box", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color::Transparent);
+    style.border = sf::Color(200, 200, 200);
+    style.borderThickness = 2.f;
+    style.borderGradient = Gradient::Horizontal;
+    style.borderStart = sf::Color(0, 0, 0);
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 100.f, 20.f), style);
+
+    REQUIRE_FALSE(vertices.empty());
+    for (const sf::Vertex& vertex : vertices) {
+        const auto expected = static_cast<std::uint8_t>(std::lround(vertex.position.x / 100.f * 200.f));
+        REQUIRE(vertex.color == sf::Color(expected, expected, expected));
+    }
+}
+
+TEST_CASE("an outline that fades in from nothing is still drawn", "[ui][shapes]") {
+    PartStyle style = filled(sf::Color::Transparent);
+    style.border = sf::Color::Transparent; // it ends invisible ...
+    style.borderThickness = 1.f;
+    style.borderGradient = Gradient::Vertical;
+    style.borderStart = red; // ... but starts in red
+
+    VertexList vertices;
+    appendBox(vertices, FloatRect(0.f, 0.f, 50.f, 50.f), style);
+    REQUIRE_FALSE(vertices.empty());
+    REQUIRE(std::any_of(vertices.begin(), vertices.end(), [](const sf::Vertex& v) { return v.color == red; }));
+}
+
 TEST_CASE("in a rounded box every point has the gradient's colour for its position", "[ui][shapes]") {
     PartStyle style = filled(sf::Color(200, 200, 200), 12.f);
     style.gradient = Gradient::Horizontal;
@@ -396,6 +448,52 @@ TEST_CASE("a shadow lies under the box, is shifted, and fades out", "[ui][shapes
     }
     REQUIRE(clearAtRim);
     REQUIRE(darkest == black.a);
+}
+
+TEST_CASE("a shadow fades smoothly, darkest inside and lighter with every step outwards", "[ui][shapes]") {
+    const FloatRect rect(0.f, 0.f, 200.f, 200.f);
+    PartStyle style = filled(sf::Color::Transparent);
+    style.shadow = { .offset = {}, .size = 20.f, .color = sf::Color(0, 0, 0, 200) };
+
+    VertexList vertices;
+    appendBox(vertices, rect, style);
+
+    // Every vertex by how far outside the box's edge it lies (negative: inside); further out is
+    // never darker.
+    const auto outside = [&](sf::Vector2f p) {
+        const sf::Vector2f q(std::abs(p.x - 100.f) - 100.f, std::abs(p.y - 100.f) - 100.f);
+        const sf::Vector2f outer(std::max(q.x, 0.f), std::max(q.y, 0.f));
+        return std::hypot(outer.x, outer.y) + std::min(std::max(q.x, q.y), 0.f);
+    };
+    std::vector<std::pair<float, std::uint8_t>> byDistance;
+    for (const sf::Vertex& vertex : vertices) {
+        const float distance = std::round(outside(vertex.position) * 100.f) / 100.f;
+        if (distance < -20.f) {
+            REQUIRE(vertex.color.a == 200); // the core: full, all the way in
+            continue;
+        }
+        byDistance.emplace_back(distance, vertex.color.a);
+    }
+    std::sort(byDistance.begin(), byDistance.end());
+    REQUIRE(byDistance.front().first == Approx(-20.f));
+    REQUIRE(byDistance.front().second == 200); // full where it starts, 20 px inside
+    REQUIRE(byDistance.back().first == Approx(20.f));
+    REQUIRE(byDistance.back().second == 0); // clear at the rim, 20 px outside
+    std::set<float> distances;
+    for (std::size_t i = 1; i < byDistance.size(); ++i) {
+        distances.insert(byDistance[i].first);
+        if (byDistance[i].first > byDistance[i - 1].first + 0.05f) {
+            REQUIRE(byDistance[i].second <= byDistance[i - 1].second);
+        }
+    }
+    REQUIRE(distances.size() >= 7); // the core's edge and six bands
+
+    // At the box's edge a quarter is left: (1 - smoothstep(0.5))^2.
+    for (const auto& [distance, alpha] : byDistance) {
+        if (distance == 0.f) {
+            REQUIRE(alpha == 50);
+        }
+    }
 }
 
 TEST_CASE("a shadow without size or without colour adds nothing", "[ui][shapes]") {

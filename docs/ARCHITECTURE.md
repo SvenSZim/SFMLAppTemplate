@@ -403,7 +403,7 @@ The template only forwards. It does not interpret forwarded input (D15). Pan and
 widget.paint() ──► Painter ──► draw list ──► PanelBatch (one vertex array + text) ──► window
 ```
 
-- `shapes`: tessellation of boxes (fill or gradient, outline with gap, corner radius, shadow), lines, polylines and areas under a curve. All shapes become triangles so that a panel is one draw call.
+- `shapes`: tessellation of boxes (fill or gradient, outline with gap and an optional gradient of its own, corner radius, shadow), lines, polylines and areas under a curve. All shapes become triangles so that a panel is one draw call. Edges are smoothed by the window's multisampling (`WindowSetup::antiAliasing`, 8 by default); the shapes themselves have no feathered rim (WP 6.2, D75).
 - `draw_list`: what one panel draws: its triangles and its text runs. Reused from rebuild to rebuild without allocating.
 - `painter` (the public `Painter`): moves a widget's own coordinates to its place in the panel and hands shapes to `shapes` and text to the draw list. `text_measurer` is the interface it measures text through, so everything above it is testable without a font.
 - `panel_batch`: one batch per panel in panel-local coordinates, rebuilt only when the panel is dirty (cache level 2). It has three layers: the frame (background, header), the content (the widgets) and the scrollbar (the thumb, drawn above the content). Moving the panel and scrolling the content only change how the batch is placed when drawn: the content's offset and the thumb's; nothing is rebuilt. Scrolled content is clipped to the content area (D28).
@@ -419,7 +419,9 @@ Draw order per frame: background view → panels in order (shapes, views, text) 
 
 Within a panel, text is always drawn on top of shapes: a panel is one batch of triangles followed by its text. What must cover text, such as an open dropdown list, goes on the overlay layer.
 
-An outline is a band of triangles between two edges, each with its own colour, like a shadow. Today both edges have the same colour. An outline that fades across its width or along the box is a possible extension (D36).
+An outline is a band of triangles between two edges, each with its own colour, like a shadow. It can fade along the box like a fill (`borderGradient` from `borderStart` to `border`: horizontal, vertical or diagonal), each point taking the colour of its position (WP 6.2). An outline that fades across its width (a glow) is still a possible extension (D36).
+
+A shadow is solid from its size inside the shifted box and fades to nothing its size outside, over six bands along (1 - smoothstep)^2, so a quarter is left at the box's edge: the profile the reference project draws with a shader, as geometry in the panel's one batch (WP 6.2, D75).
 
 ### 4.10 Painting and theme (P5, P11, D30)
 
@@ -475,7 +477,7 @@ The theme resolves a part's style in three layers; a later layer overrides an ea
 
 | Layer | What | Example |
 |---|---|---|
-| 1. Tokens | Global values, in three groups: `palette` (the main colours and accents a panel chooses from), `shape` (radii, outline, outline gap, line thickness, shadow), `typography` (size and font per text type) | `theme.palette.accents[0].accent = ...;` `theme.shape.outlineGap = 2;` `theme.typography.title = {.size = 18, .font = bold};` |
+| 1. Tokens | Global values, in three groups: `palette` (the main colours and accents a panel chooses from), `shape` (radii, outline, outline gap, outline gradient, line thickness, shadow), `typography` (size and font per text type) | `theme.palette.accents[0].accent = ...;` `theme.shape.outlineGap = 2;` `theme.typography.title = {.size = 18, .font = bold};` |
 | 2. Role defaults | Style derived from the part's role, the tokens and the three colours of the part's panel; visibility from the part's own default | every track part is an outlined area with a small radius; ticks hidden |
 | 3. Part entries | Settings for one part; only the fields that are set have an effect | `theme[Slider::Ticks].shown = true;` `theme[Button::Face].radius = 0;` `theme[Switch::Track].borderGap = 0;` `theme[Button::Label].font = bold;` |
 
@@ -489,7 +491,7 @@ The theme resolves a part's style in three layers; a later layer overrides an ea
 
 Everything else is derived: text is the light or dark colour that reads best on main1, muted text lies between text and main1 and stays readable, the areas of buttons and fields are main1 moved a little towards main2, knobs have the text colour. An accent can define where a gradient starts; accent-coloured boxes then fade in from that colour. An index the theme does not have is a `SetupError`.
 
-**Outlines.** Panels and everything that can be operated have an outline of `shape.outline` in main2. Between outline and fill lies `shape.outlineGap`, the same for every part unless a part entry sets `borderGap`. The outline stays at the box's edge and the fill moves inwards, so layout is unaffected. Knobs have no outline.
+**Outlines.** Panels and everything that can be operated have an outline of `shape.outline` in main2. Between outline and fill lies `shape.outlineGap`, the same for every part unless a part entry sets `borderGap`. The outline stays at the box's edge and the fill moves inwards, so layout is unaffected. Knobs have no outline. A theme can let surfaces' outlines fade (`shape.outlineGradient`, `shape.outlineAccent`): from their accent at the gradient's start into main2; `colorful` does, diagonally from the top left.
 
 **States.** The UI tracks hovered, pressed, focused and disabled per widget; a widget can add `Active` for a part that is "on".
 
@@ -500,7 +502,7 @@ Everything else is derived: text is the light or dark colour that reads best on 
 | Active | a track is filled with the accent; text and knobs on it take the light or dark colour that reads best there |
 | Disabled | everything fades |
 
-The built-in themes: `themes::moon()` (the default: black, grey outlines, white accents as gradients, no shadows) and `themes::colorful()` (warm brown-grey with sand, green, blue and red accents, soft shadows). A test checks both for readable contrast.
+The built-in themes: `themes::moon()` (the default: black, grey outlines, white accents as gradients, no shadows) and `themes::colorful()` (warm brown-grey with sand, green, blue and red accents, soft shadows, panel outlines that fade from the accent). A test checks both for readable contrast.
 
 Consequences:
 - A theme that sets only tokens is complete. It needs no per-widget entries.

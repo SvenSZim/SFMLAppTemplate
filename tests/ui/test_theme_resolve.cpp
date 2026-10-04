@@ -641,3 +641,34 @@ TEST_CASE("the built-in themes are readable with their default main colours and 
         REQUIRE(contrast(hovered, idle) >= 1.15f);
     }
 }
+
+TEST_CASE("surfaces' outlines fade from the accent where the theme says so", "[ui][theme]") {
+    Theme theme;
+    const PartStyle plain = theme.resolve(Panel::Background);
+    REQUIRE(plain.borderGradient == Gradient::None);
+
+    theme.shape.outlineGradient = Gradient::Diagonal;
+    theme.shape.outlineAccent = 1.f;
+    const PartStyle fading = theme.resolve(Panel::Background);
+    REQUIRE(fading.borderGradient == Gradient::Diagonal);
+    REQUIRE(fading.borderStart == theme.palette.accents[0].accent);
+    REQUIRE(fading.border == plain.border); // it ends in the plain outline colour
+
+    // Only surfaces: a track keeps its one colour.
+    REQUIRE(theme.resolve(Button::Face).borderGradient == Gradient::None);
+
+    // A part entry with an outline colour of its own drops the fade, unless it sets one too.
+    theme[Panel::Background].border = sf::Color::Red;
+    REQUIRE(theme.resolve(Panel::Background).borderGradient == Gradient::None);
+    theme[Panel::Background].borderGradient = Gradient::Vertical;
+    theme[Panel::Background].borderStart = sf::Color::Blue;
+    const PartStyle entry = theme.resolve(Panel::Background);
+    REQUIRE(entry.borderGradient == Gradient::Vertical);
+    REQUIRE(entry.borderStart == sf::Color::Blue);
+}
+
+TEST_CASE("the colorful theme's panels have outlines that fade", "[ui][theme]") {
+    const Theme theme = themes::colorful();
+    REQUIRE(theme.resolve(Panel::Background).borderGradient == Gradient::Diagonal);
+    REQUIRE(themes::moon().resolve(Panel::Background).borderGradient == Gradient::None);
+}

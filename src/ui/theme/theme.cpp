@@ -113,6 +113,10 @@ void setAccent(const AccentColors& accent, PartStyle& style) {
             style.border = colors.main2;
             style.borderThickness = shape.outline;
             style.borderGap = shape.outlineGap;
+            if (shape.outlineGradient != Gradient::None) {
+                style.borderGradient = shape.outlineGradient;
+                style.borderStart = mix(colors.main2, colors.accent.accent, shape.outlineAccent);
+            }
             style.shadow = { shape.shadowOffset, shape.shadowSize, colors.shadow };
             break;
         case Role::Track:
@@ -174,6 +178,15 @@ void applyEntry(const PartOverride& entry, PartStyle& style) {
     }
     if (entry.border.has_value()) {
         style.border = *entry.border;
+        // As with the fill: a colour of its own replaces the role's gradient, unless the entry
+        // sets one too.
+        style.borderGradient = Gradient::None;
+    }
+    if (entry.borderStart.has_value()) {
+        style.borderStart = *entry.borderStart;
+    }
+    if (entry.borderGradient.has_value()) {
+        style.borderGradient = *entry.borderGradient;
     }
     if (entry.borderThickness.has_value()) {
         style.borderThickness = *entry.borderThickness;
@@ -246,6 +259,7 @@ void applyState(Role role, State state, const Theme& theme, const Colors& colors
         style.color = faded(style.color, disabledOpacity);
         style.gradientStart = faded(style.gradientStart, disabledOpacity);
         style.border = faded(style.border, disabledOpacity);
+        style.borderStart = faded(style.borderStart, disabledOpacity);
         style.shadow.color = faded(style.shadow.color, disabledOpacity);
     }
 }
@@ -330,6 +344,7 @@ PartStyle transparentCopy(PartStyle style) {
     style.color.a = 0;
     style.gradientStart.a = 0;
     style.border.a = 0;
+    style.borderStart.a = 0;
     style.shadow.color.a = 0;
     return style;
 }
@@ -356,6 +371,7 @@ PartStyle mix(const PartStyle& from, const PartStyle& to, float t) {
     style.color = mixColor(a.color, b.color, t);
     style.gradientStart = mixColor(a.gradientStart, b.gradientStart, t);
     style.border = mixColor(a.border, b.border, t);
+    style.borderStart = mixColor(a.borderStart, b.borderStart, t);
     style.borderThickness = mixFloat(a.borderThickness, b.borderThickness, t);
     style.borderGap = mixFloat(a.borderGap, b.borderGap, t);
     style.radius = mixFloat(a.radius, b.radius, t);
@@ -421,6 +437,10 @@ Theme colorful() {
     theme.shape.outline = 1.5f;
     theme.shape.shadowSize = 14.f;
     theme.shape.shadowOffset = { 0.f, 5.f };
+    // Like the reference project's cards: outlines that start warm at the top-left corner, in the
+    // panel's accent, and fade into the plain outline colour.
+    theme.shape.outlineGradient = Gradient::Diagonal;
+    theme.shape.outlineAccent = 0.7f;
 
     // Where the gap between outline and fill differs from the theme's `shape.outlineGap`:
     // the soft, shadowed surfaces of this theme look better with their outline right on the fill.
