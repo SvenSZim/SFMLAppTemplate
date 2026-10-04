@@ -3,6 +3,7 @@
 # It starts threads only in the thread pool, which the application creates.
 add_library(atpl_core STATIC
   easing.cpp
+  random.cpp
   series.cpp
   text_log.cpp
   thread_pool.cpp
