@@ -7,6 +7,7 @@ add_library(atpl_core STATIC
   series.cpp
   text_log.cpp
   thread_pool.cpp
+  timing.cpp
   version.cpp
 )
 add_library(atpl::core ALIAS atpl_core)
