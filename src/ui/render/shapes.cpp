@@ -102,19 +102,27 @@ public:
     explicit Fill(sf::Color color) :
         m_end(color) {}
 
+    /// From `start` to `end` across `rect` in the gradient's direction.
+    Fill(const FloatRect& rect, Gradient gradient, sf::Color start, sf::Color end) :
+        m_gradient(gradient),
+        m_start(start),
+        m_end(end),
+        m_rect(rect) {}
+
+    /// The fill of a box in this style.
     Fill(const FloatRect& rect, const PartStyle& style) :
-        m_gradient(style.gradient),
-        m_start(style.gradientStart),
-        m_end(style.color),
-        m_origin(style.gradient == Gradient::Vertical ? rect.top() : rect.left()),
-        m_length(style.gradient == Gradient::Vertical ? rect.height() : rect.width()) {}
+        Fill(rect, style.gradient, style.gradientStart, style.color) {}
 
     [[nodiscard]] sf::Color at(sf::Vector2f position) const {
-        if (m_gradient == Gradient::None || m_length <= 0.f) {
+        if (m_gradient == Gradient::None || m_rect.width() <= 0.f || m_rect.height() <= 0.f) {
             return m_end;
         }
-        const float along = m_gradient == Gradient::Vertical ? position.y : position.x;
-        const float t = std::clamp((along - m_origin) / m_length, 0.f, 1.f);
+        const float across = (position.x - m_rect.left()) / m_rect.width();
+        const float down = (position.y - m_rect.top()) / m_rect.height();
+        const float along = m_gradient == Gradient::Horizontal ? across
+                            : m_gradient == Gradient::Vertical ? down
+                                                               : (across + down) * 0.5f;
+        const float t = std::clamp(along, 0.f, 1.f);
         const auto channel = [t](std::uint8_t from, std::uint8_t to) {
             return static_cast<std::uint8_t>(
                 std::lround(static_cast<float>(from) + (static_cast<float>(to) - static_cast<float>(from)) * t)
@@ -130,8 +138,7 @@ private:
     Gradient m_gradient = Gradient::None;
     sf::Color m_start;
     sf::Color m_end;
-    float m_origin = 0.f;
-    float m_length = 0.f;
+    FloatRect m_rect;
 };
 
 /// The area inside an outline.
@@ -187,6 +194,31 @@ void appendRing(
     }
 }
 
+/// The band between two outlines with the same number of points, each point coloured where it
+/// lies in `fill`: an outline that fades along the box.
+void appendRing(VertexList& out, const Outline& outer, const Outline& inner, const Fill& fill) {
+    const int count = outer.pointCount();
+    const auto vertex = [&](sf::Vector2f position) { out.push_back({ position, fill.at(position) }); };
+    sf::Vector2f previousOuter = outer.point(count - 1);
+    sf::Vector2f previousInner = inner.point(count - 1);
+
+    for (int i = 0; i < count; ++i) {
+        const sf::Vector2f currentOuter = outer.point(i);
+        const sf::Vector2f currentInner = inner.point(i);
+        vertex(previousOuter);
+        vertex(currentOuter);
+        vertex(currentInner);
+        vertex(previousOuter);
+        vertex(currentInner);
+        vertex(previousInner);
+        previousOuter = currentOuter;
+        previousInner = currentInner;
+    }
+}
+
+/// How many bands a shadow fades over: enough that its fade looks smooth.
+constexpr int shadowBands = 6;
+
 /// A soft shadow: solid well inside the box, fading to nothing `size` pixels outside it.
 void appendShadow(VertexList& out, const FloatRect& rect, float radius, const Shadow& shadow) {
     const FloatRect base(rect.position() + shadow.offset, rect.size());
@@ -194,19 +226,31 @@ void appendShadow(VertexList& out, const FloatRect& rect, float radius, const Sh
     const float inwards = std::min(size, halfSmallerSide(base));
     const int segments = cornerSegments(radius + size);
 
-    const Outline core = outlineOf(base.inset(inwards), radius - inwards, segments);
-    const Outline edge = outlineOf(base, radius, segments);
-    const Outline rim = outlineOf(base.inset(-size), radius + size, segments);
+    // From `inwards` inside the box's edge to `size` outside it, the darkness falls off along
+    // (1 - smoothstep)^2: soft at both ends, with a quarter of it left at the box's edge when the
+    // shadow reaches as far in as out. (The reference project draws its card shadows like this,
+    // with a shader.)
+    const auto outlineAt = [&](float t) {
+        const float offset = -inwards + (inwards + size) * t; // > 0: outside the box
+        return outlineOf(base.inset(-offset), radius + offset, segments);
+    };
+    const auto colorAt = [&](float t) {
+        const float smooth = t * t * (3.f - 2.f * t);
+        const float left = 1.f - smooth;
+        return withAlpha(shadow.color, left * left);
+    };
 
-    // Not a straight fade: most of the darkness is gone at the box's edge, which reads as soft.
-    constexpr float alphaAtEdge = 0.4f;
-    const sf::Color solid = shadow.color;
-    const sf::Color atEdge = withAlpha(shadow.color, alphaAtEdge);
-    const sf::Color clear = withAlpha(shadow.color, 0.f);
-
-    appendFill(out, core, Fill(solid));
-    appendRing(out, edge, atEdge, core, solid);
-    appendRing(out, rim, clear, edge, atEdge);
+    Outline inner = outlineAt(0.f);
+    sf::Color innerColor = colorAt(0.f);
+    appendFill(out, inner, Fill(innerColor));
+    for (int band = 1; band <= shadowBands; ++band) {
+        const float t = static_cast<float>(band) / static_cast<float>(shadowBands);
+        const Outline outer = outlineAt(t);
+        const sf::Color outerColor = colorAt(t);
+        appendRing(out, outer, outerColor, inner, innerColor);
+        inner = outer;
+        innerColor = outerColor;
+    }
 }
 
 /// The sideways offset that gives a line its thickness: perpendicular to `direction`, `halfWidth` long.
@@ -256,7 +300,8 @@ void appendBox(VertexList& out, const FloatRect& rect, const PartStyle& style) {
     }
 
     const Outline outer = outlineOf(rect, radius, segments);
-    const bool hasOutline = style.borderThickness > 0.f && style.border.a > 0;
+    const bool fadingOutline = style.borderGradient != Gradient::None && style.borderStart.a > 0;
+    const bool hasOutline = style.borderThickness > 0.f && (style.border.a > 0 || fadingOutline);
     const float thickness = hasOutline ? std::min(style.borderThickness, halfSmallerSide(rect)) : 0.f;
 
     // With a gap, the fill starts further in than the outline ends. On a very thin box the gap
@@ -273,7 +318,11 @@ void appendBox(VertexList& out, const FloatRect& rect, const PartStyle& style) {
 
     if (hasOutline) {
         const Outline inner = outlineOf(rect.inset(thickness), radius - thickness, segments);
-        appendRing(out, outer, style.border, inner, style.border);
+        if (style.borderGradient != Gradient::None) {
+            appendRing(out, outer, inner, Fill(rect, style.borderGradient, style.borderStart, style.border));
+        } else {
+            appendRing(out, outer, style.border, inner, style.border);
+        }
     }
 }
 

@@ -126,11 +126,13 @@ enum class State : std::uint8_t {
 
 // ----- Styles -----
 
-/// How the fill of a box changes colour across it.
+/// How the fill or the outline of a box changes colour across it: from its start colour to its
+/// own colour.
 enum class Gradient {
     None,       ///< One colour.
-    Horizontal, ///< From `gradientStart` at the left edge to `color` at the right edge.
-    Vertical,   ///< From `gradientStart` at the top edge to `color` at the bottom edge.
+    Horizontal, ///< From the start colour at the left edge to the colour at the right edge.
+    Vertical,   ///< From the start colour at the top edge to the colour at the bottom edge.
+    Diagonal,   ///< From the start colour at the top-left corner to the colour at the bottom-right.
 };
 
 /// A soft shadow behind a box.
@@ -157,6 +159,10 @@ struct PartStyle {
 
     sf::Color border = sf::Color::Transparent; ///< Outline of a box.
     float borderThickness = 0.f;
+
+    /// The outline can fade along the box like a fill: from `borderStart` to `border`.
+    Gradient borderGradient = Gradient::None;
+    sf::Color borderStart = sf::Color::Transparent; ///< Where the outline's gradient starts.
 
     /// Space between the outline and the fill. The outline stays at the edge of the box; the fill
     /// is drawn that much further in, so a box with a gap is no larger than one without.
@@ -198,6 +204,8 @@ struct PartOverride {
     std::optional<Gradient> gradient;
     std::optional<sf::Color> gradientStart;
     std::optional<sf::Color> border;
+    std::optional<Gradient> borderGradient;
+    std::optional<sf::Color> borderStart;
     std::optional<float> borderThickness;
     std::optional<float> borderGap;
     std::optional<float> radius;
@@ -264,6 +272,12 @@ struct Shape {
     /// Space between such an outline and the fill inside it. The same for every part, unless a
     /// part entry says otherwise: `theme[Switch::Track].borderGap = 0.f;`.
     float outlineGap = 2.f;
+
+    /// Surfaces' outlines (panels, a dropdown's list) can fade along the box: they start in their
+    /// accent, `outlineAccent` of the way from their outline colour, and turn into the outline
+    /// colour in this direction. None: one colour.
+    Gradient outlineGradient = Gradient::None;
+    float outlineAccent = 1.f;
 
     float line = 1.5f;       ///< Thickness of Role::Line and Role::Accent strokes.
     float shadowSize = 12.f; ///< Spread of the shadow of surfaces. 0: no shadows.
