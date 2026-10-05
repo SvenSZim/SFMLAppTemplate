@@ -746,7 +746,7 @@ int run(bool smokeTest) {
                         at({.column = 1, .row = 0}, ValueDisplay("Tick time", simulation.controls.tickMilliseconds, {.label = "Tick", .format = "{:.1f} ms"})),
                         at({.column = 0, .row = 1}, ValueDisplay("In parallelFor", simulation.parallelShare, {.label = "Parallel", .format = "{:.0f} %"})),
                         at({.column = 1, .row = 1}, ValueDisplay("Drawing", buildMilliseconds, {.label = "Drawing", .format = "{:.1f} ms"})),
-                        at({.column = 0, .row = 2, .columnSpan = 2, .rowSpan = 2}, Graph("Milliseconds per tick", simulation.tickTimes, {.height = 40.f, .axisLabels = AxisLabels::Y})),
+                        at({.column = 0, .row = 2, .columnSpan = 2, .rowSpan = 3}, Graph("Milliseconds per tick", simulation.tickTimes, {.height = 40.f, .axisLabels = AxisLabels::Y})),
                     },
                 },
                 {
