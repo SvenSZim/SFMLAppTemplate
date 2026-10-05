@@ -128,6 +128,14 @@ concept BoolValue = std::same_as<T, bool>;
 template <typename T>
 concept NumberValue = std::is_arithmetic_v<T> && !std::same_as<T, bool>;
 
+// MSVC warns of "overflow in constant arithmetic" (C4756) where the optimiser folds a call with a
+// constant that is far out of range (1e300 to float): the branches below clamp such values before
+// any conversion, so nothing overflows. Off for this function only.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4756)
+#endif
+
 /// Converts a number coming from a widget to the application's number type without ever leaving
 /// the type's range: integers are rounded to nearest and clamped, `float` is clamped to its
 /// finite range. Not-a-number becomes 0 for integers and stays not-a-number for floating point.
@@ -165,6 +173,10 @@ template <NumberValue T>
         return static_cast<T>(rounded); // truncates towards zero, completing the rounding
     }
 }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 /// Enums. The enumerator's value is the index: the first option is 0.
 template <typename T>

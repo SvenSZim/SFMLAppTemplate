@@ -131,6 +131,11 @@ jobs:
     name: Windows (MSVC, informational)
     runs-on: windows-latest
     continue-on-error: true
+    # Bash, as on Linux: it stops at the first command that fails. PowerShell would carry on, and
+    # a step's last command alone would decide whether it passed.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
