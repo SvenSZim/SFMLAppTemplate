@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 
 using namespace atpl;
 using atpl::render::DrawList;
@@ -128,6 +129,37 @@ TEST_CASE("the header area and the line below it are shown only if the theme wan
     model::Panel folded = panelNamed("Controls");
     folded.collapsed = true;
     REQUIRE_FALSE(hasColor(paint(folded, theme, { 280.f, sizes.headerHeight }).shapes(), underline));
+}
+
+TEST_CASE("the header area is centred on the header and stays inside the panel's outline", "[ui][widgets][panel]") {
+    Theme theme;
+    const sf::Color header(4, 5, 6);
+    theme[Panel::Header].shown = true;
+    theme[Panel::Header].color = header;
+    const float outline = theme.resolve(Panel::Background, State::Normal, {}, sizes.text).contentInset();
+
+    const auto extent = [&](const DrawList& list) {
+        float top = 1.e9f;
+        float bottom = -1.e9f;
+        for (const sf::Vertex& vertex : list.shapes()) {
+            if (vertex.color == header) {
+                top = std::min(top, vertex.position.y);
+                bottom = std::max(bottom, vertex.position.y);
+            }
+        }
+        return std::pair{ top, bottom };
+    };
+
+    const auto [top, bottom] = extent(paint(panelNamed("Controls"), theme));
+    REQUIRE(top > outline);
+    REQUIRE(top == Catch::Approx(sizes.headerHeight - bottom)); // as far from the top as from the bottom
+
+    // Folded, the panel is no higher than its header: the area still ends inside its outline.
+    model::Panel folded = panelNamed("Controls");
+    folded.collapsed = true;
+    const auto [foldedTop, foldedBottom] = extent(paint(folded, theme, { 280.f, sizes.headerHeight }));
+    REQUIRE(foldedBottom < sizes.headerHeight - outline);
+    REQUIRE(foldedTop > outline);
 }
 
 TEST_CASE("a panel is painted in its own colours", "[ui][widgets][panel]") {

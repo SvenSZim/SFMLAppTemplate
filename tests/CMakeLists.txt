@@ -113,6 +113,7 @@ atpl_add_display_tests(ui
   ui/display/test_profiler_overlay.cpp
   ui/display/test_renderer.cpp
   ui/display/test_text.cpp
+  ui/display/test_themes.cpp
   ui/display/test_ui.cpp
 )
 # The text tests load the real font.

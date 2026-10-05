@@ -6,8 +6,11 @@
 #include "atpl/ui/widgets.hpp"
 
 #include <cstddef>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace atpl {
@@ -135,6 +138,11 @@ struct PanelSetup {
     std::vector<WidgetSetup> widgets;
 };
 
+/// Loads a font by its name in the application's resources, for themes that name their fonts
+/// (`Theme::fontName`, `TextType::fontName`). Throws if it cannot. The font must live as long as
+/// the UI. `App` provides one that loads from its `Resources`, each file once.
+using FontLoader = std::function<std::shared_ptr<const sf::Font>(std::string_view name)>;
+
 /// The whole UI.
 struct UISetup {
     /// How everything looks. See theme.hpp.
@@ -158,6 +166,10 @@ struct UISetup {
 
     /// Whether the profiler readout is shown from the start. See `UI::setProfilerVisible`.
     bool profiler = false;
+
+    /// Loads the fonts a theme names, at the start and with every `UI::setTheme`. Without one,
+    /// named fonts are not loaded: the theme's `font`, or the font in use, takes their place.
+    FontLoader fonts;
 };
 
 } // namespace atpl

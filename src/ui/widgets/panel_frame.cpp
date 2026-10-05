@@ -3,6 +3,7 @@
 #include "atpl/ui/setup.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace atpl::widgets {
 
@@ -73,10 +74,22 @@ void paintPanelFrame(Painter& painter, const model::Panel& panel, const Theme& t
         return theme.resolve(part, state, colors, sizes.text);
     };
 
-    painter.box(FloatRect({ 0.f, 0.f }, size), styleOf(Panel::Background));
+    const PartStyle background = styleOf(Panel::Background);
+    painter.box(FloatRect({ 0.f, 0.f }, size), background);
 
     const FloatRect header = headerRect(size, sizes);
-    painter.box(header, styleOf(Panel::Header));
+    // The header area, where a theme shows one, lies inside the panel behind the title: in from
+    // the header's edges by the same amount at the top and the bottom, so that it is centred on
+    // the title, and always clear of the panel's outline, also when the panel is folded to its
+    // header.
+    const float clear = background.contentInset() + 1.f;
+    const sf::Vector2f inset(
+        std::max(sizes.padding.x * 0.5f, clear), std::max(std::round(sizes.padding.y * 0.35f), clear)
+    );
+    const FloatRect area(
+        inset.x, inset.y, std::max(header.width() - inset.x * 2.f, 0.f), std::max(header.height() - inset.y * 2.f, 0.f)
+    );
+    painter.box(area, styleOf(Panel::Header));
 
     // The arrow takes a square at the right end of the header, unless the theme hides it; the
     // title the room before it.
