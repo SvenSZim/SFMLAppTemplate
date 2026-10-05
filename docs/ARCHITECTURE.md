@@ -1,8 +1,8 @@
-# SFMLAppTemplate — Target Structure
+# SFMLAppTemplate — Architecture
 
-Last updated: 2026-10-02 · Status: **approved** (decision D14 in [PROJECT_PLAN.md](PROJECT_PLAN.md)).
+Last updated: 2026-10-05 · Status: **approved** (decision D14 in [PROJECT_PLAN.md](PROJECT_PLAN.md)), and built (Phases 0 to 6).
 
-This describes the structure the codebase is reworked into. Decisions referenced as D*, P*, Q* are in the plan's decision log.
+This describes the structure of the codebase: its layers, who owns what, and what each header offers. Decisions referenced as D*, P*, Q* are in the plan's decision log.
 
 Root namespace and target prefix are `atpl` (D18). "Panel" is what the old code called "Container" (D17).
 
@@ -583,7 +583,7 @@ Main thread, one pass of `App`'s loop:
 | 3 | `binding`, `widgets`, `layout` | `UI::update()`: bound values that changed are handed to their widgets. Animations advance. Layout runs if something changed size. |
 | 4 | `render` | `UI::draw()`: if nothing needs a redraw, the frame is skipped and the loop waits for input (with a timeout of one display frame). Otherwise dirty panels are rebuilt and everything is drawn, including the views, whose draw functions read `simulation.state()`. |
 
-What `ui.cpp` does in each step, as of WP 3.2 (the rest is added by the packages that build the modules):
+What `ui.cpp` does in each step:
 
 - **Construction**: the model is built from the setup, which checks names and colours; `layout::prepare` finds the grid cells of panels and widgets and refuses what cannot be laid out. One render batch is made per panel.
 - **`handleInput()`**: reads the window's events with `frame::nextEvent`, which is where an idle application sleeps. A resize sets the window's view back to one unit per pixel, works out the layout theme's sizes for the new window size, and marks the placement as out of date; if the sizes changed, every panel is painted anew. Window events are forwarded (`input/window_events`).
@@ -598,7 +598,7 @@ The two threads share only `Param<T>` values, the command queue and the publishe
 
 ## 7. What the application writes
 
-This is the agreed API (Phase 1). `examples/starter/main.cpp` is the reference application: a simulation, three panels, a main view with pan and zoom, and a minimap. It is compiled with every build and becomes runnable when the API is implemented.
+An application, condensed to its parts. `examples/starter/main.cpp` is the complete reference: a simulation, three panels, a main view with pan and zoom, and a minimap; it is built and run as a smoke test with every change. The README walks through it.
 
 ```cpp
 using namespace atpl;
@@ -663,7 +663,7 @@ int main() {
 }
 ```
 
-## 8. What happens to the existing code
+## 8. What happened to the old code (history of the rework)
 
 | Existing | Fate |
 |---|---|
@@ -682,7 +682,10 @@ int main() {
 
 The old code is available in git history: commit `38a00b4` is the last one that contains all of it (for example `git show 38a00b4:src/ui/core/renderer/renderer.cpp`).
 
-## 9. Order of the rework
+## 9. Order of the rework (history)
+
+The rework is done; the order it followed:
+
 
 1. Skeleton: directory tree, three targets, moved utilities and their tests, an example that opens an empty window. Old UI code removed. Build and tests green.
 2. Public headers and the `minimal` example agreed (plan Phase 1).
