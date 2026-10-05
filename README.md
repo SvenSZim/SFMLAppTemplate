@@ -37,7 +37,7 @@ cmake --build build --parallel
 build/bin/showcase
 ```
 
-The first configure and build take a few minutes, since SFML is built from source. Then try:
+The first build takes from about a minute to several, depending on the machine, since SFML is built from source. Then try:
 
 - `build/bin/showcase`: every widget, a threaded particle simulation in a main view and a minimap. Drag the view, zoom with the wheel, switch the theme in the About panel, turn on Heat. `--layout dashboard` (or `overlay`, `cards`, `compact`) chooses another layout theme, `--profiler` shows what the UI costs, and Ctrl with plus, minus or 0 changes the GUI scale.
 - `build/bin/starter`: the smallest application, the one explained below.
