@@ -53,6 +53,16 @@ TEST_CASE("a GUI scale chosen from the desktop is one of the automatic steps", "
     REQUIRE(scale == autoScale(sf::VideoMode::getDesktopMode().size));
 }
 
+TEST_CASE("an app loads the fonts its themes name from its resources", "[app][display]") {
+    AppSetup setup = small();
+    setup.ui.theme = themes::colorful();
+    App app(std::move(setup));
+    REQUIRE(app.ui().theme().font->getInfo().family == "Roboto");
+
+    app.ui().setTheme(themes::moon()); // the bundled font again
+    REQUIRE(app.ui().theme().font->getInfo().family == "Inconsolata");
+}
+
 TEST_CASE("run ends with the code given to quit, and calls the update every pass", "[app][display]") {
     App app(small());
     int passes = 0;

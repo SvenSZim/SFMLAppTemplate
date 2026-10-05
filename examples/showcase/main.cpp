@@ -10,17 +10,17 @@
 // list has the keys, Escape first ends the typing or closes the list.
 //
 //   showcase [--layout overlay|dashboard|cards|compact] [--theme moon|colorful] [--scale <factor>]
-//            [--cards] [--ticks] [--profiler] [--smoke-test]
+//            [--cards] [--profiler] [--smoke-test]
 //
 // --layout chooses the layout theme: where panels go that do not say so, and how large things
 // are. Everything grows and shrinks with the window, within the layout theme's limits.
-// --theme chooses the look: colours, shapes, fonts.
+// --theme chooses the look to start with: colours, shapes, fonts. The About panel switches it
+// while it runs, and shows the sliders' ticks, an optional part a theme entry switches on.
 // --scale sets the GUI scale; without it, it is chosen from the desktop's resolution. Ctrl and
 // plus or minus change it while it runs, Ctrl and 0 sets it back.
 // --cards lets a stack of floating panels that does not fit into the window overlap like a stack
 // of cards instead of leaving panels out (not to be confused with the "cards" layout theme, whose
 // panels sit in the window's grid): make the window low to see it.
-// --ticks shows the sliders' ticks, an optional part a theme can switch on.
 // --profiler shows the profiler readout. --smoke-test draws a few frames and exits, for
 // automated checks.
 
@@ -81,14 +81,26 @@ Layout layoutNamed(std::string_view name) {
     );
 }
 
-Theme themeNamed(std::string_view name) {
+/// The looks to choose from: the entries of the "Theme" dropdown, in the same order.
+enum class Look { Moon, Colorful };
+constexpr std::array<const char*, 2> lookNames{ "Moon", "Colorful" };
+
+Look lookNamed(std::string_view name) {
     if (name == "moon") {
-        return themes::moon();
+        return Look::Moon;
     }
     if (name == "colorful") {
-        return themes::colorful();
+        return Look::Colorful;
     }
     throw std::invalid_argument("unknown theme \"" + std::string(name) + "\": moon or colorful");
+}
+
+/// The theme for a look, with the sliders' ticks if they are wanted: a theme is data, and the
+/// ticks are one entry of it. Switching needs no change to any widget.
+Theme themeFor(Look look, bool ticks) {
+    Theme theme = look == Look::Moon ? themes::moon() : themes::colorful();
+    theme[Slider::Ticks].shown = ticks; // an optional part: one theme entry
+    return theme;
 }
 
 /// How the scene would be drawn: the entries of the "Draw" dropdown, in the same order.
@@ -103,7 +115,9 @@ struct Params {
     Param<bool> heat = false; ///< Whether the particles warm the ground.
     Param<DrawMode> drawMode = DrawMode::Filled;
     Param<std::string> runName;
-    Param<int> tickCost = 0; ///< Milliseconds of work in every tick: a slow simulation, on purpose.
+    Param<int> tickCost = 0;       ///< Milliseconds of work in every tick: a slow simulation, on purpose.
+    Param<Look> look = Look::Moon; ///< The theme.
+    Param<bool> ticks = false;     ///< Whether the sliders show their ticks.
 
     void reset() {
         tickCost = 0;
@@ -435,6 +449,9 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simu
                          .text = "Click a header to fold a panel. A panel too low for its widgets scrolls.",
                          .footer = "Escape quits."}
                     ),
+                    // The look, switched while it runs: the theme is data, no widget changes.
+                    Dropdown("Theme", {lookNames.begin(), lookNames.end()}, params.look),
+                    Switch("Ticks", params.ticks),
                 },
             },
             {
@@ -455,22 +472,20 @@ UISetup describeUI(Layout layout, bool profiler, Params& params, Particles& simu
 int run(int argc, char* argv[]) {
     bool smokeTest = false;
     bool profiler = false;
-    bool ticks = false;
     bool cards = false;
     Layout layout = layouts::overlay();
-    std::optional<Theme> theme;
+    Look look = Look::Moon;
     std::variant<float, AutoScale> scale = AutoScale{};
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument = argv[i];
         smokeTest = smokeTest || argument == "--smoke-test";
         profiler = profiler || argument == "--profiler";
-        ticks = ticks || argument == "--ticks";
         cards = cards || argument == "--cards";
         if (argument == "--layout" && i + 1 < argc) {
             layout = layoutNamed(argv[++i]);
         }
         if (argument == "--theme" && i + 1 < argc) {
-            theme = themeNamed(argv[++i]);
+            look = lookNamed(argv[++i]);
         }
         if (argument == "--scale" && i + 1 < argc) {
             scale = std::stof(argv[++i]);
@@ -484,12 +499,8 @@ int run(int argc, char* argv[]) {
     Particles simulation(params);
     Report report;
     UISetup ui = describeUI(std::move(layout), profiler, params, simulation, report);
-    if (theme) {
-        ui.theme = std::move(*theme);
-    }
-    if (ticks) {
-        ui.theme[Slider::Ticks].shown = true; // an optional part: one theme entry
-    }
+    params.look = look;
+    ui.theme = themeFor(look, false);
     // The window, the UI with the font from the resources, and the loop. Closing the window
     // ends it.
     App app(
@@ -559,6 +570,14 @@ int run(int argc, char* argv[]) {
                 report.events.push("Drawing " + std::string(drawModeNames[std::get<std::size_t>(changed->value)]));
             } else if (changed->name == "Run name") {
                 report.events.push("Run name: " + params.runName.get());
+            } else if (changed->name == "Theme" || changed->name == "Ticks") {
+                // A new theme for everything; the fonts it names are loaded by the app.
+                app.ui().setTheme(themeFor(params.look.get(), params.ticks.get()));
+                report.events.push(
+                    changed->name == "Theme"
+                        ? "Theme " + std::string(lookNames[static_cast<std::size_t>(params.look.get())])
+                        : (params.ticks.get() ? "Ticks shown" : "Ticks hidden")
+                );
             }
         }
     });

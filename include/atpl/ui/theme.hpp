@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -213,6 +214,11 @@ struct PartOverride {
     std::optional<float> thickness;
     std::optional<float> textSize;
     std::shared_ptr<const sf::Font> font; ///< Null: the font of the part's text type.
+
+    /// Moves the part's colour (fill or text) this far towards its panel's accent, 0 to 1, after
+    /// the fields above: the same entry suits panels of every accent. For example a header area
+    /// tinted in the accent, or titles in it.
+    std::optional<float> towardsAccent;
 };
 
 // ----- Tokens -----
@@ -287,7 +293,12 @@ struct Shape {
 /// One type of text: its size and its font.
 struct TextType {
     float size = 14.f;                    ///< Height in pixels before GUI scaling.
-    std::shared_ptr<const sf::Font> font; ///< Null: the theme's default font.
+    std::shared_ptr<const sf::Font> font; ///< Null: the theme's default font, unless one is named below.
+
+    /// The font's file in the application's resources, for example "fonts/Roboto-Medium.ttf".
+    /// The UI loads it through its font loader (`UISetup::fonts`) when the theme is set; it takes
+    /// the place of `font`. Empty, or no loader: `font`.
+    std::string fontName;
 };
 
 /// The theme's text types, one per text role.
@@ -295,10 +306,10 @@ struct TextType {
 ///     theme.typography.title = {.size = 18.f, .font = boldFont};
 ///     theme.typography.muted.size = 11.f;
 struct Typography {
-    TextType title{ .size = 16.f, .font = {} };   ///< Role::Title
-    TextType heading{ .size = 15.f, .font = {} }; ///< Role::Heading
-    TextType text{ .size = 14.f, .font = {} };    ///< Role::Text
-    TextType muted{ .size = 12.f, .font = {} };   ///< Role::MutedText
+    TextType title{ .size = 16.f, .font = {}, .fontName = {} };   ///< Role::Title
+    TextType heading{ .size = 15.f, .font = {}, .fontName = {} }; ///< Role::Heading
+    TextType text{ .size = 14.f, .font = {}, .fontName = {} };    ///< Role::Text
+    TextType muted{ .size = 12.f, .font = {}, .fontName = {} };   ///< Role::MutedText
 };
 
 /// How long the theme's transitions take, in seconds. 0: at once, without animation.
@@ -328,6 +339,11 @@ public:
     /// The default font: used by every text type that does not name its own. Must be set before
     /// the theme is used; `App` sets the bundled font if the application sets none.
     std::shared_ptr<const sf::Font> font;
+
+    /// The default font as a file in the application's resources, loaded like
+    /// `TextType::fontName`; it takes the place of `font`. With neither, a theme set at runtime
+    /// gets the default font the UI started with.
+    std::string fontName;
 
     /// The default look: the same as `themes::moon()`.
     Theme();
@@ -365,9 +381,12 @@ namespace themes {
 /// Accents: 0 white.
 [[nodiscard]] Theme moon();
 
-/// Warm and dark, with soft, round shapes and several accents to tell panels apart.
+/// Warm and dark, after the reference project: panels darker than the window, soft round shapes,
+/// outlines that start in the accent, a tinted header with the title in the accent, Roboto
+/// (named: loaded through `UISetup::fonts`, as `App` does), and several accents to tell panels
+/// apart.
 ///
-/// Main colours: 0 brown-grey, 1 light brown-grey, 2 near-black, 3 warm white.
+/// Main colours: 0 near-black brown, 1 light brown-grey, 2 brown-grey, 3 warm white.
 /// Accents: 0 sand, 1 green, 2 blue, 3 red.
 [[nodiscard]] Theme colorful();
 

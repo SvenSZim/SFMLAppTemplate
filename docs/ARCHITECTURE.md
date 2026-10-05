@@ -101,13 +101,13 @@ The utility list for the first version is fixed by D67. Utilities that need SFML
 | `value.hpp` | `Value`: a widget's value of any kind, as carried by `ValueChanged`. |
 | `error.hpp` | `SetupError`: thrown for mistakes in setup or addressing. |
 | `id.hpp` | `PanelId`, `WidgetId`, `ViewId`. |
-| `setup.hpp` | `UISetup` (background view, grid, panels, profiler readout), `PanelSetup`. |
+| `setup.hpp` | `UISetup` (background view, grid, panels, profiler readout), `PanelSetup`. `UISetup::fonts`: a `FontLoader` for the fonts themes name, used at the start and by every `setTheme`; `App` gives one that loads from its resources (WP 6.4, D77). |
 | `placement.hpp` | `Anchor`, `GridCell`, `GridSpan`, `Placement` (D25, D44). Grid places are used for panels in the window and for widgets in a panel. |
 | `layout.hpp` | The layout theme (D44): `Layout` with its `Metrics`, `Scaling` and the defaults for placing panels and content; `PanelLayout`, what one panel does differently; `Sizes`, the sizes for the window as it is; `Alignment`, `Fit`, `SizeRule`; the presets in `layouts::`. |
 | `widgets.hpp` | The widget pool. Each widget has one public type, its descriptor: `Button`, `Switch`, `Slider`, `ProgressBar`, `ValueDisplay`, `TextDisplay`, `TextInput`, `Dropdown`, `Graph`, `Log`, `Paragraph`, `View` (D24). A descriptor also declares its widget's parts. `WidgetSetup` is what a panel stores; any type with a name and a `create()` converts to it, including app-defined ones. |
 | `handle.hpp` | `WidgetHandle` (`bind`, `unbind`, `get`, `set`, `setEnabled`), `ViewHandle` (`onDraw`, `rect`), `PanelHandle` (`setCollapsed`, `setVisible`, `rect`). Light values; the app does not keep them (P2). |
 | `binding.hpp` | `ValueKind`, the interfaces `Binding<T>` (bool, number, index, text) and `SeriesBinding`, and `AnyBinding`, which everything bindable converts to (P10). |
-| `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Typography`, `Motion`; `mix` of two part styles; `Theme` and the built-in themes (P5, P11, D30, D74). |
+| `theme.hpp` | `Role`, `Kind`, `Part`, `State`, `PartStyle`, `PartOverride`; the tokens `Palette`, `Shape`, `Typography`, `Motion`; `mix` of two part styles; `Theme` and the built-in themes (P5, P11, D30, D74). Fonts can be named by their resource file (`Theme::fontName`, `TextType::fontName`); a part entry can move a colour towards the panel's accent (`towardsAccent`) (WP 6.4, D77). |
 | `widget.hpp` | `Widget`, the interface widget types implement; `MeasureContext`, `InputContext`, `UpdateContext`, `StateBlend`, `Style`, `Painter` (P1, D30, D74). |
 | `rect.hpp` | Rectangle type. From `ui/utils/rect`, trimmed. |
 
@@ -502,7 +502,9 @@ Everything else is derived: text is the light or dark colour that reads best on 
 | Active | a track is filled with the accent; text and knobs on it take the light or dark colour that reads best there |
 | Disabled | everything fades |
 
-The built-in themes: `themes::moon()` (the default: black, grey outlines, white accents as gradients, no shadows) and `themes::colorful()` (warm brown-grey with sand, green, blue and red accents, soft shadows, panel outlines that fade from the accent). A test checks both for readable contrast.
+The built-in themes: `themes::moon()` (the default: black, grey outlines, white accents as gradients, no shadows) and `themes::colorful()` (after the reference project: near-black panels on a lighter warm window, sand, green, blue and red accents, soft shadows, panel outlines that fade from the accent, a tinted header with the title in the accent, Roboto by name). A test checks both for readable contrast, and one switches between them on a UI of every widget type.
+
+**Fonts by name** (WP 6.4, D77). A theme can name its fonts by resource file instead of holding them: `theme.fontName`, `theme.typography.title.fontName`. The UI loads named fonts through `UISetup::fonts` when the theme is set, at the start and with every `setTheme`; a named font takes the place of one that is set. A theme that neither sets nor names a default font gets the one the UI started with, so switching back from a theme with fonts of its own works. Without a loader, names are passed over. `App` gives a loader that loads from its `Resources`, each file once.
 
 Consequences:
 - A theme that sets only tokens is complete. It needs no per-widget entries.

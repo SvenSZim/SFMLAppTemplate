@@ -672,3 +672,25 @@ TEST_CASE("the colorful theme's panels have outlines that fade", "[ui][theme]") 
     REQUIRE(theme.resolve(Panel::Background).borderGradient == Gradient::Diagonal);
     REQUIRE(themes::moon().resolve(Panel::Background).borderGradient == Gradient::None);
 }
+
+TEST_CASE("a part entry can move a part's colour towards its panel's accent", "[ui][theme]") {
+    Theme theme = themes::colorful();
+    theme[Panel::Title].towardsAccent = 1.f;
+    REQUIRE(theme.resolve(Panel::Title, State::Normal, { .accent = 0 }).color == theme.palette.accents[0].accent);
+    REQUIRE(theme.resolve(Panel::Title, State::Normal, { .accent = 2 }).color == theme.palette.accents[2].accent);
+
+    theme[Panel::Title].towardsAccent = 0.f;
+    REQUIRE(theme.resolve(Panel::Title).color != theme.palette.accents[0].accent);
+}
+
+TEST_CASE("the colorful theme shows a tinted header and titles in the accent, and names Roboto", "[ui][theme]") {
+    const Theme theme = themes::colorful();
+    REQUIRE(theme.resolve(Panel::Header).shown);
+    REQUIRE(theme.resolve(Panel::Title).color == theme.palette.accents[0].accent);
+    REQUIRE(theme.fontName == "fonts/Roboto-Regular.ttf");
+    REQUIRE(theme.typography.title.fontName == "fonts/Roboto-Medium.ttf");
+    // Panels darker than the window, as in the reference project.
+    const sf::Color panel = theme.resolve(Panel::Background).color;
+    const sf::Color window = theme.palette.window;
+    REQUIRE(panel.r + panel.g + panel.b < window.r + window.g + window.b);
+}

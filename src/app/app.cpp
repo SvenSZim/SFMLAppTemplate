@@ -13,6 +13,7 @@
 #include <cmath>
 #include <exception>
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -42,9 +43,17 @@ void open(sf::RenderWindow& window, const WindowSetup& setup) {
     }
 }
 
-/// The UI setup with the font filled in from the resources, if the theme has none.
+/// The UI setup with fonts from the resources: a loader for the fonts themes name, each file
+/// loaded once and kept by `resources`, which outlives the UI; and the default font if the theme
+/// has none, which the UI keeps for themes that neither set nor name one.
 [[nodiscard]] UISetup withFont(UISetup setup, const Resources& resources, const std::filesystem::path& font) {
-    if (setup.theme.font == nullptr) {
+    if (!setup.fonts) {
+        setup.fonts = [&resources](std::string_view name) {
+            const sf::Font& loaded = resources.font(std::filesystem::path(name));
+            return std::shared_ptr<const sf::Font>(&loaded, [](const sf::Font*) {}); // kept by the resources
+        };
+    }
+    if (setup.theme.font == nullptr) { // also for themes that name theirs: kept for those that do not
         setup.theme.font = std::make_shared<const sf::Font>(resources.loadFont(font));
     }
     return setup;

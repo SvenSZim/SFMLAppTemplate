@@ -76,7 +76,15 @@ void paintPanelFrame(Painter& painter, const model::Panel& panel, const Theme& t
     painter.box(FloatRect({ 0.f, 0.f }, size), styleOf(Panel::Background));
 
     const FloatRect header = headerRect(size, sizes);
-    painter.box(header, styleOf(Panel::Header));
+    // The header area, where a theme shows one, lies inside the panel, a little in from its
+    // edges: behind the title, not in place of the panel's top.
+    const FloatRect area(
+        sizes.padding.x * 0.5f,
+        sizes.padding.y * 0.4f,
+        std::max(header.width() - sizes.padding.x, 0.f),
+        std::max(header.height() - sizes.padding.y * 0.4f, 0.f)
+    );
+    painter.box(area, styleOf(Panel::Header));
 
     // The arrow takes a square at the right end of the header, unless the theme hides it; the
     // title the room before it.

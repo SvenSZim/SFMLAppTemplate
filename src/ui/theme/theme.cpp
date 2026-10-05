@@ -161,7 +161,7 @@ void setAccent(const AccentColors& accent, PartStyle& style) {
 }
 
 /// Layer 3: the fields a part entry sets replace what the role gave.
-void applyEntry(const PartOverride& entry, PartStyle& style) {
+void applyEntry(const PartOverride& entry, const Colors& colors, PartStyle& style) {
     if (entry.shown.has_value()) {
         style.shown = *entry.shown;
     }
@@ -208,6 +208,10 @@ void applyEntry(const PartOverride& entry, PartStyle& style) {
     }
     if (entry.font != nullptr) {
         style.font = entry.font.get();
+    }
+    if (entry.towardsAccent.has_value()) {
+        style.color = mix(style.color, colors.accent.accent, std::clamp(*entry.towardsAccent, 0.f, 1.f));
+        style.gradient = Gradient::None;
     }
 }
 
@@ -398,7 +402,7 @@ PartStyle Theme::resolve(const Part& part, State state, PanelColors chosen, floa
     }
 
     if (const PartOverride* override = entry(part)) {
-        applyEntry(*override, style);
+        applyEntry(*override, colors, style);
     }
     applyState(part.role, state, *this, colors, style);
     applyScale(scale, style);
@@ -416,12 +420,12 @@ Theme colorful() {
 
     Theme theme;
     theme.palette = {
-        .window = sf::Color(36, 34, 32),
+        .window = sf::Color(44, 42, 39),
         .shadow = sf::Color(0, 0, 0, 140),
         .mains = {
-            sf::Color(56, 53, 50),    // 0: brown-grey
+            sf::Color(27, 26, 25),    // 0: near-black brown: panels, darker than the window
             sf::Color(122, 116, 110), // 1: light brown-grey
-            sf::Color(27, 26, 25),    // 2: near-black
+            sf::Color(56, 53, 50),    // 2: brown-grey
             sf::Color(240, 235, 228), // 3: warm white
         },
         .accents = {
@@ -432,8 +436,8 @@ Theme colorful() {
         },
     };
     theme.shape = Shape{};
-    theme.shape.radius = 18.f;
-    theme.shape.smallRadius = 9.f;
+    theme.shape.radius = 20.f;
+    theme.shape.smallRadius = 10.f;
     theme.shape.outline = 1.5f;
     theme.shape.shadowSize = 14.f;
     theme.shape.shadowOffset = { 0.f, 5.f };
@@ -447,6 +451,18 @@ Theme colorful() {
     theme[Panel::Background].borderGap = 0.f;
     theme[Dropdown::List].borderGap = 0.f;
     theme[Switch::Track].borderGap = 0.f;
+
+    // Roboto, as the reference project: regular for text, medium for titles and headings.
+    theme.fontName = "fonts/Roboto-Regular.ttf";
+    theme.typography.title.fontName = "fonts/Roboto-Medium.ttf";
+    theme.typography.heading.fontName = "fonts/Roboto-Medium.ttf";
+
+    // The header as a tinted area behind a title in the accent, in every panel's own accent.
+    theme[Panel::Header].shown = true;
+    theme[Panel::Header].towardsAccent = 0.18f;
+    theme[Panel::Header].border = sf::Color::Transparent;
+    theme[Panel::Header].shadow = Shadow{};
+    theme[Panel::Title].towardsAccent = 1.f;
     return theme;
 }
 

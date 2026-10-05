@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -34,12 +35,37 @@ namespace atpl {
 // The facade: it owns the modules and calls them in order. What each step does is decided in the
 // module that owns the concern, not here.
 
+namespace {
+
+/// The theme with the fonts it names loaded; a named font takes the place of one that is set.
+/// A default font it neither sets nor names is `fallback`, so a theme set at runtime need not
+/// bring fonts of its own. Throws whatever the loader throws; without a loader, names are passed
+/// over.
+[[nodiscard]] Theme withFonts(Theme theme, const FontLoader& load, const std::shared_ptr<const sf::Font>& fallback) {
+    if (!theme.fontName.empty() && load) {
+        theme.font = load(theme.fontName);
+    } else if (theme.font == nullptr) {
+        theme.font = fallback;
+    }
+    for (TextType* type :
+         { &theme.typography.title, &theme.typography.heading, &theme.typography.text, &theme.typography.muted }) {
+        if (!type->fontName.empty() && load) {
+            type->font = load(type->fontName);
+        }
+    }
+    return theme;
+}
+
+} // namespace
+
 struct UI::Impl {
     Impl(sf::RenderWindow& targetWindow, UISetup setup) :
         window(targetWindow),
         store(setup), // checks names and colours
         grid(setup.grid),
-        theme(std::move(setup.theme)),
+        fonts(std::move(setup.fonts)),
+        defaultFont(setup.theme.font),
+        theme(withFonts(std::move(setup.theme), fonts, nullptr)),
         layout(std::move(setup.layout)),
         batches(store.panels().size()),
         thumbs(store.panels().size(), 0.f),
@@ -283,6 +309,10 @@ struct UI::Impl {
 
     model::Store store;
     GridSetup grid;
+    FontLoader fonts; ///< For the fonts themes name; may be empty.
+    /// The font the first theme was given as its default (by `App`, the bundled one): for themes
+    /// set later that neither set nor name one.
+    std::shared_ptr<const sf::Font> defaultFont;
     Theme theme;
     Layout layout;
     Sizes sizes; // the layout's, for the window as it is
@@ -334,7 +364,10 @@ const Theme& UI::theme() const {
 
 void UI::setTheme(Theme theme) {
     m_impl->store.requireColors(theme); // a theme that does not fit is refused before anything changes
-    m_impl->theme = std::move(theme);
+    // Its fonts loaded (a font that cannot be loaded also changes nothing), or the default one.
+    const std::shared_ptr<const sf::Font>& fallback =
+        m_impl->defaultFont != nullptr ? m_impl->defaultFont : m_impl->theme.font;
+    m_impl->theme = withFonts(std::move(theme), m_impl->fonts, fallback);
     m_impl->looksChanged();
 }
 
