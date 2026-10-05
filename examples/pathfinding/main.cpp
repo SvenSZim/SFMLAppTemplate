@@ -139,7 +139,7 @@ public:
         m_done = false;
         m_found = false;
         m_cost(start) = 0.f;
-        push(m_ground->index(start.x, start.y), 0.f);
+        push(static_cast<int>(m_ground->index(start.x, start.y)), 0.f);
     }
 
     /// Expands the next cell. Returns false once the search is over.
