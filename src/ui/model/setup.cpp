@@ -21,6 +21,10 @@ ColorOverride WidgetSetup::colors() const {
     return m_colors;
 }
 
+Spacing WidgetSetup::spacing() const {
+    return m_spacing;
+}
+
 const std::optional<AnyBinding>& WidgetSetup::binding() const {
     return m_binding;
 }
@@ -42,6 +46,11 @@ WidgetSetup at(GridCell cell, WidgetSetup widget) {
 WidgetSetup spanning(GridSpan span, WidgetSetup widget) {
     widget.m_cell.reset(); // a size without a position
     widget.m_span = span;
+    return widget;
+}
+
+WidgetSetup spaced(Spacing spacing, WidgetSetup widget) {
+    widget.m_spacing = spacing;
     return widget;
 }
 

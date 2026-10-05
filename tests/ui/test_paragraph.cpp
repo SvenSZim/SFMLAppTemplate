@@ -202,6 +202,31 @@ TEST_CASE("lines between the texts show only if the theme shows them, and change
     REQUIRE(painted({ .heading = "Ants" }, { 300.f, 200.f }, lined).shapes().empty());
 }
 
+TEST_CASE("a heading can be underlined, as the title of a group of widgets", "[ui][widgets][paragraph]") {
+    const ParagraphOptions plain{ .heading = "Forces" };
+    const ParagraphOptions underlined{ .heading = "Forces", .underline = true };
+    REQUIRE(painted(plain, { 300.f, 60.f }).shapes().empty());
+
+    const render::DrawList list = painted(underlined, { 300.f, 60.f });
+    REQUIRE_FALSE(list.shapes().empty());
+    const sf::Color line = theme.resolve(Paragraph::Underline).color;
+    float top = 1.e9f;
+    for (const sf::Vertex& vertex : list.shapes()) {
+        REQUIRE(vertex.color == line);
+        top = std::min(top, vertex.position.y);
+    }
+    REQUIRE(top >= lineOf(Paragraph::Heading)); // below the heading
+
+    // Alone, the heading makes room for its line; the theme can hide it like any part.
+    REQUIRE(measured(underlined, 300.f).min.y > measured(plain, 300.f).min.y);
+    Theme hidden;
+    hidden[Paragraph::Underline].shown = false;
+    REQUIRE(painted(underlined, { 300.f, 60.f }, hidden).shapes().empty());
+
+    // Without a heading there is nothing to underline.
+    REQUIRE(painted({ .text = "Body", .underline = true }, { 300.f, 60.f }).shapes().empty());
+}
+
 TEST_CASE("a paragraph is static: it takes no value and does not react to the pointer", "[ui][widgets][paragraph]") {
     const auto widget = Paragraph("P", { .text = "Hello" }).create();
     REQUIRE_FALSE(widget->accepts(ValueKind::Text));

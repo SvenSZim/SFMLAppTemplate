@@ -224,10 +224,18 @@ struct TextInput {
     [[nodiscard]] std::unique_ptr<Widget> create() const;
 };
 
+/// Where a widget's label goes: above its field, or beside it.
+enum class LabelPlace {
+    Above,  ///< The label on a line of its own, the field below it.
+    Beside, ///< The label in the left third, the field in the other two at the full height: in a grid
+            ///< row, the field is then as high as a button.
+};
+
 struct DropdownOptions {
     std::string label;
     std::size_t initial = 0;    ///< Selected entry while nothing is bound.
     std::size_t maxVisible = 8; ///< Most entries the open list shows; more scroll. Fewer if the window is small.
+    LabelPlace labelPlace = LabelPlace::Above;
 };
 
 /// A choice of one entry from a list. Kind: Index, the position of the selected entry.
@@ -299,12 +307,22 @@ enum class GraphX {
     Time,  ///< Seconds, from `GraphOptions::secondsPerSample`: the newest is 0 s.
 };
 
+/// Which axes of a graph show labels.
+enum class AxisLabels {
+    Theme, ///< As the theme says (`Graph::AxisLabels`): both or none.
+    None,
+    Y, ///< The value axis only: its low, middle and high values.
+    X, ///< The x-axis only.
+    Both,
+};
+
 struct GraphOptions {
     std::string label;
     std::size_t samples = 0;  ///< How many of the newest samples the width shows. 0: as many as there are, up to 1024.
     std::optional<float> min; ///< Lower end of the value axis. Empty: follows the data.
     std::optional<float> max; ///< Upper end of the value axis. Empty: follows the data.
-    float height = 0.f;       ///< Preferred height in pixels at the reference window size. 0: about four rows.
+    float height = 0.f; ///< Preferred height in pixels at the reference window size. 0: about four rows. Below two rows
+                        ///< it is also the least height.
 
     GraphBase base = GraphBase::Zero;
     bool logarithmic = false; ///< Values on a logarithmic scale. Values at or below 0 are drawn at the bottom.
@@ -314,6 +332,9 @@ struct GraphOptions {
     float secondsPerSample = 1.f; ///< With `GraphX::Time`: the time between two samples.
 
     std::string format = "{:.1f}"; ///< How values are shown: the current value and the axis labels.
+
+    /// Labels on the axes for this graph, whatever the theme says; their look stays the theme's.
+    AxisLabels axisLabels = AxisLabels::Theme;
 };
 
 /// A line graph of a run of samples, or of points whose x values come from the data.
@@ -427,12 +448,13 @@ struct ParagraphOptions {
     std::string text;          ///< Shown as body text, wrapped to the panel's width. Empty: no body.
     std::string footer;        ///< Shown below in muted text, wrapped. Empty: no footer.
     Align align = Align::Left; ///< How all three are placed in each line.
+    bool underline = false;    ///< A line below the heading: for a heading that starts a group of widgets.
 };
 
 /// Text in a panel: a heading, a body and a footer, each optional. With only a heading it is a
 /// section heading; with only a body, a paragraph; with only a footer, a hint.
 ///
-///     Paragraph("Rendering", {.heading = "Rendering"})
+///     Paragraph("Rendering", {.heading = "Rendering", .underline = true}) // a group's title
 ///     Paragraph("Help", {.text = "Drag to move the view. Scroll to zoom."})
 ///     Paragraph("About", {.heading = "Ants", .text = "...", .footer = "v1.5"})
 ///
@@ -452,6 +474,7 @@ struct Paragraph {
     static constexpr Part Body{ kind, "body", Role::Text };
     static constexpr Part Footer{ kind, "footer", Role::MutedText };
     static constexpr Part Separator{ kind, "separator", Role::Line, Shown::No }; ///< Between the texts.
+    static constexpr Part Underline{ kind, "underline", Role::Line }; ///< Below the heading, with `underline`.
 
     std::string name;
     ParagraphOptions options;
@@ -500,6 +523,11 @@ concept WidgetDescriptor = requires(const D& descriptor) {
     { descriptor.create() } -> std::same_as<std::unique_ptr<Widget>>;
 };
 
+/// Space around a widget, in pixels at the reference window size; it scales like other sizes.
+struct Spacing {
+    float top = 0.f; ///< Above the widget: to set a group of widgets apart from what comes before.
+};
+
 /// One widget of a panel, as stored in `PanelSetup`. Every descriptor converts to it, so
 /// descriptors of different widgets can be listed together.
 class WidgetSetup {
@@ -518,6 +546,9 @@ public:
     /// The colours the widget was given with `colored`; empty fields mean its panel's.
     [[nodiscard]] ColorOverride colors() const;
 
+    /// The space the widget was given with `spaced`.
+    [[nodiscard]] Spacing spacing() const;
+
     /// What the descriptor was given to bind the widget to, if anything.
     [[nodiscard]] const std::optional<AnyBinding>& binding() const;
 
@@ -531,6 +562,7 @@ private:
     friend WidgetSetup at(GridCell cell, WidgetSetup widget);
     friend WidgetSetup spanning(GridSpan span, WidgetSetup widget);
     friend WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
+    friend WidgetSetup spaced(Spacing spacing, WidgetSetup widget);
 
     std::string m_name;
     std::optional<AnyBinding> m_binding;
@@ -539,6 +571,7 @@ private:
     std::optional<GridCell> m_cell;
     GridSpan m_span;
     ColorOverride m_colors;
+    Spacing m_spacing;
 };
 
 namespace detail {
@@ -592,5 +625,14 @@ WidgetSetup::WidgetSetup(D descriptor) :
 ///
 /// Only the colours that are named differ. Can be combined with `at` and `spanning`.
 [[nodiscard]] WidgetSetup colored(ColorOverride colors, WidgetSetup widget);
+
+/// Gives a widget space above it, where its panel stacks its widgets (each at its own height,
+/// below each other): to set a group apart.
+///
+///     spaced({.top = 16.f}, Paragraph("Forces", {.heading = "Forces", .underline = true}))
+///
+/// In a panel whose widgets sit in a grid of cells it has no effect: leave a row free there.
+/// Can be combined with `colored`.
+[[nodiscard]] WidgetSetup spaced(Spacing spacing, WidgetSetup widget);
 
 } // namespace atpl

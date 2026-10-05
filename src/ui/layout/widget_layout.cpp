@@ -74,11 +74,13 @@ WidgetLayout packed(
     std::vector<PackItem> items(slots.size());
     float total = sizes.padding.y * 2.f;
     float widestNeed = 0.f;
+    // A widget's top margin is part of its place in the column, above the widget.
+    const auto marginOf = [&](const model::WidgetSlot& slot) { return std::round(slot.marginTop * sizes.scale.y); };
     for (std::size_t i = 0; i < slots.size(); ++i) {
         requests[i] = measure(slots[i], width, theme, sizes, measurer);
-        items[i] = { static_cast<PackId>(i), requests[i].preferred.y };
+        items[i] = { static_cast<PackId>(i), requests[i].preferred.y + marginOf(slots[i]) };
         result.usesSpareHeight = result.usesSpareHeight || requests[i].isDynamic();
-        total += requests[i].preferred.y + sizes.gap.y;
+        total += items[i].resolvedHeight + sizes.gap.y;
         widestNeed = std::max(widestNeed, requests[i].preferred.x);
     }
     result.contentWidth = contentWidthFor(widestNeed, columns, sizes);
@@ -123,6 +125,10 @@ WidgetLayout packed(
     }
 
     for (std::size_t i = 0; i < slots.size(); ++i) {
+        const float margin = marginOf(slots[i]);
+        places[i] = FloatRect(
+            places[i].left(), places[i].top() + margin, places[i].width(), std::max(places[i].height() - margin, 0.f)
+        );
         slots[i].rect = placeInCell(requests[i], places[i], rules.widgetAlignment);
         slots[i].fits = places[i].width() >= requests[i].min.x;
         result.widestAndHighest.x = std::max(result.widestAndHighest.x, requests[i].min.x);
@@ -252,10 +258,13 @@ void prepareWidgets(model::Store& store, const Layout& layout) {
         }
 
         // A grid, if the panel's size is given from outside, if the layout theme wants equal
-        // cells, or if the panel or one of its widgets says something about cells.
+        // cells, or if the panel or one of its widgets says something about cells. A panel that
+        // asks for rows of their own height itself, and says nothing about cells, is stacked
+        // even where its size is given: its widgets each as high as they want, below each other.
         const PanelRules rules = rulesFor(layout, panel);
-        panel.grid =
-            isTopDown(panel, rules) || rules.rows == SizeRule::Equal || panel.declaredRows > 0 || positions || spans;
+        const bool stacks = panel.layout.rows == SizeRule::Own && panel.declaredRows == 0 && !positions && !spans;
+        panel.grid = !stacks && (isTopDown(panel, rules) || rules.rows == SizeRule::Equal || panel.declaredRows > 0 ||
+                                 positions || spans);
         if (!panel.grid) {
             panel.rows = 0;
             for (model::WidgetSlot& slot : slots) {

@@ -188,6 +188,36 @@ TEST_CASE("a progress bar only shows numbers, and refuses a range that cannot wo
 
 // ----- Graph -----
 
+TEST_CASE("a graph needs two rows of plot at least, unless it asks to be smaller", "[ui][widgets][graph]") {
+    const Theme theme;
+    Series series(8);
+    const BoundGraph plain(series, {});
+    const BoundGraph small(series, { .height = 10.f });
+    const BoundGraph tall(series, { .height = 200.f });
+    const MeasureContext context(300.f, theme, {}, sizes, &measurer);
+    const float leastPlain = plain.widget->measure(context).min.y;
+    REQUIRE(small.widget->measure(context).min.y < leastPlain); // a small graph may be small
+    REQUIRE(tall.widget->measure(context).min.y == leastPlain); // a tall one can still give way
+    REQUIRE(small.widget->measure(context).min.y > 10.f);       // the label stays
+}
+
+TEST_CASE("a graph can show the labels of one axis, whatever the theme says", "[ui][widgets][graph]") {
+    const Theme theme; // axis labels hidden
+    Series series(8);
+    for (const float value : { 1.f, 2.f, 3.f }) {
+        series.push(value);
+    }
+    const auto texts = [&](AxisLabels which) {
+        const BoundGraph graph(series, { .axisLabels = which });
+        return paint(*graph.widget, theme).texts().size();
+    };
+    const std::size_t themed = texts(AxisLabels::Theme);
+    REQUIRE(texts(AxisLabels::None) == themed);
+    REQUIRE(texts(AxisLabels::Y) == themed + 3); // low, middle, high
+    REQUIRE(texts(AxisLabels::X) == themed + 3);
+    REQUIRE(texts(AxisLabels::Both) == themed + 6);
+}
+
 TEST_CASE("a graph draws the samples of its series as a curve", "[ui][widgets][graph]") {
     const Theme theme;
     Series series(100);
