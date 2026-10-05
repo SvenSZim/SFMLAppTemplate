@@ -600,3 +600,33 @@ TEST_CASE("text input options that cannot work are refused when the UI is built"
     REQUIRE_FALSE(input->accepts(ValueKind::Number));
     REQUIRE(input->editsValue());
 }
+
+TEST_CASE(
+    "a dropdown can have its label beside its field, which then takes the whole height", "[ui][widgets][dropdown]"
+) {
+    Harness above({ Dropdown("Mode", { "Plain", "Speed" }) });
+    Harness beside({ Dropdown("Mode", { "Plain", "Speed" }, { .labelPlace = LabelPlace::Beside }) });
+    const FloatRect area = beside.rectOf("Mode");
+    const sf::Color field = beside.theme.resolve(Dropdown::Field).color;
+
+    // Beside: the field starts a third of the way across and is as high as the widget.
+    const auto extentOf = [&](Harness& ui) {
+        float left = 1.e9f;
+        float top = 1.e9f;
+        float bottom = -1.e9f;
+        const render::DrawList list = ui.paint("Mode"); // kept alive while its shapes are read
+        for (const sf::Vertex& vertex : list.shapes()) {
+            if (vertex.color == field) {
+                left = std::min(left, vertex.position.x);
+                top = std::min(top, vertex.position.y);
+                bottom = std::max(bottom, vertex.position.y);
+            }
+        }
+        return FloatRect(left, top, 0.f, bottom - top);
+    };
+    const FloatRect besideField = extentOf(beside);
+    REQUIRE(besideField.left() >= area.width() / 3.f);
+    REQUIRE(besideField.top() < 4.f); // from the top, not below a label
+    REQUIRE(extentOf(above).top() > besideField.top());
+    REQUIRE(beside.rectOf("Mode").height() < above.rectOf("Mode").height()); // no line for the label
+}

@@ -2,6 +2,7 @@
 
 #include "atpl/ui/error.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <variant>
@@ -100,6 +101,7 @@ Store::Store(const UISetup& setup) {
             slot.declaredCell = widgetSetup.cell();
             slot.span = widgetSetup.span();
             slot.colors = withOverride(panel.colors, widgetSetup.colors());
+            slot.marginTop = std::max(widgetSetup.spacing().top, 0.f);
             slot.binding = widgetSetup.binding();
             slot.widget = widgetSetup.create();
             if (slot.widget == nullptr) {

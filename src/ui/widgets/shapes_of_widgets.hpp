@@ -7,6 +7,7 @@
 #include <SFML/System/Vector2.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 namespace atpl::widgets {
 
@@ -37,6 +38,29 @@ inline constexpr float labelGap = 2.f;
 [[nodiscard]] inline FloatRect fieldBelow(sf::Vector2f size, float labelHeight) {
     const float top = std::min(labelHeight + labelGap, size.y);
     return { 0.f, top, size.x, size.y - top };
+}
+
+/// The field of a widget whose label is beside it: the right two thirds, the whole height.
+[[nodiscard]] inline FloatRect fieldBeside(sf::Vector2f size, float gap) {
+    const float left = std::min(std::round(size.x / 3.f + gap * 0.5f), size.x);
+    return { left, 0.f, size.x - left, size.y };
+}
+
+/// The label of a widget whose label is beside its field: the left third, less half a gap.
+[[nodiscard]] inline FloatRect labelBeside(sf::Vector2f size, float gap) {
+    return { 0.f, 0.f, std::max(std::round(size.x / 3.f - gap * 0.5f), 0.f), size.y };
+}
+
+/// What a widget with its label beside a field of one row asks for: the field a third wider than
+/// the label's third, as high as a row (a button), with the label in the remaining third.
+[[nodiscard]] inline SizeRequest labelBesideField(const Sizes& sizes, sf::Vector2f label, sf::Vector2f widest) {
+    const float third = std::max(label.x, (widest.x + sizes.padding.x * 2.f) * 0.5f);
+    const float least = std::min(std::max(label.y, widest.y) + 6.f, sizes.rowHeight);
+    return {
+        .min = { std::max(label.x, widest.x * 0.25f) * 3.f + sizes.gap.x, least },
+        .preferred = { third * 3.f + sizes.gap.x, sizes.rowHeight },
+        .max = sf::Vector2f(anyWidth, sizes.rowHeight * tallest),
+    };
 }
 
 /// What a widget with a label above a field of one row asks for: `widest` is the size of the

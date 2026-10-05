@@ -693,23 +693,24 @@ int run(bool smokeTest) {
                 {
                     .name = "Settings",
                     .placement = GridCell{.column = 0, .row = 0, .rowSpan = 2},
+                    .layout = {.rows = SizeRule::Own}, // stacked: each widget as high as it wants
                     .collapsible = false,
                     .widgets = {
-                        // Grouped by what they are for, each group under its heading. The panel
-                        // scrolls where the window is too low for all of them.
+                        // Grouped by what they are for, each group under its heading, with space
+                        // above. The panel scrolls where the window is too low for all of them.
                         Paragraph("World", {.heading = "World", .underline = true}),
                         Dropdown("Spawn", {layoutNames.begin(), layoutNames.end()}, params.layout),
                         Slider("Count", params.count, {.min = 20000.0, .max = 100000.0, .step = 5000.0, .format = "{:.0f}"}),
                         Button("Respawn"),
-                        Paragraph("Forces", {.heading = "Forces", .underline = true}),
+                        spaced({.top = 18.f}, Paragraph("Forces", {.heading = "Forces", .underline = true})),
                         Dropdown("Gravity", {gravityNames.begin(), gravityNames.end()}, params.gravity),
                         Slider("Strength", params.gravityStrength, {.min = 0.0, .max = 300.0, .format = "{:.0f}"}),
                         Slider("Push", params.push, {.min = 0.0, .max = 1000.0, .format = "{:.0f}"}),
                         Slider("Friction", params.friction, {.min = 0.0, .max = 2.0, .format = "{:.2f}"}),
-                        Paragraph("Editing", {.heading = "Editing", .underline = true}),
+                        spaced({.top = 18.f}, Paragraph("Editing", {.heading = "Editing", .underline = true})),
                         Dropdown("Tool", {toolNames.begin(), toolNames.end()}, params.tool),
                         Button("Clear markers"),
-                        Paragraph("Simulation", {.heading = "Simulation", .underline = true}),
+                        spaced({.top = 18.f}, Paragraph("Simulation", {.heading = "Simulation", .underline = true})),
                         Slider("Speed", simulation.controls.speed, {.min = 0.0, .max = 3.0, .format = "{:.2f}"}),
                         Switch("Paused", simulation.controls.paused),
                         Button("Step"),
@@ -745,7 +746,7 @@ int run(bool smokeTest) {
                         at({.column = 1, .row = 0}, ValueDisplay("Tick time", simulation.controls.tickMilliseconds, {.label = "Tick", .format = "{:.1f} ms"})),
                         at({.column = 0, .row = 1}, ValueDisplay("In parallelFor", simulation.parallelShare, {.label = "Parallel", .format = "{:.0f} %"})),
                         at({.column = 1, .row = 1}, ValueDisplay("Drawing", buildMilliseconds, {.label = "Drawing", .format = "{:.1f} ms"})),
-                        at({.column = 0, .row = 2, .columnSpan = 2, .rowSpan = 2}, Graph("Milliseconds per tick", simulation.tickTimes, {.height = 40.f})),
+                        at({.column = 0, .row = 2, .columnSpan = 2, .rowSpan = 2}, Graph("Milliseconds per tick", simulation.tickTimes, {.height = 40.f, .axisLabels = AxisLabels::Y})),
                     },
                 },
                 {

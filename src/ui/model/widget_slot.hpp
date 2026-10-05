@@ -24,6 +24,7 @@ struct WidgetSlot {
     std::optional<GridCell> declaredCell; ///< The position the setup gave it, if any.
     GridSpan span;                        ///< How many cells it takes.
     PanelColors colors;                   ///< Its panel's colours, with its own override applied.
+    float marginTop = 0.f;                ///< Space above it where its panel stacks, before scaling.
     std::optional<ViewId> view;           ///< Set if the widget is a view.
 
     /// The widget itself: its behaviour and its type-specific state. Never null.

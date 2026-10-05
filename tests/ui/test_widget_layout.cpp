@@ -165,6 +165,50 @@ TEST_CASE(
     REQUIRE(result.contentHeight == 65.f);
 }
 
+TEST_CASE("a stacked widget can have space above it", "[ui][layout][widgets]") {
+    Store store = panelOf({ dynamic("a", 20.f), spaced({ .top = 15.f }, dynamic("b", 30.f)), dynamic("c", 20.f) });
+    const auto result = lay(store);
+    REQUIRE(rectOf(store, 0) == FloatRect(10.f, 10.f, 180.f, 20.f));
+    REQUIRE(rectOf(store, 1) == FloatRect(10.f, 50.f, 180.f, 30.f)); // 15 further down than without
+    REQUIRE(rectOf(store, 2) == FloatRect(10.f, 85.f, 180.f, 20.f)); // and what follows with it
+    REQUIRE(result.contentHeight == 115.f);
+}
+
+TEST_CASE("space above a widget has no effect in a grid of cells", "[ui][layout][widgets]") {
+    Store plain = panelOf({ dynamic("a"), dynamic("b") }, 1, 2);
+    Store spacedOut = panelOf({ dynamic("a"), spaced({ .top = 15.f }, dynamic("b")) }, 1, 2);
+    lay(plain);
+    lay(spacedOut);
+    REQUIRE(spacedOut.panel(panel).grid);
+    REQUIRE(rectOf(spacedOut, 1) == rectOf(plain, 1));
+}
+
+TEST_CASE(
+    "a panel in the window's grid stacks its widgets if it asks for rows of their own height", "[ui][layout][widgets]"
+) {
+    const auto inACell = [](std::optional<SizeRule> rows) {
+        UISetup setup;
+        setup.grid = { .columns = 1, .rows = 1 };
+        PanelSetup panelSetup{ .name = "Panel",
+                               .placement = GridCell{},
+                               .widgets = { constant("a", 20.f), constant("b", 30.f) } };
+        panelSetup.layout.rows = rows;
+        setup.panels = { std::move(panelSetup) };
+        Store store{ setup };
+        layout::prepareWidgets(store, Layout{});
+        return store;
+    };
+
+    Store rows = inACell(std::nullopt); // a panel that fills its cell: equal rows by default
+    REQUIRE(rows.panel(panel).grid);
+
+    Store stacked = inACell(SizeRule::Own);
+    REQUIRE_FALSE(stacked.panel(panel).grid);
+    lay(stacked, 200.f, 300.f);
+    REQUIRE(rectOf(stacked, 0).height() == 20.f); // each as high as it needs, below each other
+    REQUIRE(rectOf(stacked, 1).top() == rectOf(stacked, 0).bottom() + sizes().gap.y);
+}
+
 TEST_CASE("a widget is asked for its size at the width it gets", "[ui][layout][widgets]") {
     // At least half as high as it is wide.
     Store one = panelOf({ Item{ .name = "view", .aspectRatio = 2.f } });

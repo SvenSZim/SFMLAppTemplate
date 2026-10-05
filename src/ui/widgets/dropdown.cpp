@@ -34,7 +34,9 @@ public:
             widest = { std::max(widest.x, text.x), std::max(widest.y, text.y) };
         }
         const sf::Vector2f label = context.textSize(m_label, Dropdown::Label);
-        return widgets::labelledField(context.sizes(), label, { widest.x + context.sizes().rowHeight, widest.y });
+        const sf::Vector2f field(widest.x + context.sizes().rowHeight, widest.y); // the text and the arrow
+        return beside() ? widgets::labelBesideField(context.sizes(), label, field)
+                        : widgets::labelledField(context.sizes(), label, field);
     }
 
     bool handleInput(const Event& event, InputContext& context) override {
@@ -42,7 +44,7 @@ public:
         if (open) {
             clampScroll(visibleIn(context), false); // the list may have been placed with less room
         }
-        const FloatRect field = widgets::fieldBelow(context.size(), context.textSize(m_label, Dropdown::Label).y);
+        const FloatRect field = fieldOf(context.size(), context.textSize(m_label, Dropdown::Label).y, context.sizes());
 
         if (const auto* press = event.getIf<PointerPressed>()) {
             if (press->button != sf::Mouse::Button::Left) {
@@ -116,15 +118,19 @@ public:
         const sf::Vector2f size = painter.size();
         const PartStyle labelStyle = style.part(Dropdown::Label);
         const float labelHeight = painter.textSize(m_label, labelStyle).y;
-        painter.text(FloatRect(0.f, 0.f, size.x, labelHeight), m_label, labelStyle);
+        painter.text(
+            beside() ? widgets::labelBeside(size, style.sizes().gap.x) : FloatRect(0.f, 0.f, size.x, labelHeight),
+            m_label,
+            labelStyle
+        );
 
-        const FloatRect field = widgets::fieldBelow(size, labelHeight);
+        const FloatRect field = fieldOf(size, labelHeight, style.sizes());
         painter.box(field, style.part(Dropdown::Field));
         paintFieldContent(painter, field, style);
     }
 
     [[nodiscard]] FloatRect overlayAnchor(const MeasureContext& context, sf::Vector2f size) const override {
-        return widgets::fieldBelow(size, context.textSize(m_label, Dropdown::Label).y); // the field, not the label
+        return fieldOf(size, context.textSize(m_label, Dropdown::Label).y, context.sizes()); // the field, not the label
     }
 
     [[nodiscard]] sf::Vector2f overlaySize(const MeasureContext& context, float maxHeight) const override {
@@ -213,6 +219,13 @@ public:
     }
 
 private:
+    [[nodiscard]] bool beside() const { return m_options.labelPlace == LabelPlace::Beside; }
+
+    /// Where the field is: below the label, or beside it.
+    [[nodiscard]] FloatRect fieldOf(sf::Vector2f size, float labelHeight, const Sizes& sizes) const {
+        return beside() ? widgets::fieldBeside(size, sizes.gap.x) : widgets::fieldBelow(size, labelHeight);
+    }
+
     /// What is inside the field: the chosen entry at the left, the arrow in a square at the right.
     void paintFieldContent(Painter& painter, const FloatRect& field, const Style& style) const {
         const float arrowRoom = field.height();

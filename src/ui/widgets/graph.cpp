@@ -82,17 +82,26 @@ public:
                                                      axisLabel(range.low) };
         const std::array<std::string, 3> xLabels = xAxisLabels();
 
-        // The plot: inside the box, leaving room for the axis labels if they are shown.
-        const PartStyle labels = style.part(Graph::AxisLabels);
+        // The plot: inside the box, leaving room for the axis labels that are shown. The graph's
+        // options can show them for one graph; otherwise the theme decides, for both axes.
+        PartStyle labels = style.part(Graph::AxisLabels);
+        const AxisLabels which = m_options.axisLabels;
+        const bool yShown =
+            which == AxisLabels::Theme ? labels.shown : which == AxisLabels::Y || which == AxisLabels::Both;
+        const bool xShown =
+            which == AxisLabels::Theme ? labels.shown : which == AxisLabels::X || which == AxisLabels::Both;
+        labels.shown = true;
         const float inset = background.contentInset() + 4.f;
         float left = box.left() + inset;
         float bottom = box.bottom() - inset;
-        if (labels.shown) {
+        if (yShown) {
             float widest = 0.f;
             for (const std::string& text : yLabels) {
                 widest = std::max(widest, painter.textSize(text, labels).x);
             }
             left += widest + 6.f;
+        }
+        if (xShown) {
             bottom -= labels.textSize + 4.f;
         }
         const FloatRect plot(
@@ -133,8 +142,8 @@ public:
         painter.line({ plot.left(), plot.top() }, { plot.left(), plot.bottom() }, axis);
         painter.line({ plot.left(), plot.bottom() }, { plot.right(), plot.bottom() }, axis);
 
-        if (labels.shown) {
-            const float textHeight = labels.textSize;
+        const float textHeight = labels.textSize;
+        if (yShown) {
             const float labelWidth = plot.left() - box.left() - inset - 6.f;
             for (int i = 0; i <= 2; ++i) {
                 const float y = plot.top() + plot.height() * static_cast<float>(i) * 0.5f;
@@ -145,6 +154,8 @@ public:
                     Align::Right
                 );
             }
+        }
+        if (xShown) {
             const float y = plot.bottom() + 2.f;
             const float third = plot.width() / 3.f;
             painter.text(FloatRect(plot.left(), y, third, textHeight + 2.f), xLabels[0], labels, Align::Left);

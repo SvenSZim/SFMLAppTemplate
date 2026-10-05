@@ -123,6 +123,7 @@ The content area is split into equal columns and equal rows, with the padding ar
 - Cells are found as for panels: positions first, then the others, larger first, first free place. What finds no room is a `SetupError`.
 - A widget is given its cells. What size it actually takes inside them is decided by its size request (section 5).
 - A row nobody uses stays empty.
+- **Stacked instead** (WP 7.3): a panel that sets `layout.rows = SizeRule::Own` itself, and gives no rows, positions or spans, stacks its widgets as in 4.2 "Own" although its size is given: each as high as it wants, below each other, the panel still filling its cells and scrolling what does not fit. Only there does `spaced({.top = ...}, widget)` leave room above a widget; in a grid of cells, leave a row free instead.
 
 ### 4.2 Bottom-up: the panel's size follows from its content
 
