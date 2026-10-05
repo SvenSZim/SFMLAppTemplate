@@ -51,8 +51,10 @@ public:
         const Sizes& sizes = context.sizes();
         const float label = context.textSize(m_label, Graph::Label).y;
         const float plot = m_options.height > 0.f ? m_options.height * sizes.scale.y : sizes.rowHeight * 4.f;
+        // At least two rows of plot, unless the setup asked for a smaller graph.
+        const float leastPlot = std::min(sizes.rowHeight * 2.f, plot);
         return {
-            .min = { 120.f, label + sizes.rowHeight * 2.f },
+            .min = { 120.f, label + leastPlot },
             .preferred = { 240.f, label + 4.f + plot },
         };
     }

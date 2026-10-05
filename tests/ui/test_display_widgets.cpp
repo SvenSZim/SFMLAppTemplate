@@ -188,6 +188,19 @@ TEST_CASE("a progress bar only shows numbers, and refuses a range that cannot wo
 
 // ----- Graph -----
 
+TEST_CASE("a graph needs two rows of plot at least, unless it asks to be smaller", "[ui][widgets][graph]") {
+    const Theme theme;
+    Series series(8);
+    const BoundGraph plain(series, {});
+    const BoundGraph small(series, { .height = 10.f });
+    const BoundGraph tall(series, { .height = 200.f });
+    const MeasureContext context(300.f, theme, {}, sizes, &measurer);
+    const float leastPlain = plain.widget->measure(context).min.y;
+    REQUIRE(small.widget->measure(context).min.y < leastPlain); // a small graph may be small
+    REQUIRE(tall.widget->measure(context).min.y == leastPlain); // a tall one can still give way
+    REQUIRE(small.widget->measure(context).min.y > 10.f);       // the label stays
+}
+
 TEST_CASE("a graph draws the samples of its series as a curve", "[ui][widgets][graph]") {
     const Theme theme;
     Series series(100);

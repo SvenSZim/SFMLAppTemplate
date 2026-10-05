@@ -41,7 +41,7 @@ The first build takes from about a minute to several, depending on the machine, 
 
 - `build/bin/showcase`: every widget, a threaded particle simulation in a main view and a minimap. Drag the view, zoom with the wheel, switch the theme in the About panel, turn on Heat. `--layout dashboard` (or `overlay`, `cards`, `compact`) chooses another layout theme, `--profiler` shows what the UI costs, and Ctrl with plus, minus or 0 changes the GUI scale.
 - `build/bin/starter`: the smallest application, the one explained below.
-- `build/bin/particles`: 20,000 to 100,000 particles on all cores, in a layout of grid panels: they push each other apart, fall to the centre or down, and follow the spawners, attractors and repulsors you place; drawn plain, by speed, or as a density map.
+- `build/bin/particles`: 20,000 to 100,000 particles on all cores, in a layout of grid panels: they push each other apart, fall to the centre or down, and follow the attractors and repulsors you place; drawn plain, by speed, or as a density map.
 - `build/bin/pathfinding`: breadth-first search, Dijkstra and A* finding their way through walls and mud, step by step on their own thread. Paint walls and mud with the left button, drag the start and the goal, try a maze.
 - `ctest --test-dir build`: the tests. Some open a window for a moment; on a machine without a display, leave them out with `-LE display`.
 

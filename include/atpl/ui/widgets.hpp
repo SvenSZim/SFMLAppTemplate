@@ -304,7 +304,8 @@ struct GraphOptions {
     std::size_t samples = 0;  ///< How many of the newest samples the width shows. 0: as many as there are, up to 1024.
     std::optional<float> min; ///< Lower end of the value axis. Empty: follows the data.
     std::optional<float> max; ///< Upper end of the value axis. Empty: follows the data.
-    float height = 0.f;       ///< Preferred height in pixels at the reference window size. 0: about four rows.
+    float height = 0.f; ///< Preferred height in pixels at the reference window size. 0: about four rows. Below two rows
+                        ///< it is also the least height.
 
     GraphBase base = GraphBase::Zero;
     bool logarithmic = false; ///< Values on a logarithmic scale. Values at or below 0 are drawn at the bottom.
@@ -427,12 +428,13 @@ struct ParagraphOptions {
     std::string text;          ///< Shown as body text, wrapped to the panel's width. Empty: no body.
     std::string footer;        ///< Shown below in muted text, wrapped. Empty: no footer.
     Align align = Align::Left; ///< How all three are placed in each line.
+    bool underline = false;    ///< A line below the heading: for a heading that starts a group of widgets.
 };
 
 /// Text in a panel: a heading, a body and a footer, each optional. With only a heading it is a
 /// section heading; with only a body, a paragraph; with only a footer, a hint.
 ///
-///     Paragraph("Rendering", {.heading = "Rendering"})
+///     Paragraph("Rendering", {.heading = "Rendering", .underline = true}) // a group's title
 ///     Paragraph("Help", {.text = "Drag to move the view. Scroll to zoom."})
 ///     Paragraph("About", {.heading = "Ants", .text = "...", .footer = "v1.5"})
 ///
@@ -452,6 +454,7 @@ struct Paragraph {
     static constexpr Part Body{ kind, "body", Role::Text };
     static constexpr Part Footer{ kind, "footer", Role::MutedText };
     static constexpr Part Separator{ kind, "separator", Role::Line, Shown::No }; ///< Between the texts.
+    static constexpr Part Underline{ kind, "underline", Role::Line }; ///< Below the heading, with `underline`.
 
     std::string name;
     ParagraphOptions options;

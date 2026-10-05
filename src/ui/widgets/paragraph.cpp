@@ -19,7 +19,8 @@ namespace {
 class ParagraphWidget final : public Widget {
 public:
     explicit ParagraphWidget(ParagraphOptions options) :
-        m_align(options.align) {
+        m_align(options.align),
+        m_underline(options.underline && !options.heading.empty()) {
         const std::array<std::pair<const Part*, std::string*>, 3> all{ { { &Paragraph::Heading, &options.heading },
                                                                          { &Paragraph::Body, &options.text },
                                                                          { &Paragraph::Footer, &options.footer } } };
@@ -48,6 +49,9 @@ public:
             height += context.wrappedTextHeight(section.text, *section.part, context.width());
         }
         height += gapOf(sizes) * static_cast<float>(gaps());
+        if (m_underline && m_sections.size() == 1) {
+            height += gapOf(sizes) * 0.5f; // room for the line below a heading that stands alone
+        }
         const float preferred = std::min(longestLine, cap);
         return {
             .min = { std::min(longestWord, preferred), height },
@@ -60,14 +64,20 @@ public:
         const float width = painter.size().x;
         const float gap = gapOf(style.sizes());
         const PartStyle separator = style.part(Paragraph::Separator);
+        const PartStyle underline = style.part(Paragraph::Underline);
         float y = 0.f;
         for (std::size_t i = 0; i < m_sections.size(); ++i) {
             const PartStyle part = style.part(*m_sections[i].part);
             const float height = painter.wrappedTextHeight(m_sections[i].text, part, width);
             painter.wrappedText(FloatRect(0.f, y, width, height), m_sections[i].text, part, m_align);
             y += height;
+            if (i == 0 && m_underline) {
+                // Below the heading, a little closer to it than to what follows.
+                const float below = std::round(y + gap * 0.35f);
+                painter.line({ 0.f, below }, { width, below }, underline);
+            }
             if (i + 1 < m_sections.size()) {
-                if (separator.shown) {
+                if (separator.shown && !(i == 0 && m_underline)) {
                     const float middle = std::round(y + gap * 0.5f);
                     painter.line({ 0.f, middle }, { width, middle }, separator);
                 }
@@ -103,6 +113,7 @@ private:
 
     std::vector<Section> m_sections; ///< The texts that are not empty, in order.
     Align m_align;
+    bool m_underline = false; ///< A line below the heading.
 };
 
 } // namespace

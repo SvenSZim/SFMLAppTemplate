@@ -4,7 +4,7 @@
 //   particles [--smoke-test]
 //
 // In the main view, the Tool decides what the left button does: pull particles towards the
-// pointer, place a spawner, an attractor or a repulsor (drag one to move it), or erase one. The
+// pointer, place an attractor or a repulsor (drag one to move it), or erase one. The
 // right button erases too, the middle button moves the view, the wheel zooms. Escape quits.
 // --smoke-test draws a few frames and exits, for automated checks.
 //
@@ -48,6 +48,11 @@ namespace {
 /// The box, in world units.
 constexpr sf::Vector2f boxSize(1600.f, 900.f);
 
+/// Whether a point lies in the box.
+bool insideBox(sf::Vector2f p) {
+    return p.x >= 0.f && p.y >= 0.f && p.x <= boxSize.x && p.y <= boxSize.y;
+}
+
 /// How far a particle pushes others: also the size of a bucket.
 constexpr float reach = 4.f;
 constexpr int bucketColumns = static_cast<int>(boxSize.x / reach);
@@ -62,8 +67,8 @@ constexpr int densityRows = static_cast<int>(boxSize.y / densityCell);
 constexpr float sourceReach = 220.f;
 constexpr float pullReach = 160.f;
 
-enum class Spawn { Uniform, Ring, Clusters, Spiral, Custom };
-constexpr std::array<const char*, 5> layoutNames{ "Uniform", "Ring", "Two clusters", "Spiral", "Custom" };
+enum class Spawn { Uniform, Ring, Clusters, Spiral };
+constexpr std::array<const char*, 4> layoutNames{ "Uniform", "Ring", "Two clusters", "Spiral" };
 
 enum class Gravity { None, Centre, Down };
 constexpr std::array<const char*, 3> gravityNames{ "None", "Centre", "Down" };
@@ -73,8 +78,8 @@ constexpr std::array<const char*, 3> renderNames{ "Plain",
                                                   "Speed",
                                                   "Density" }; // particles, coloured by speed, or a map
 
-enum class Tool { Pull, Spawner, Attractor, Repulsor, Erase };
-constexpr std::array<const char*, 5> toolNames{ "Pull", "Spawner", "Attractor", "Repulsor", "Erase" };
+enum class Tool { Pull, Attractor, Repulsor, Erase };
+constexpr std::array<const char*, 4> toolNames{ "Pull", "Attractor", "Repulsor", "Erase" };
 
 /// What the user can change. The simulation reads these from its thread.
 struct Params {
@@ -95,7 +100,7 @@ struct Params {
 
 /// Something placed in the box.
 struct Marker {
-    enum class Kind { Spawner, Attractor, Repulsor };
+    enum class Kind { Attractor, Repulsor };
     Kind kind;
     sf::Vector2f position;
 };
@@ -138,6 +143,7 @@ public:
 
     // What it reports, for widgets to show. Thread-safe: it writes them, the UI reads them.
     Series energy{ 300 };        ///< Kinetic energy per particle.
+    Series tickTimes{ 300 };     ///< How long each tick took, in milliseconds.
     Param<double> particleCount; ///< How many there are.
     Param<double> parallelShare; ///< Percent of a tick spent in parallelFor.
 
@@ -145,7 +151,11 @@ private:
     void onCommand(const Command& command) override {
         std::visit([this](const auto& c) { handle(c); }, command);
     }
-    void handle(const Place& place) { m_markers.push_back(place.marker); }
+    void handle(const Place& place) {
+        if (insideBox(place.marker.position)) { // only in the box: outside, it could never be reached
+            m_markers.push_back(place.marker);
+        }
+    }
     void handle(const Move& move) {
         if (move.index < m_markers.size()) {
             m_markers[move.index].position = clampToBox(move.position);
@@ -205,6 +215,7 @@ private:
         energy.push(count > 0 ? static_cast<float>(total / static_cast<double>(count)) : 0.f);
         m_shareAverage.add(100.0 * parallelSeconds / std::max(whole.seconds(), 1e-9));
         parallelShare = m_shareAverage.average();
+        tickTimes.push(static_cast<float>(whole.milliseconds()));
         ++m_tick;
     }
 
@@ -235,14 +246,7 @@ private:
         m_velocities.assign(count, { 0.f, 0.f });
         particleCount = static_cast<double>(count);
 
-        std::vector<sf::Vector2f> spawners;
-        for (const Marker& marker : m_markers) {
-            if (marker.kind == Marker::Kind::Spawner) {
-                spawners.push_back(marker.position);
-            }
-        }
-        const Spawn layout =
-            m_params.layout.get() == Spawn::Custom && spawners.empty() ? Spawn::Uniform : m_params.layout.get();
+        const Spawn layout = m_params.layout.get();
         const sf::Vector2f centre = boxSize * 0.5f;
 
         // One random stream per part of the loop: the same numbers whichever thread runs it.
@@ -280,9 +284,6 @@ private:
                             random.inDisc<sf::Vector2f>(18.f);
                         break;
                     }
-                    case Spawn::Custom:
-                        p = spawners[i % spawners.size()] + random.inDisc<sf::Vector2f>(70.f);
-                        break;
                 }
                 p = clampToBox(p);
             }
@@ -501,18 +502,17 @@ public:
             rebuildParticles(moment, render, accent, ink, slow, pixel);
             target.draw(m_particles);
         }
-        drawMarkers(target, moment, accent, ink, pixel);
+        drawMarkers(target, moment, accent, pixel);
     }
 
     /// The minimap: the same particles (or density), smaller, without rebuilding them.
     void drawSmall(sf::RenderTarget& target, const Moment& moment, Render render, const Theme& theme, float pixel) {
         const sf::Color accent = theme.resolve(ProgressBar::Fill).color;
-        const sf::Color ink = theme.resolve(Paragraph::Heading).color;
         sf::RectangleShape box(boxSize);
         box.setFillColor(mixed(theme.resolve(Panel::Background).color, theme.resolve(Panel::Background).border, 0.12f));
         target.draw(box);
         target.draw(render == Render::Density ? static_cast<const sf::Drawable&>(m_density) : m_particles);
-        drawMarkers(target, moment, accent, ink, pixel);
+        drawMarkers(target, moment, accent, pixel);
     }
 
 private:
@@ -545,8 +545,7 @@ private:
         buildMilliseconds = build.milliseconds();
     }
 
-    static void
-    drawMarkers(sf::RenderTarget& target, const Moment& moment, sf::Color accent, sf::Color ink, float pixel) {
+    static void drawMarkers(sf::RenderTarget& target, const Moment& moment, sf::Color accent, float pixel) {
         const float radius = 10.f * std::max(pixel, 0.6f);
         sf::CircleShape mark(radius, 24);
         mark.setOrigin({ radius, radius });
@@ -554,10 +553,6 @@ private:
         for (const Marker& marker : moment.markers) {
             mark.setPosition(marker.position);
             switch (marker.kind) {
-                case Marker::Kind::Spawner: // a ring in the text colour
-                    mark.setFillColor(sf::Color::Transparent);
-                    mark.setOutlineColor(ink);
-                    break;
                 case Marker::Kind::Attractor: // filled in the accent
                     mark.setFillColor(accent);
                     mark.setOutlineColor(accent);
@@ -616,11 +611,13 @@ public:
                     }
                     return hit.has_value();
                 default:
-                    if (hit) { // on a marker: drag it
+                    if (hit) { // on a marker: drag it (the simulation keeps it in the box)
                         m_dragging = *hit;
-                    } else {
+                    } else if (insideBox(at)) {
                         m_simulation.send(Place{ { kindOf(m_params.tool.get()), at } });
                         m_dragging = moment.markers.size(); // the one just placed
+                    } else {
+                        return false; // outside the box: nothing to place
                     }
                     return true;
             }
@@ -645,9 +642,7 @@ public:
 
 private:
     static Marker::Kind kindOf(Tool tool) {
-        return tool == Tool::Spawner     ? Marker::Kind::Spawner
-               : tool == Tool::Attractor ? Marker::Kind::Attractor
-                                         : Marker::Kind::Repulsor;
+        return tool == Tool::Attractor ? Marker::Kind::Attractor : Marker::Kind::Repulsor;
     }
 
     /// The marker under the pointer, if any: within its drawn size and a little more.
@@ -698,23 +693,27 @@ int run(bool smokeTest) {
                 {
                     .name = "Settings",
                     .placement = GridCell{.column = 0, .row = 0, .rowSpan = 2},
-                    .columns = 2,
                     .collapsible = false,
                     .widgets = {
-                        // Left: the world. Right: what you do with it, and how it is shown.
+                        // Grouped by what they are for, each group under its heading. The panel
+                        // scrolls where the window is too low for all of them.
+                        Paragraph("World", {.heading = "World", .underline = true}),
                         Dropdown("Spawn", {layoutNames.begin(), layoutNames.end()}, params.layout),
                         Slider("Count", params.count, {.min = 20000.0, .max = 100000.0, .step = 5000.0, .format = "{:.0f}"}),
+                        Button("Respawn"),
+                        Paragraph("Forces", {.heading = "Forces", .underline = true}),
                         Dropdown("Gravity", {gravityNames.begin(), gravityNames.end()}, params.gravity),
                         Slider("Strength", params.gravityStrength, {.min = 0.0, .max = 300.0, .format = "{:.0f}"}),
                         Slider("Push", params.push, {.min = 0.0, .max = 1000.0, .format = "{:.0f}"}),
                         Slider("Friction", params.friction, {.min = 0.0, .max = 2.0, .format = "{:.2f}"}),
-                        Button("Respawn"),
+                        Paragraph("Editing", {.heading = "Editing", .underline = true}),
                         Dropdown("Tool", {toolNames.begin(), toolNames.end()}, params.tool),
                         Button("Clear markers"),
-                        Dropdown("Render", {renderNames.begin(), renderNames.end()}, params.render),
+                        Paragraph("Simulation", {.heading = "Simulation", .underline = true}),
                         Slider("Speed", simulation.controls.speed, {.min = 0.0, .max = 3.0, .format = "{:.2f}"}),
                         Switch("Paused", simulation.controls.paused),
                         Button("Step"),
+                        Dropdown("Render", {renderNames.begin(), renderNames.end()}, params.render),
                     },
                 },
                 {
@@ -725,8 +724,8 @@ int run(bool smokeTest) {
                     .widgets = {
                         at({.column = 0, .row = 0}, Paragraph("About", {
                                             .text = "Tens of thousands of particles on all cores. They push each other apart, fall to the centre or down, and follow what you place.",
-                                            .footer = "Pull: hold the left button. Spawner, Attractor, Repulsor: click to place, drag to "
-                                                      "move. Right button: remove. Middle button: move the view. Escape quits."})),
+                                            .footer = "Pull: hold the left button. Attractor, Repulsor: click to place, drag to move. "
+                                                      "Right button: remove. Middle button: move the view. Escape quits."})),
                         at({.column = 1, .row = 0}, Graph("Kinetic energy", simulation.energy)),
                     },
                 },
@@ -742,11 +741,11 @@ int run(bool smokeTest) {
                     .columns = 2,
                     .collapsible = false,
                     .widgets = {
-                        at({.column = 0, .row = 0}, ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond, {.format = "{:.0f}"})),
-                        at({.column = 1, .row = 0}, ValueDisplay("Tick time", simulation.controls.tickMilliseconds, {.format = "{:.1f} ms"})),
-                        at({.column = 0, .row = 1}, ValueDisplay("In parallelFor", simulation.parallelShare, {.format = "{:.0f} %"})),
-                        at({.column = 1, .row = 1}, ValueDisplay("Drawing", buildMilliseconds, {.format = "{:.1f} ms"})),
-                        at({.column = 0, .row = 2}, ValueDisplay("Particles", simulation.particleCount, {.format = "{:.0f}"})),
+                        at({.column = 0, .row = 0}, ValueDisplay("Ticks per second", simulation.controls.ticksPerSecond, {.label = "Ticks/s", .format = "{:.0f}"})),
+                        at({.column = 1, .row = 0}, ValueDisplay("Tick time", simulation.controls.tickMilliseconds, {.label = "Tick", .format = "{:.1f} ms"})),
+                        at({.column = 0, .row = 1}, ValueDisplay("In parallelFor", simulation.parallelShare, {.label = "Parallel", .format = "{:.0f} %"})),
+                        at({.column = 1, .row = 1}, ValueDisplay("Drawing", buildMilliseconds, {.label = "Drawing", .format = "{:.1f} ms"})),
+                        at({.column = 0, .row = 2, .columnSpan = 2, .rowSpan = 2}, Graph("Milliseconds per tick", simulation.tickTimes, {.height = 40.f})),
                     },
                 },
                 {
