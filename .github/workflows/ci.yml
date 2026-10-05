@@ -124,3 +124,55 @@ jobs:
       - name: Test (with virtual display)
         if: ${{ matrix.display_tests }}
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --test-dir build --output-on-failure
+
+  # Portability check only (decision P9): Windows is not a supported platform, so a failure here
+  # is reported but never blocks a merge. It runs on every pull request (WP 7.5, D78).
+  windows:
+    name: Windows (MSVC, informational)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      # The compiler's environment, so that Ninja finds cl.exe: the Visual Studio generator
+      # cannot compile through ccache.
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install ccache
+        run: choco install ccache --no-progress -y
+
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-msvc-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ccache-msvc-
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=cl
+          -DCMAKE_CXX_COMPILER=cl
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DATPL_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: |
+          ccache --zero-stats
+          cmake --build build --parallel
+          ccache --show-stats
+
+      - name: Save compiler cache
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-msvc-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Windows runners have no graphics card, only basic OpenGL: the tests that open a window or
+      # draw are left out.
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -LE display
