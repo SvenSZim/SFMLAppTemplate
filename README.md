@@ -6,7 +6,7 @@ It provides a light, polished UI that is described in a few lines, linked to the
 
 ![The showcase in the colorful theme: particles leaving warm trails on a heat map, with panels for controls, statistics, playback and a minimap](docs/images/showcase-colorful.png)
 
-> **Status: version 0.1.** Everything described here is built and tested. Linux is the supported platform; Windows (MSVC) is checked by an informational CI job. Starting a new project from the template is still being prepared (see the [project board](https://github.com/users/SvenSZim/projects/3)).
+> **Status: version 0.1.0.** Everything described here is built and tested. Linux is the supported platform; Windows (MSVC) is checked by an informational CI job. Changes from version to version are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Goals
 
@@ -115,7 +115,21 @@ app.onEvent([&](const Event& event) {
 return app.run(simulation);
 ```
 
-To start your own, copy the starter into `examples/` next to it, add it to `examples/CMakeLists.txt`, and change it from there. A dedicated way to start a new project from the template follows.
+## Starting your own application
+
+Copy the directory [`new-project/`](new-project/) to wherever your project should live, rename the project and the executable in its `CMakeLists.txt`, and build it:
+
+```
+cp -r SFMLAppTemplate/new-project my-simulation
+cd my-simulation
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+build/my_application
+```
+
+Its `CMakeLists.txt` downloads the template at a release (`v0.1.0`) with CMake's `FetchContent` and links `atpl::app`; `src/main.cpp` is the starter explained above; files in its `resources/` directory are copied next to the executable together with the template's fonts (`atpl_copy_resources`). A newer version of the template is a change of `GIT_TAG`. To build against a local copy of the template, for example to try a change to it, pass `-DFETCHCONTENT_SOURCE_DIR_SFMLAPPTEMPLATE=/path/to/SFMLAppTemplate`.
+
+The repository is also a GitHub template: "Use this template" copies all of it, examples, tests and documents included, if you would rather change the template itself.
 
 ## The API at a glance
 
@@ -180,6 +194,7 @@ For editors and language servers, CMake writes `compile_commands.json` into the 
 | `examples/starter/`, `examples/particles/`, `examples/pathfinding/`, `examples/showcase/` | The example applications |
 | `resources/` | Fonts and textures, copied next to the executables |
 | `tests/` | Unit tests per library, display tests, the API usage examples, benchmarks |
+| `new-project/` | The start of a new application: a CMake project that fetches the template, and the starter's code |
 | `tools/` | `format.sh` (clang-format), `make_particle_texture.py` |
 
 Headers in `include/` are the public API; `src/` holds the implementation and internal headers.

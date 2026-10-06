@@ -104,6 +104,22 @@ jobs:
           cmake --build build --parallel "$(nproc)"
           ccache --show-stats
 
+      # A new application made from new-project/, the documented way to start one (WP 7.4): built
+      # against this checkout instead of the release it names, with SFML's sources from the build
+      # above. Before the cache is saved, so that its objects are cached too.
+      - name: Build a new project
+        if: ${{ matrix.display_tests }}
+        run: >
+          cmake -S new-project -B build-new
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DFETCHCONTENT_SOURCE_DIR_SFMLAPPTEMPLATE=${{ github.workspace }}
+          -DFETCHCONTENT_SOURCE_DIR_SFML=${{ github.workspace }}/build/_deps/sfml-src
+          && cmake --build build-new --parallel "$(nproc)"
+
       # Saved also when the build failed: what did compile need not be compiled again.
       - name: Save compiler cache
         if: ${{ !cancelled() }}
@@ -124,6 +140,10 @@ jobs:
       - name: Test (with virtual display)
         if: ${{ matrix.display_tests }}
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --test-dir build --output-on-failure
+
+      - name: Test the new project (with virtual display)
+        if: ${{ matrix.display_tests }}
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ctest --test-dir build-new --output-on-failure
 
   # Portability check only (decision P9): Windows is not a supported platform, so a failure here
   # is reported but never blocks a merge. It runs on every pull request (WP 7.5, D78).

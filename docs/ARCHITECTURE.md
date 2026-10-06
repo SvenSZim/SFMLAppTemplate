@@ -38,6 +38,7 @@ SFMLAppTemplate/
 ├─ CMakeLists.txt
 ├─ cmake/                      warnings, resource copy
 ├─ docs/                       PROJECT_PLAN.md, ARCHITECTURE.md
+├─ new-project/                the start of a new application: fetches the template, links atpl::app
 ├─ tools/                      format.sh, make_particle_texture.py
 ├─ resources/                fonts/, textures/ (copied next to the executables)
 ├─ include/atpl/                PUBLIC headers: everything an application may include
